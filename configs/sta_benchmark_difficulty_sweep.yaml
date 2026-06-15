@@ -1,0 +1,39 @@
+base_config: configs/sta_default.yaml
+experiment: benchmark_difficulty_sweep
+benchmark_tiers:
+  easy_spurious_arrow:
+    data:
+      p_spur: 0.45
+      q_spur: 0.15
+      spurious_label_correlation_strength: 1.0
+    observation:
+      core_scale: 1.0
+      spur_scale: 1.0
+      noise_std: 0.1
+  medium_spurious_arrow:
+    data:
+      p_spur: 0.42
+      q_spur: 0.18
+      spurious_label_correlation_strength: 0.75
+    observation:
+      core_scale: 1.0
+      spur_scale: 1.0
+      noise_std: 0.12
+  hard_spurious_arrow:
+    data:
+      p_spur: 0.40
+      q_spur: 0.20
+      spurious_label_correlation_strength: 0.50
+    observation:
+      core_scale: 1.0
+      spur_scale: 0.9
+      noise_std: 0.15
+  subtle_spurious_arrow:
+    data:
+      p_spur: 0.38
+      q_spur: 0.22
+      spurious_label_correlation_strength: 0.35
+    observation:
+      core_scale: 1.0
+      spur_scale: 0.8
+      noise_std: 0.20

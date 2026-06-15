@@ -1,0 +1,8 @@
+base_config: configs/sta_default.yaml
+experiment: setpoint_sweep
+setpoint:
+  mode: fixed_grid
+  multipliers: [0.0, 0.25, 0.5, 1.0, 2.0, 4.0]
+  include_oracle_core_reference: true
+  select_with_val_iid: true
+  reference_epochs: 2

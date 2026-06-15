@@ -1,0 +1,9 @@
+base_config: configs/sta_default.yaml
+experiment: counterfactual_sensitivity
+counterfactual_sensitivity:
+  modes:
+    - randomized
+    - reversed
+    - independent_same_marginal
+    - resample_same_mode
+  include_no_change: true

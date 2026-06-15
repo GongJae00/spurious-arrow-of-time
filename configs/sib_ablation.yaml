@@ -1,0 +1,12 @@
+base_config: configs/sta_default.yaml
+experiment: sib_ablation
+sib_ablation:
+  wrong_sigma_multiplier: 4.0
+  include:
+    - full_sib
+    - no_cf_arrow_invariance
+    - no_setpoint
+    - no_dynamics_loss
+    - wrong_sigma_star
+    - randomized_cf_explicit
+    - resample_same_mode_cf

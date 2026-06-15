@@ -1,0 +1,24 @@
+base_config: configs/sta_default.yaml
+experiment: ablation_negative_controls
+controls:
+  no_spurious_correlation:
+    splits:
+      train: {spurious_mode: randomized}
+      val_iid: {spurious_mode: randomized}
+      iid_test: {spurious_mode: randomized}
+      ood_test: {spurious_mode: randomized}
+  sigma_s_less_than_sigma_c:
+    data:
+      p_spur: 0.35
+      q_spur: 0.25
+      p_core: 0.45
+      q_core: 0.15
+  static_spurious_control:
+    data:
+      spurious_correlation_type: initial_sector_static_control
+  no_counterfactual_change:
+    counterfactual:
+      spurious_cf_mode: resample_same_mode
+      reuse_noise: true
+  randomized_labels:
+    diagnostic: randomized_labels

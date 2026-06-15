@@ -1,0 +1,110 @@
+base_config: configs/ink_advection_diffusion_default.yaml
+experiment: ink_advection_diffusion_full
+methods:
+  - erm
+  - ib
+  - ep_min
+  - ep_max
+  - ocp_style
+  - lens_like_arrow_classifier
+  - sib
+  - sid
+  - itm
+model:
+  encoder: gru
+  hidden_dim: 64
+  latent_dim: 16
+  pooling: last
+  num_layers: 1
+  dropout: 0.0
+  bidirectional: false
+sid:
+  z_rev_dim: 16
+  z_ir_task_dim: 16
+  z_ir_spur_dim: 16
+  z_resid_dim: 0
+  spur_sensitivity_margin: 0.02
+itm:
+  core_dim: 16
+  spur_dim: 16
+  spur_sensitivity_margin: 0.02
+  grl_alpha: 1.0
+itm_schedule:
+  task_warmup_epochs: 5
+  transition_warmup_epochs: 5
+  regularizer_ramp_epochs: 10
+  lambda_core_transition_start: 0.0
+  lambda_spur_transition_start: 0.0
+  lambda_core_mech_cf_start: 0.0
+  lambda_spur_mech_sens_start: 0.0
+  lambda_spur_adv_start: 0.0
+  lambda_core_preserve_start: 0.0
+  lambda_spur_capture_start: 0.0
+  lambda_anti_collapse_start: 0.0
+sid_schedule:
+  task_warmup_epochs: 5
+  dynamics_warmup_epochs: 5
+  regularizer_ramp_epochs: 10
+  lambda_rev_cf_start: 0.0
+  lambda_task_ir_cf_start: 0.0
+  lambda_spur_sens_start: 0.0
+  lambda_spur_adv_start: 0.0
+  lambda_core_preserve_start: 0.0
+  lambda_spur_capture_start: 0.0
+  lambda_arrow_decomp_start: 0.0
+  lambda_anti_collapse_start: 0.0
+sid_loss_normalization:
+  normalize_dynamics_nll_by: none
+  normalize_role_mse_by_batch_std: true
+  log_gradient_norms: false
+dynamics:
+  hidden_dim: 64
+  min_logvar: -6.0
+  max_logvar: 2.0
+  fixed_variance: true
+  train_on_counterfactual: false
+  sigma_per_step_abs_threshold: 10000.0
+training:
+  optimizer: adamw
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  batch_size: 128
+  num_workers: 0
+  persistent_workers: false
+  deterministic: false
+  grad_clip_norm: 1.0
+  epochs: 50
+  early_stopping_metric: val_iid_accuracy
+  patience: 15
+  min_epoch_for_checkpoint_selection: 20
+  min_epochs_before_early_stopping: 25
+setpoint:
+  mode: fixed_grid
+  fixed_target: 0.0
+loss_weights:
+  lambda_f: 1.0
+  lambda_r: 1.0
+  eta_total: 1.0
+  eta_step: 0.1
+  rho: 1.0
+  lambda_cf_task: 1.0
+  beta_latent: 0.0
+  lambda_rev_cf: 0.25
+  lambda_task_ir_cf: 0.25
+  lambda_spur_sens: 0.25
+  lambda_spur_adv: 0.1
+  lambda_core_preserve: 1.0
+  lambda_spur_capture: 0.2
+  lambda_arrow_decomp: 0.1
+  lambda_anti_collapse: 0.05
+  lambda_task_forward: 1.0
+  lambda_task_reverse: 1.0
+  lambda_spur_forward: 1.0
+  lambda_spur_reverse: 1.0
+  lambda_core_transition: 1.0
+  lambda_spur_transition: 0.5
+  lambda_core_mech_cf: 1.0
+  lambda_spur_mech_sens: 0.5
+  ep_regularizer:
+    ep_min: abs_mean
+    ep_max: abs_mean

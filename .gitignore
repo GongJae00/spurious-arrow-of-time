@@ -1,0 +1,32 @@
+# Local environments and Python caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Local-only manuscript workspace
+paper/
+
+# Generated experiment artifacts
+results/**
+!results/.gitkeep
+figures/**
+!figures/.gitkeep
+*.pt
+*.pth
+*.ckpt
+
+# Runtime/editor noise
+*.log
+logs/
+tmp/
+smoke_tmp*/
+.DS_Store
+Thumbs.db
+*.swp

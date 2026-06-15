@@ -1,0 +1,5 @@
+base_config: configs/sta_default.yaml
+experiment: ep_ratio_sweep
+ratios: [0.25, 0.5, 1.0, 2.0, 4.0, 8.0]
+move_rate: 0.6
+use_actual_ratio_axis: true
