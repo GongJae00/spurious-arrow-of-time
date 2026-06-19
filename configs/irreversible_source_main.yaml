@@ -1,0 +1,285 @@
+device: auto
+
+data:
+  grid_size: 16
+  length: 8
+  diffusion_alpha: 0.22
+  diffusion_start_step: 1
+  diffusion_steps_between_frames: 8
+  core_noise_std: 0.014
+  core_noise_growth_power: 1.0
+  observation_noise_std: 0.08
+  core_scale: 0.45
+  nuisance_scale: 2.8
+  nuisance_sigma: 1.15
+  nuisance_speed: 2.0
+  nuisance_trail_decay: 0.78
+  nuisance_correlation: 0.97
+  ood_mode: reversed
+  partial_shift_target_correlation: -0.3
+  counterfactual_mode: reversed
+  train_nuisance_mode: correlated
+  random_labels: false
+  disable_nuisance: false
+
+model:
+  hidden_dim: 64
+  num_layers: 1
+  dropout: 0.0
+
+training:
+  batch_size: 128
+  epochs: 30
+  patience: 8
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  grad_clip_norm: 1.0
+  lambda_cf_task: 1.0
+  lambda_pred: 0.2
+
+methods:
+  - final_frame_mlp
+  - sequence_erm
+  - core_only_oracle
+  - nuisance_only_oracle
+  - time_reversed_sequence
+  - counterfactual_invariance
+  - group_invariance_light
+
+profiles:
+  smoke:
+    runtime_limited: true
+    primary_scenario: main_reversed
+    seeds: [0]
+    methods:
+      - final_frame_mlp
+      - sequence_erm
+      - core_only_oracle
+      - nuisance_only_oracle
+      - counterfactual_invariance
+      - group_invariance_light
+    data:
+      n_train: 256
+      n_val_iid: 128
+      n_iid_test: 128
+      n_ood_test: 128
+    training:
+      epochs: 3
+      patience: 3
+      batch_size: 64
+    scenarios:
+      - name: main_reversed
+        data:
+          ood_mode: reversed
+
+  pilot:
+    runtime_limited: true
+    primary_scenario: main_reversed
+    seeds: [0, 1, 2]
+    data:
+      n_train: 1024
+      n_val_iid: 256
+      n_iid_test: 512
+      n_ood_test: 512
+    training:
+      epochs: 12
+      patience: 5
+    scenarios:
+      - name: main_reversed
+        data:
+          ood_mode: reversed
+      - name: ood_randomized
+        methods:
+          - sequence_erm
+          - counterfactual_invariance
+          - core_only_oracle
+          - nuisance_only_oracle
+          - group_invariance_light
+        data:
+          ood_mode: randomized
+
+  main:
+    runtime_limited: false
+    primary_scenario: main_reversed
+    seeds: [0, 1, 2, 3, 4]
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+    training:
+      epochs: 30
+      patience: 8
+    scenarios:
+      - name: main_reversed
+        data:
+          ood_mode: reversed
+
+  sweep_pilot:
+    runtime_limited: true
+    primary_scenario: main_reversed
+    seeds: [0, 1, 2]
+    methods:
+      - sequence_erm
+      - counterfactual_invariance
+      - core_only_oracle
+      - nuisance_only_oracle
+      - group_invariance_light
+    data:
+      n_train: 1024
+      n_val_iid: 256
+      n_iid_test: 512
+      n_ood_test: 512
+    training:
+      epochs: 12
+      patience: 5
+    scenarios:
+      - name: main_reversed
+        data:
+          ood_mode: reversed
+      - name: ood_randomized
+        data:
+          ood_mode: randomized
+      - name: ood_partial_shift
+        data:
+          ood_mode: partial_shift
+          partial_shift_target_correlation: -0.3
+      - name: nuisance_scale_low
+        data:
+          nuisance_scale: 1.0
+      - name: nuisance_scale_mid
+        data:
+          nuisance_scale: 1.8
+      - name: core_difficulty_easy
+        methods:
+          - sequence_erm
+          - core_only_oracle
+          - final_frame_mlp
+          - nuisance_only_oracle
+        data:
+          diffusion_start_step: 0
+          diffusion_steps_between_frames: 4
+          core_noise_std: 0.008
+          core_scale: 0.65
+      - name: core_difficulty_hard
+        methods:
+          - sequence_erm
+          - core_only_oracle
+          - final_frame_mlp
+          - nuisance_only_oracle
+        data:
+          diffusion_start_step: 2
+          diffusion_steps_between_frames: 12
+          core_noise_std: 0.02
+          core_scale: 0.35
+      - name: no_spurious_correlation
+        data:
+          train_nuisance_mode: randomized
+          ood_mode: randomized
+      - name: core_only_no_nuisance
+        methods:
+          - sequence_erm
+          - core_only_oracle
+          - final_frame_mlp
+        data:
+          disable_nuisance: true
+
+  full:
+    runtime_limited: false
+    primary_scenario: main_reversed
+    seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+    training:
+      epochs: 30
+      patience: 8
+    scenarios:
+      - name: main_reversed
+        data:
+          ood_mode: reversed
+      - name: ood_randomized
+        methods:
+          - sequence_erm
+          - counterfactual_invariance
+          - core_only_oracle
+          - nuisance_only_oracle
+          - group_invariance_light
+        data:
+          ood_mode: randomized
+      - name: ood_partial_shift
+        methods:
+          - sequence_erm
+          - counterfactual_invariance
+          - core_only_oracle
+          - nuisance_only_oracle
+          - group_invariance_light
+        data:
+          ood_mode: partial_shift
+          partial_shift_target_correlation: -0.3
+      - name: nuisance_scale_low
+        methods:
+          - sequence_erm
+          - counterfactual_invariance
+          - core_only_oracle
+          - nuisance_only_oracle
+          - group_invariance_light
+        data:
+          nuisance_scale: 1.0
+      - name: nuisance_scale_mid
+        methods:
+          - sequence_erm
+          - counterfactual_invariance
+          - core_only_oracle
+          - nuisance_only_oracle
+          - group_invariance_light
+        data:
+          nuisance_scale: 1.8
+      - name: core_difficulty_easy
+        methods:
+          - sequence_erm
+          - core_only_oracle
+          - final_frame_mlp
+          - nuisance_only_oracle
+        data:
+          diffusion_start_step: 0
+          diffusion_steps_between_frames: 4
+          core_noise_std: 0.008
+          core_scale: 0.65
+      - name: core_difficulty_hard
+        methods:
+          - sequence_erm
+          - core_only_oracle
+          - final_frame_mlp
+          - nuisance_only_oracle
+        data:
+          diffusion_start_step: 2
+          diffusion_steps_between_frames: 12
+          core_noise_std: 0.02
+          core_scale: 0.35
+      - name: no_spurious_correlation
+        methods:
+          - sequence_erm
+          - counterfactual_invariance
+          - core_only_oracle
+          - nuisance_only_oracle
+          - group_invariance_light
+        data:
+          train_nuisance_mode: randomized
+          ood_mode: randomized
+      - name: random_labels
+        methods:
+          - sequence_erm
+          - core_only_oracle
+          - nuisance_only_oracle
+        data:
+          random_labels: true
+      - name: core_only_no_nuisance
+        methods:
+          - sequence_erm
+          - core_only_oracle
+          - final_frame_mlp
+        data:
+          disable_nuisance: true

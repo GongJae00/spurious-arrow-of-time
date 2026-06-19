@@ -1,4 +1,0 @@
-base_config: configs/sta_default.yaml
-experiment: fixed_variance_diagnostic
-dynamics:
-  fixed_variance: true

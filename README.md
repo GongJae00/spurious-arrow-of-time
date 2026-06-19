@@ -1,176 +1,135 @@
 # Spurious Arrow of Time
 
-This repository studies a sequence-learning failure mode:
+This repository studies a narrow sequence-learning question:
 
 ```text
-an irreversible nuisance process can become a shortcut.
+When the real task is to infer the hidden cause of an irreversible process,
+can a model be misled by a stronger but non-causal arrow of time?
 ```
 
-The central question is whether a model can learn the transition mechanism that
-remains reliable when a stronger but non-causal arrow of time changes under
-distribution shift.
+The project is organized around a clean benchmark and a small set of raw neural
+sequence baselines. Older exploratory method stacks are not part of the active
+public surface.
 
-## Core Idea
+## Intuition
 
-Many temporal signals are direction-sensitive. A model can learn a nuisance
-flow, drift, or expansion direction because it predicts the label in training.
-That signal can fail when the nuisance dynamics reverse or randomize at test
-time.
-
-This project separates:
+Ink spreads. Heat diffuses. A broken object does not usually reassemble itself.
+Forward dynamics can be easy to recognize while the inverse question is hard:
 
 ```text
-task mechanism:
-  the transition process that carries label-relevant information
-
-nuisance mechanism:
-  an irreversible process correlated with the label in train/IID splits
-  but unreliable under OOD shift
+What was the hidden cause before the irreversible process washed information
+away?
 ```
 
-## Methods
+The active hypothesis is that a model can learn the wrong arrow when a separate
+irreversible nuisance process is more visible and happens to correlate with the
+label during training.
 
-The primary method is `itm`:
+## Current Benchmark
+
+The current smoke benchmark is:
 
 ```text
-Invariant Transition Mechanism
+irreversible_source_inference
 ```
 
-ITM learns core and nuisance transition mechanisms and tests them with
-counterfactual pairs that preserve the core trajectory and label while changing
-nuisance dynamics.
-
-Baselines and diagnostics:
+Each sample contains:
 
 ```text
-erm
-ib
-ep_min
-ep_max
-ocp_style
-lens_like_arrow_classifier
-sib
-sid
-itm
+core:
+  a hidden horizontal or vertical source pattern on a grid
+  isotropic diffusion that gradually erases source structure
+  label y = source pattern type
+
+nuisance:
+  an independent moving pulse with a direction-sensitive arrow
+  direction correlated with y in train/IID
+  direction reversed in OOD
+
+observation:
+  core + nuisance + noise
 ```
 
-SIB and SID are diagnostic selective baselines. ITM is the primary method for
-the current study.
+The benchmark is accepted only if final-frame core recovery is weak, full-core
+sequence recovery is strong, nuisance-only prediction fails OOD, and diagnostic
+features show the shortcut is dynamic. Diagnostic features are not counted as
+neural sequence-model results.
 
-## Benchmarks
+## Current Evidence
+
+The latest non-runtime-limited main run uses five seeds in the reversed-OOD
+setting.
 
 ```text
-STA-Bench:
-  biased-ring Markov control with analytic dynamics
-
-Ink Advection-Diffusion:
-  passive-scalar sequence task with visible core and nuisance fields
+core_only_oracle:      IID 1.000, OOD 1.000
+sequence_erm:          IID 0.968, OOD 0.032
+nuisance_only_oracle:  IID 0.968, OOD 0.032
+counterfactual control: IID 0.533, OOD 0.465
 ```
 
-Both benchmarks use:
+The main supported result is the benchmark phenomenon: a raw sequence model can
+learn the non-causal nuisance arrow and fail almost completely when that arrow
+reverses. The simple counterfactual control reduces the OOD gap by sacrificing
+IID accuracy, so it is reported as a method failure, not as a solved robustness
+method.
 
-```text
-train
-val_iid
-iid_test
-ood_test
-```
-
-`val_iid` is for model selection. `iid_test` and `ood_test` are final reporting
-splits.
-
-## Run
-
-Install dependencies:
+## Install
 
 ```bash
 pip install -e ".[dev]"
 ```
 
-Run tests:
+## Smoke Benchmark
+
+```bash
+bash experiments/smoke_benchmark.sh
+```
+
+Outputs:
+
+```text
+results/smoke_benchmark/benchmark_gate.json
+results/smoke_benchmark/diagnostics.json
+results/smoke_benchmark/candidate_trials.jsonl
+results/smoke_benchmark/smoke_report.md
+results/smoke_benchmark/problem_schematic.png
+results/smoke_benchmark/component_visualization.png
+results/smoke_benchmark/source_recoverability.png
+```
+
+## Tests
 
 ```bash
 python -m pytest -q
 ```
 
-Run the smoke suite:
+## Main Experiment
 
 ```bash
-PYTHON_BIN=python \
-OUT=results/smoke_run \
-DEVICE=cpu \
-RUN_TESTS=1 \
-CLEAN_OUT=1 \
-bash experiments/smoke_suite.sh
+PROFILE=main OUT=results/main_experiments/main bash experiments/main_experiments.sh
 ```
 
-Run the full suite:
+Generated experiment artifacts live under ignored `results/`. Lightweight
+interpretation documents live under `docs/`.
 
-```bash
-PYTHON_BIN=python \
-OUT=results/full_run \
-DEVICE=cuda \
-REQUIRE_CUDA_FOR_FULL_RUN=1 \
-EPOCHS=50 \
-SEEDS="0 1 2 3 4" \
-MIN_SEEDS=5 \
-MIN_EPOCHS=25 \
-RUN_TESTS=1 \
-CLEAN_OUT=1 \
-bash experiments/full_suite.sh
-```
-
-The full suite runs preflight checks before cleaning or training. To reuse a
-passed preflight artifact explicitly:
-
-```bash
-PREFLIGHT_OUTPUT=results/full_run/preflight.json
-REQUIRE_CUDA_FOR_FULL_RUN=1
-```
-
-CPU maintenance preflight is useful for source checks when GPU hardware is not
-available. Final evidence runs should keep `REQUIRE_CUDA_FOR_FULL_RUN=1`.
-
-The full suite writes:
+## Read First
 
 ```text
-evidence_audit.json
-result_interpretation.json
-itm_mechanism_audit.json
-sid_factor_audit.json
-aggregate.json
-manifest.json
+RESEARCH.md
+goal.md
+docs/literature_matrix.md
+docs/novelty_gap.md
+docs/benchmark_design_decision.md
+docs/benchmark_acceptance_criteria.md
+docs/main_result_interpretation.md
+docs/static_leakage_audit.md
+docs/paper_handoff.md
 ```
 
-`result_interpretation.json` controls result wording. High OOD accuracy
-alone is not enough; ITM mechanism evidence is also required.
+## Scientific Boundaries
 
-## Repository Layout
+This repository does not measure physical heat dissipation and does not claim
+that learned scores are exact entropy production.
 
-```text
-src/data/          benchmark generators
-src/models/        models
-src/losses/        training objectives
-src/train/         training loop
-src/eval/          diagnostics, audits, plots
-src/experiments/   experiment launcher
-configs/           experiment configurations
-experiments/       shell entry points
-tests/             regression tests
-docs/              short method and terminology notes
-```
-
-Generated outputs are ignored:
-
-```text
-results/
-paper/
-figures/
-*.pt
-```
-
-## Scientific Scope
-
-This is a controlled ML study of spurious dynamic irreversibility. It does not
-measure physical heat or exact thermodynamic entropy production in learned
-latent space.
+The current claim is benchmark-focused. Method success should not be claimed
+unless a method improves OOD robustness without destroying IID performance.

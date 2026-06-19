@@ -1,2 +1,2 @@
-"""Evaluation utilities."""
+"""Evaluation and visualization utilities."""
 

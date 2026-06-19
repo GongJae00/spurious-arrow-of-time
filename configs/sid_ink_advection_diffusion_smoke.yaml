@@ -1,7 +1,0 @@
-base_config: configs/ink_advection_diffusion_smoke.yaml
-experiment: sid_ink_advection_diffusion_smoke
-methods:
-  - sid
-training:
-  epochs: 1
-  batch_size: 24
