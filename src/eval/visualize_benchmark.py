@@ -49,8 +49,8 @@ def plot_problem_schematic(splits: dict, path: Path) -> None:
                 split.core_only[idx, 0],
                 split.core_only[idx, -1],
                 trajectory_projection(split.nuisance_only[idx]),
-                split.mixed[idx, -1],
-                split.counterfactual[idx, -1],
+                display_frame(split.mixed[idx, -1]),
+                display_frame(split.counterfactual[idx, -1]),
             ]
         )
         row_labels.append(
@@ -109,8 +109,8 @@ def plot_components(splits: dict, path: Path) -> None:
             [
                 (f"{label} core\ny={y}, {source}", split.core_only[idx]),
                 (f"{label} nuisance\narrow={nuisance}", split.nuisance_only[idx]),
-                (f"{label} mixed\nobserved", split.mixed[idx]),
-                (f"{label} counterfactual\narrow={cf}", split.counterfactual[idx]),
+                (f"{label} mixed\nobserved", display_sequence(split.mixed[idx])),
+                (f"{label} counterfactual\narrow={cf}", display_sequence(split.counterfactual[idx])),
             ]
         )
 
@@ -154,6 +154,29 @@ def component_scales(rows: list[tuple[str, np.ndarray]]) -> dict[str, tuple[floa
             vmax = vmin + 1e-6
         scales[group] = (vmin, vmax)
     return scales
+
+
+def display_sequence(sequence: np.ndarray) -> np.ndarray:
+    if sequence.ndim == 3:
+        return sequence
+    if sequence.ndim != 4:
+        raise ValueError(f"expected 3D or 4D sequence, got shape {sequence.shape}")
+    return np.stack([display_frame(sequence[t]) for t in range(sequence.shape[0])], axis=0)
+
+
+def display_frame(frame: np.ndarray) -> np.ndarray:
+    if frame.ndim == 2:
+        return frame
+    if frame.ndim != 3:
+        raise ValueError(f"expected 2D or 3D frame, got shape {frame.shape}")
+    channels = [frame[channel] for channel in range(frame.shape[0])]
+    separator = np.full((frame.shape[1], 1), float(np.min(frame)), dtype=frame.dtype)
+    pieces: list[np.ndarray] = []
+    for channel in channels:
+        if pieces:
+            pieces.append(separator)
+        pieces.append(channel)
+    return np.concatenate(pieces, axis=1)
 
 
 def row_group(row_name: str) -> str:

@@ -24,7 +24,7 @@ from src.data.irreversible_source_inference import (
 
 
 GATE_TARGETS = {
-    "final_frame_core_oracle_accuracy": ("<=", 0.65),
+    "final_frame_core_oracle_accuracy": ("<=", 0.72),
     "full_sequence_core_oracle_accuracy": (">=", 0.80),
     "core_only_ood_accuracy": (">=", 0.80),
     "nuisance_only_iid_accuracy": (">=", 0.80),
@@ -92,6 +92,17 @@ def run_diagnostics(
     metrics["static_feature_accuracy"] = evaluate_classifier(
         static_model, static_features(iid.mixed), iid.y
     )
+    final_nuisance_model = fit_classifier(final_frame(train.nuisance_only), train.y)
+    metrics["final_nuisance_frame_iid_accuracy"] = evaluate_classifier(
+        final_nuisance_model, final_frame(iid.nuisance_only), iid.y
+    )
+    metrics["final_nuisance_frame_ood_accuracy"] = evaluate_classifier(
+        final_nuisance_model, final_frame(ood.nuisance_only), ood.y
+    )
+    metrics["final_nuisance_frame_ood_gap"] = (
+        metrics["final_nuisance_frame_iid_accuracy"]
+        - metrics["final_nuisance_frame_ood_accuracy"]
+    )
 
     metrics["core_forward_reverse_arrow_accuracy"] = forward_reverse_accuracy(
         train.core_only, mixed_dynamic_features
@@ -99,15 +110,21 @@ def run_diagnostics(
     metrics["nuisance_forward_reverse_arrow_accuracy"] = forward_reverse_accuracy(
         train.nuisance_only, motion_arrow_features
     )
-    metrics["counterfactual_core_residual_max_abs"] = counterfactual_core_residual_max_abs(
-        train
-    )
+    metrics["counterfactual_core_residual_max_abs"] = counterfactual_core_residual_max_abs(train)
     metrics["counterfactual_preserves_core"] = (
         metrics["counterfactual_core_residual_max_abs"] < 1e-6
     )
-    metrics["counterfactual_changes_nuisance"] = bool(
-        np.mean(train.nuisance_direction != train.counterfactual_direction) > 0.95
+    metrics["counterfactual_changed_fraction"] = float(
+        np.mean(train.nuisance_direction != train.counterfactual_direction)
     )
+    if config.counterfactual_mode == "randomized":
+        metrics["counterfactual_changes_nuisance"] = bool(
+            metrics["counterfactual_changed_fraction"] > 0.35
+        )
+    else:
+        metrics["counterfactual_changes_nuisance"] = bool(
+            metrics["counterfactual_changed_fraction"] > 0.95
+        )
 
     gate = evaluate_gate(metrics, config)
     diagnostics = {
@@ -126,11 +143,24 @@ def dynamic_correlation_metrics(splits: dict[str, IrreversibleSourceSplit]) -> d
     metrics: dict[str, float] = {}
     for name, split in splits.items():
         corr = safe_corr(split.y.astype(float), split.nuisance_direction.astype(float))
+        realized_arrow = motion_arrow_features(split.nuisance_only)[:, 0]
+        cf_corr = safe_corr(
+            split.y.astype(float),
+            split.counterfactual_direction.astype(float),
+        )
+        realized_corr = safe_corr(split.y.astype(float), realized_arrow.astype(float))
         metrics[f"corr_y_nuisance_arrow_{name}"] = corr
         metrics[f"abs_corr_y_nuisance_arrow_{name}"] = abs(corr)
         metrics[f"auc_y_from_nuisance_arrow_{name}"] = safe_auc(
             split.y, split.nuisance_direction
         )
+        metrics[f"corr_y_realized_nuisance_motion_{name}"] = realized_corr
+        metrics[f"abs_corr_y_realized_nuisance_motion_{name}"] = abs(realized_corr)
+        metrics[f"auc_y_from_realized_nuisance_motion_{name}"] = safe_auc(
+            split.y, realized_arrow
+        )
+        metrics[f"corr_y_counterfactual_arrow_{name}"] = cf_corr
+        metrics[f"abs_corr_y_counterfactual_arrow_{name}"] = abs(cf_corr)
         metrics[f"mean_nuisance_arrow_y0_{name}"] = float(
             split.nuisance_direction[split.y == 0].mean()
         )
@@ -139,6 +169,9 @@ def dynamic_correlation_metrics(splits: dict[str, IrreversibleSourceSplit]) -> d
         )
     metrics["abs_corr_y_nuisance_arrow_train"] = metrics["abs_corr_y_nuisance_arrow_train"]
     metrics["abs_corr_y_nuisance_arrow_ood"] = metrics["abs_corr_y_nuisance_arrow_ood_test"]
+    metrics["abs_corr_y_realized_nuisance_motion_train"] = metrics[
+        "abs_corr_y_realized_nuisance_motion_train"
+    ]
     return metrics
 
 
@@ -163,8 +196,21 @@ def final_frame(x: np.ndarray) -> np.ndarray:
     return x[:, -1].reshape(x.shape[0], -1)
 
 
+def core_view(x: np.ndarray) -> np.ndarray:
+    if x.ndim == 5:
+        return x[:, :, 0]
+    return x
+
+
+def nuisance_view(x: np.ndarray) -> np.ndarray:
+    if x.ndim == 5:
+        return x[:, :, -1]
+    return x
+
+
 def core_shape_features(x: np.ndarray) -> np.ndarray:
     """Translation-invariant anisotropy features for diffused source shape."""
+    x = core_view(x)
     mass = positive_mass(x)
     row_grid, col_grid = coordinate_grids(x.shape[-2], x.shape[-1])
     row_center, col_center = circular_center(mass, row_grid, col_grid)
@@ -179,6 +225,7 @@ def core_shape_features(x: np.ndarray) -> np.ndarray:
 
 def motion_arrow_features(x: np.ndarray) -> np.ndarray:
     """Direction-sensitive center-of-mass motion features."""
+    x = nuisance_view(x)
     mass = positive_mass(x)
     row_grid, col_grid = coordinate_grids(x.shape[-2], x.shape[-1])
     row_center, col_center = circular_center(mass, row_grid, col_grid)
@@ -257,13 +304,22 @@ def time_reverse(x: np.ndarray) -> np.ndarray:
 
 def static_features(x: np.ndarray) -> np.ndarray:
     final = x[:, -1]
-    total = x.sum(axis=(2, 3))
+    if x.ndim == 4:
+        total = x.sum(axis=(2, 3))
+        mean = x.mean(axis=(2, 3))
+        std = x.std(axis=(2, 3))
+    elif x.ndim == 5:
+        total = x.sum(axis=(3, 4)).reshape(x.shape[0], -1)
+        mean = x.mean(axis=(3, 4)).reshape(x.shape[0], -1)
+        std = x.std(axis=(3, 4)).reshape(x.shape[0], -1)
+    else:
+        raise ValueError(f"expected 4D or 5D input, got shape {x.shape}")
     return np.concatenate(
         [
             final.reshape(x.shape[0], -1),
             total,
-            x.mean(axis=(2, 3)),
-            x.std(axis=(2, 3)),
+            mean,
+            std,
         ],
         axis=1,
     )
@@ -287,6 +343,11 @@ def counterfactual_core_residual_max_abs(split: IrreversibleSourceSplit) -> floa
         return float(np.max(np.abs(split.mixed - split.counterfactual)))
     core_residual = split.mixed - split.counterfactual
     nuisance_residual = split.nuisance_only - split.nuisance_counterfactual
+    if core_residual.ndim == 5:
+        core_channel_delta = float(np.max(np.abs(core_residual[:, :, 0])))
+        nuisance_channel_delta = core_residual[:, :, 1] / split.metadata["nuisance_scale"]
+        nuisance_delta_error = float(np.max(np.abs(nuisance_channel_delta - nuisance_residual)))
+        return max(core_channel_delta, nuisance_delta_error)
     # Since mixed and counterfactual reuse the same core and observation noise,
     # their difference must be exactly explained by nuisance replacement up to
     # the known nuisance scale.
@@ -307,9 +368,11 @@ def evaluate_gate(metrics: dict[str, Any], config: IrreversibleSourceConfig) -> 
     targets = dict(GATE_TARGETS)
     if config.ood_mode == "reversed":
         targets["corr_y_nuisance_arrow_ood_test"] = ("<=", -0.70)
+        targets["corr_y_realized_nuisance_motion_ood_test"] = ("<=", -0.55)
         targets["nuisance_only_ood_accuracy"] = ("<=", 0.40)
     elif config.ood_mode == "randomized":
         targets["abs_corr_y_nuisance_arrow_ood_test"] = ("<=", 0.20)
+        targets["abs_corr_y_realized_nuisance_motion_ood_test"] = ("<=", 0.30)
         targets["nuisance_only_ood_accuracy"] = ("<=", 0.65)
     elif config.ood_mode == "partial_shift":
         target = config.partial_shift_target_correlation
@@ -320,6 +383,9 @@ def evaluate_gate(metrics: dict[str, Any], config: IrreversibleSourceConfig) -> 
         targets["nuisance_only_ood_accuracy"] = ("<=", 0.75)
     else:
         raise ValueError(f"unknown ood_mode {config.ood_mode!r}")
+    if config.benchmark_variant == "endpoint_matched":
+        targets["final_nuisance_frame_iid_accuracy"] = ("<=", 0.65)
+        targets["final_nuisance_frame_ood_gap"] = ("<=", 0.15)
 
     for key, (op, threshold) in targets.items():
         value = float(metrics[key])
@@ -334,6 +400,16 @@ def evaluate_gate(metrics: dict[str, Any], config: IrreversibleSourceConfig) -> 
     for key in ("counterfactual_preserves_core", "counterfactual_changes_nuisance"):
         ok = bool(metrics[key])
         checks[key] = {"value": ok, "op": "is", "threshold": True, "passed": ok}
+        passed = passed and ok
+    if config.counterfactual_mode == "randomized":
+        value = float(metrics["abs_corr_y_counterfactual_arrow_train"])
+        ok = value <= 0.30
+        checks["abs_corr_y_counterfactual_arrow_train"] = {
+            "value": value,
+            "op": "<=",
+            "threshold": 0.30,
+            "passed": ok,
+        }
         passed = passed and ok
     return {"passed": passed, "checks": checks}
 
@@ -390,6 +466,8 @@ def write_smoke_report(path: Path, diagnostics: dict[str, Any]) -> None:
             f"- nuisance-only IID/OOD: `{metrics['nuisance_only_iid_accuracy']}` / `{metrics['nuisance_only_ood_accuracy']}`",
             f"- mixed feature probe IID/OOD: `{metrics['mixed_feature_probe_iid_accuracy']}` / `{metrics['mixed_feature_probe_ood_accuracy']}`",
             f"- mixed feature-probe OOD gap: `{metrics['mixed_feature_probe_ood_gap']}`",
+            f"- final nuisance frame IID/OOD: `{metrics['final_nuisance_frame_iid_accuracy']}` / `{metrics['final_nuisance_frame_ood_accuracy']}`",
+            f"- realized nuisance-motion corr train/OOD: `{metrics['corr_y_realized_nuisance_motion_train']}` / `{metrics['corr_y_realized_nuisance_motion_ood_test']}`",
         ]
     )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

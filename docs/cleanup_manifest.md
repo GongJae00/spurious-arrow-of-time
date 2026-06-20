@@ -63,8 +63,9 @@ The previous project contributed these active lessons:
 ## Cleanup Commands
 
 The cleanup removes tracked legacy files and ignored generated artifacts, then
-adds the new minimal benchmark files. Exact commands are recorded in the shell
-history of this goal run and summarized in the final response.
+adds the active benchmark files. Reproducible entry points are documented in
+`README.md`, `experiments/smoke_benchmark.sh`, and
+`experiments/main_experiments.sh`.
 
 ## Remaining Generated Or Ignored Outputs
 

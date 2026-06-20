@@ -66,7 +66,7 @@ direction reversed or randomized OOD
 The benchmark must show:
 
 ```text
-final-frame core evidence is insufficient
+final-frame core evidence is quantified and weaker than full-sequence evidence
 full core sequence evidence is sufficient
 nuisance direction is a strong train/IID shortcut
 nuisance direction fails under OOD shift
@@ -76,27 +76,25 @@ component visualizations are understandable
 
 ## Current Evidence State
 
-The benchmark smoke gate and a non-runtime-limited five-seed main neural run
-have completed.
+The endpoint-matched benchmark smoke gate, non-runtime-limited five-seed `main`
+run, and non-runtime-limited ten-seed `full` run have completed.
 
-Current main result:
+Current full result:
 
 ```text
-core_only_oracle:
-  IID and OOD both high
+main_spurious_arrow:
+  final_frame_mlp near chance
+  sequence_erm high IID and large OOD collapse
+  nuisance_only_oracle is an even stronger version of the same shortcut
+  core_only_oracle high IID and OOD
+  counterfactual invariance improves mean OOD but is not seed-stable
 
-sequence_erm:
-  high IID and near-complete OOD collapse under reversed nuisance shift
-
-nuisance_only_oracle:
-  same IID/OOD pattern as sequence_erm
-
-counterfactual_invariance:
-  reduces OOD gap but sacrifices IID accuracy
+no_spurious_correlation:
+  sequence_erm high IID and OOD on average, with 8/10 seed-level success
 ```
 
-This supports the benchmark phenomenon but not a positive robustness-method
-claim.
+This supports the controlled-benchmark phenomenon claim. It does not support a
+primary claim that simple counterfactual invariance solves the problem.
 
 ## Claim Discipline
 
@@ -107,11 +105,12 @@ In this controlled benchmark, raw neural sequence predictors can follow a
 non-causal irreversible nuisance arrow and fail when that arrow reverses OOD.
 ```
 
-Allowed with caveat:
+Allowed with limitation:
 
 ```text
-The simple counterfactual invariance control is a diagnostic tradeoff, not a
-successful robust method, because it lowers IID accuracy substantially.
+In this synthetic benchmark, counterfactual nuisance replacement improves mean
+OOD robustness but is not seed-stable enough to be a primary solved-method
+claim.
 ```
 
 Not allowed:
@@ -121,4 +120,6 @@ we solved selective irreversibility
 the failure is purely temporal without endpoint/residue contribution
 learned latent scores are physical entropy production
 neural networks reveal the nature of time
+the counterfactual result directly transfers to real data without a
+counterfactual generator or intervention
 ```

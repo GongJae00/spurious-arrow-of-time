@@ -59,7 +59,8 @@ Report actual measured correlations, not only configured values.
 Minimum scenario groups:
 
 ```text
-main_reversed
+main_spurious_arrow
+residue_visible_control
 ood_randomized
 ood_partial_shift
 nuisance_scale_low
@@ -68,5 +69,10 @@ core_difficulty_easy
 core_difficulty_hard
 no_spurious_correlation
 core_only_no_nuisance
-random_labels if full profile is run
+core-label-randomized nuisance sanity control, if reported
 ```
+
+Do not describe the `core_label_randomized_spurious_nuisance` row as a pure
+random-label negative control. In that scenario the core-label link is broken,
+but the nuisance process is still correlated with the final label by
+construction.

@@ -39,6 +39,8 @@ class IrreversibleSourceConfig:
     nuisance_speed: float = 2.0
     nuisance_trail_decay: float = 0.78
     nuisance_correlation: float = 0.97
+    benchmark_variant: str = "residue_visible"
+    observation_layout: str = "additive"
     ood_mode: str = "reversed"
     partial_shift_target_correlation: float = -0.3
     counterfactual_mode: str = "reversed"
@@ -90,6 +92,10 @@ def generate_irreversible_source_splits(
 def generate_split(config: IrreversibleSourceConfig, split: str) -> IrreversibleSourceSplit:
     if split not in SPLITS:
         raise ValueError(f"unknown split {split!r}")
+    if config.benchmark_variant not in {"residue_visible", "endpoint_matched"}:
+        raise ValueError(f"unknown benchmark_variant {config.benchmark_variant!r}")
+    if config.observation_layout not in {"additive", "two_channel"}:
+        raise ValueError(f"unknown observation_layout {config.observation_layout!r}")
     n = config.split_size(split)
     rng = np.random.default_rng(config.seed + 1009 * SPLITS.index(split))
     grid = config.grid_size
@@ -108,20 +114,16 @@ def generate_split(config: IrreversibleSourceConfig, split: str) -> Irreversible
     nuisance_cf = build_nuisance_sequences(config, cf_direction, rng)
 
     if config.disable_nuisance:
-        mixed = core.astype(np.float32)
-        counterfactual = core.astype(np.float32)
+        mixed = compose_core_only_observation(config, core)
+        counterfactual = mixed.copy()
     else:
-        noise = rng.normal(
-            loc=0.0,
-            scale=config.observation_noise_std,
-            size=core.shape,
-        ).astype(np.float32)
-        mixed = (config.core_scale * core + config.nuisance_scale * nuisance + noise).astype(
-            np.float32
+        mixed, counterfactual = compose_observation_pair(
+            config=config,
+            core=core,
+            nuisance=nuisance,
+            nuisance_cf=nuisance_cf,
+            rng=rng,
         )
-        counterfactual = (
-            config.core_scale * core + config.nuisance_scale * nuisance_cf + noise
-        ).astype(np.float32)
 
     metadata = split_metadata(
         config=config,
@@ -210,6 +212,71 @@ def diffuse_once(state: np.ndarray, alpha: float) -> np.ndarray:
     return (1.0 - alpha) * state + alpha * neighbors
 
 
+def compose_observation(
+    config: IrreversibleSourceConfig,
+    core: np.ndarray,
+    nuisance: np.ndarray,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    if config.observation_layout == "additive":
+        noise = rng.normal(0.0, config.observation_noise_std, size=core.shape).astype(np.float32)
+        return (config.core_scale * core + config.nuisance_scale * nuisance + noise).astype(
+            np.float32
+        )
+    noise = rng.normal(
+        0.0,
+        config.observation_noise_std,
+        size=(core.shape[0], core.shape[1], 2, core.shape[2], core.shape[3]),
+    ).astype(np.float32)
+    out = np.zeros_like(noise, dtype=np.float32)
+    out[:, :, 0] = config.core_scale * core
+    out[:, :, 1] = config.nuisance_scale * nuisance
+    return (out + noise).astype(np.float32)
+
+
+def compose_core_only_observation(
+    config: IrreversibleSourceConfig,
+    core: np.ndarray,
+) -> np.ndarray:
+    """Clean no-nuisance upper-bound observation used for diagnostic controls."""
+    if config.observation_layout == "additive":
+        return core.astype(np.float32)
+    out = np.zeros(
+        (core.shape[0], core.shape[1], 2, core.shape[2], core.shape[3]),
+        dtype=np.float32,
+    )
+    out[:, :, 0] = config.core_scale * core
+    return out
+
+
+def compose_observation_pair(
+    *,
+    config: IrreversibleSourceConfig,
+    core: np.ndarray,
+    nuisance: np.ndarray,
+    nuisance_cf: np.ndarray,
+    rng: np.random.Generator,
+) -> tuple[np.ndarray, np.ndarray]:
+    if config.observation_layout == "additive":
+        noise = rng.normal(0.0, config.observation_noise_std, size=core.shape).astype(np.float32)
+        mixed = config.core_scale * core + config.nuisance_scale * nuisance + noise
+        counterfactual = config.core_scale * core + config.nuisance_scale * nuisance_cf + noise
+        return mixed.astype(np.float32), counterfactual.astype(np.float32)
+
+    noise = rng.normal(
+        0.0,
+        config.observation_noise_std,
+        size=(core.shape[0], core.shape[1], 2, core.shape[2], core.shape[3]),
+    ).astype(np.float32)
+    mixed = np.zeros_like(noise, dtype=np.float32)
+    counterfactual = np.zeros_like(noise, dtype=np.float32)
+    mixed[:, :, 0] = config.core_scale * core
+    mixed[:, :, 1] = config.nuisance_scale * nuisance
+    counterfactual[:, :, 0] = config.core_scale * core
+    counterfactual[:, :, 1] = config.nuisance_scale * nuisance_cf
+    return (mixed + noise).astype(np.float32), (counterfactual + noise).astype(np.float32)
+
+
 def sample_nuisance_direction(
     config: IrreversibleSourceConfig,
     y: np.ndarray,
@@ -254,6 +321,10 @@ def sample_counterfactual_direction(
     if config.counterfactual_mode == "reversed":
         return (-direction).astype(np.int64)
     if config.counterfactual_mode == "randomized":
+        return rng.choice(np.array([-1, 1], dtype=np.int64), size=len(direction)).astype(
+            np.int64
+        )
+    if config.counterfactual_mode == "randomized_different":
         cf = rng.choice(np.array([-1, 1], dtype=np.int64), size=len(direction))
         same = cf == direction
         cf[same] *= -1
@@ -271,6 +342,9 @@ def build_nuisance_sequences(
     rows = np.arange(grid, dtype=np.float32)[None, :, None]
     cols = np.arange(grid, dtype=np.float32)[None, None, :]
     phases = rng.uniform(0.0, grid, size=n).astype(np.float32)
+    if config.benchmark_variant == "endpoint_matched":
+        final_cols = rng.uniform(0.0, grid, size=n).astype(np.float32)
+        phases = (final_cols - direction * config.nuisance_speed * (config.length - 1)) % grid
     row_centers = rng.uniform(0.0, grid, size=n).astype(np.float32)
     sequences = np.zeros((n, config.length, grid, grid), dtype=np.float32)
     trail = np.zeros((n, grid, grid), dtype=np.float32)
@@ -286,8 +360,12 @@ def build_nuisance_sequences(
                 + (row_dist / (config.nuisance_sigma * 2.0)) ** 2
             )
         )
-        trail = config.nuisance_trail_decay * trail + pulse.astype(np.float32)
-        sequences[:, t] = trail
+        pulse = pulse.astype(np.float32)
+        trail = config.nuisance_trail_decay * trail + pulse
+        if config.benchmark_variant == "endpoint_matched" and t == config.length - 1:
+            sequences[:, t] = pulse
+        else:
+            sequences[:, t] = trail
     max_per_sample = sequences.reshape(n, -1).max(axis=1).clip(min=1e-8)
     sequences = sequences / max_per_sample[:, None, None, None]
     return sequences.astype(np.float32)
@@ -319,6 +397,8 @@ def split_metadata(
         "nuisance_speed": config.nuisance_speed,
         "nuisance_trail_decay": config.nuisance_trail_decay,
         "nuisance_correlation": config.nuisance_correlation,
+        "benchmark_variant": config.benchmark_variant,
+        "observation_layout": config.observation_layout,
         "ood_mode": config.ood_mode,
         "partial_shift_target_correlation": config.partial_shift_target_correlation,
         "counterfactual_mode": config.counterfactual_mode,
@@ -331,6 +411,7 @@ def split_metadata(
         "counterfactual_direction_mean_by_y": mean_by_y(cf_direction.astype(np.float64), y),
         "corr_y_nuisance_arrow": safe_corr(y.astype(np.float64), nuisance_direction.astype(float)),
         "corr_y_counterfactual_arrow": safe_corr(y.astype(np.float64), cf_direction.astype(float)),
+        "counterfactual_changed_fraction": float(np.mean(nuisance_direction != cf_direction)),
     }
 
 

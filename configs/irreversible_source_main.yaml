@@ -4,20 +4,22 @@ data:
   grid_size: 16
   length: 8
   diffusion_alpha: 0.22
-  diffusion_start_step: 1
-  diffusion_steps_between_frames: 8
-  core_noise_std: 0.014
+  diffusion_start_step: 0
+  diffusion_steps_between_frames: 4
+  core_noise_std: 0.006
   core_noise_growth_power: 1.0
-  observation_noise_std: 0.08
-  core_scale: 0.45
-  nuisance_scale: 2.8
+  observation_noise_std: 0.04
+  core_scale: 1.0
+  nuisance_scale: 1.2
   nuisance_sigma: 1.15
   nuisance_speed: 2.0
   nuisance_trail_decay: 0.78
   nuisance_correlation: 0.97
+  benchmark_variant: endpoint_matched
+  observation_layout: two_channel
   ood_mode: reversed
   partial_shift_target_correlation: -0.3
-  counterfactual_mode: reversed
+  counterfactual_mode: randomized
   train_nuisance_mode: correlated
   random_labels: false
   disable_nuisance: false
@@ -29,8 +31,8 @@ model:
 
 training:
   batch_size: 128
-  epochs: 30
-  patience: 8
+  epochs: 40
+  patience: 12
   lr: 1.0e-3
   weight_decay: 1.0e-4
   grad_clip_norm: 1.0
@@ -49,7 +51,7 @@ methods:
 profiles:
   smoke:
     runtime_limited: true
-    primary_scenario: main_reversed
+    primary_scenario: main_spurious_arrow
     seeds: [0]
     methods:
       - final_frame_mlp
@@ -64,17 +66,33 @@ profiles:
       n_iid_test: 128
       n_ood_test: 128
     training:
-      epochs: 3
-      patience: 3
+      epochs: 6
+      patience: 4
       batch_size: 64
     scenarios:
-      - name: main_reversed
+      - name: main_spurious_arrow
         data:
           ood_mode: reversed
+      - name: residue_visible_control
+        methods:
+          - final_frame_mlp
+          - sequence_erm
+          - core_only_oracle
+          - nuisance_only_oracle
+        data:
+          benchmark_variant: residue_visible
+      - name: no_spurious_correlation
+        methods:
+          - sequence_erm
+          - core_only_oracle
+          - nuisance_only_oracle
+        data:
+          train_nuisance_mode: randomized
+          ood_mode: randomized
 
   pilot:
     runtime_limited: true
-    primary_scenario: main_reversed
+    primary_scenario: main_spurious_arrow
     seeds: [0, 1, 2]
     data:
       n_train: 1024
@@ -82,10 +100,10 @@ profiles:
       n_iid_test: 512
       n_ood_test: 512
     training:
-      epochs: 12
-      patience: 5
+      epochs: 24
+      patience: 8
     scenarios:
-      - name: main_reversed
+      - name: main_spurious_arrow
         data:
           ood_mode: reversed
       - name: ood_randomized
@@ -100,7 +118,7 @@ profiles:
 
   main:
     runtime_limited: false
-    primary_scenario: main_reversed
+    primary_scenario: main_spurious_arrow
     seeds: [0, 1, 2, 3, 4]
     data:
       n_train: 8192
@@ -108,16 +126,105 @@ profiles:
       n_iid_test: 4096
       n_ood_test: 4096
     training:
-      epochs: 30
+      epochs: 40
+      patience: 12
+    scenarios:
+      - name: main_spurious_arrow
+        data:
+          ood_mode: reversed
+      - name: no_spurious_correlation
+        methods:
+          - sequence_erm
+          - core_only_oracle
+          - nuisance_only_oracle
+        data:
+          train_nuisance_mode: randomized
+          ood_mode: randomized
+      - name: residue_visible_control
+        methods:
+          - final_frame_mlp
+          - sequence_erm
+          - core_only_oracle
+          - nuisance_only_oracle
+        data:
+          benchmark_variant: residue_visible
+          ood_mode: reversed
+
+  calibration:
+    runtime_limited: true
+    primary_scenario: main_spurious_arrow
+    seeds: [0, 1]
+    methods:
+      - final_frame_mlp
+      - sequence_erm
+      - core_only_oracle
+      - nuisance_only_oracle
+    data:
+      n_train: 2048
+      n_val_iid: 512
+      n_iid_test: 512
+      n_ood_test: 512
+    training:
+      epochs: 24
       patience: 8
     scenarios:
-      - name: main_reversed
+      - name: main_spurious_arrow
         data:
+          ood_mode: reversed
+      - name: no_spurious_correlation
+        data:
+          train_nuisance_mode: randomized
+          ood_mode: randomized
+      - name: balanced_core_stronger
+        data:
+          core_scale: 1.0
+          nuisance_scale: 1.0
+          train_nuisance_mode: randomized
+          ood_mode: randomized
+      - name: balanced_nuisance_stronger
+        data:
+          core_scale: 0.85
+          nuisance_scale: 1.4
+          train_nuisance_mode: randomized
+          ood_mode: randomized
+      - name: residue_visible_control
+        data:
+          benchmark_variant: residue_visible
+          ood_mode: reversed
+
+  gate_pilot:
+    runtime_limited: true
+    primary_scenario: main_spurious_arrow
+    seeds: [0]
+    methods:
+      - final_frame_mlp
+      - sequence_erm
+      - core_only_oracle
+      - nuisance_only_oracle
+    data:
+      n_train: 4096
+      n_val_iid: 1024
+      n_iid_test: 1024
+      n_ood_test: 1024
+    training:
+      epochs: 45
+      patience: 12
+    scenarios:
+      - name: main_spurious_arrow
+        data:
+          ood_mode: reversed
+      - name: no_spurious_correlation
+        data:
+          train_nuisance_mode: randomized
+          ood_mode: randomized
+      - name: residue_visible_control
+        data:
+          benchmark_variant: residue_visible
           ood_mode: reversed
 
   sweep_pilot:
     runtime_limited: true
-    primary_scenario: main_reversed
+    primary_scenario: main_spurious_arrow
     seeds: [0, 1, 2]
     methods:
       - sequence_erm
@@ -131,10 +238,10 @@ profiles:
       n_iid_test: 512
       n_ood_test: 512
     training:
-      epochs: 12
-      patience: 5
+      epochs: 24
+      patience: 8
     scenarios:
-      - name: main_reversed
+      - name: main_spurious_arrow
         data:
           ood_mode: reversed
       - name: ood_randomized
@@ -146,7 +253,7 @@ profiles:
           partial_shift_target_correlation: -0.3
       - name: nuisance_scale_low
         data:
-          nuisance_scale: 1.0
+          nuisance_scale: 1.2
       - name: nuisance_scale_mid
         data:
           nuisance_scale: 1.8
@@ -160,7 +267,7 @@ profiles:
           diffusion_start_step: 0
           diffusion_steps_between_frames: 4
           core_noise_std: 0.008
-          core_scale: 0.65
+          core_scale: 1.0
       - name: core_difficulty_hard
         methods:
           - sequence_erm
@@ -171,7 +278,7 @@ profiles:
           diffusion_start_step: 2
           diffusion_steps_between_frames: 12
           core_noise_std: 0.02
-          core_scale: 0.35
+          core_scale: 0.65
       - name: no_spurious_correlation
         data:
           train_nuisance_mode: randomized
@@ -183,10 +290,19 @@ profiles:
           - final_frame_mlp
         data:
           disable_nuisance: true
+      - name: residue_visible_control
+        methods:
+          - sequence_erm
+          - final_frame_mlp
+          - core_only_oracle
+          - nuisance_only_oracle
+        data:
+          benchmark_variant: residue_visible
+          ood_mode: reversed
 
   full:
     runtime_limited: false
-    primary_scenario: main_reversed
+    primary_scenario: main_spurious_arrow
     seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     data:
       n_train: 8192
@@ -194,10 +310,10 @@ profiles:
       n_iid_test: 4096
       n_ood_test: 4096
     training:
-      epochs: 30
-      patience: 8
+      epochs: 40
+      patience: 12
     scenarios:
-      - name: main_reversed
+      - name: main_spurious_arrow
         data:
           ood_mode: reversed
       - name: ood_randomized
@@ -227,7 +343,7 @@ profiles:
           - nuisance_only_oracle
           - group_invariance_light
         data:
-          nuisance_scale: 1.0
+          nuisance_scale: 1.2
       - name: nuisance_scale_mid
         methods:
           - sequence_erm
@@ -247,7 +363,7 @@ profiles:
           diffusion_start_step: 0
           diffusion_steps_between_frames: 4
           core_noise_std: 0.008
-          core_scale: 0.65
+          core_scale: 1.0
       - name: core_difficulty_hard
         methods:
           - sequence_erm
@@ -258,7 +374,7 @@ profiles:
           diffusion_start_step: 2
           diffusion_steps_between_frames: 12
           core_noise_std: 0.02
-          core_scale: 0.35
+          core_scale: 0.65
       - name: no_spurious_correlation
         methods:
           - sequence_erm
@@ -269,7 +385,7 @@ profiles:
         data:
           train_nuisance_mode: randomized
           ood_mode: randomized
-      - name: random_labels
+      - name: core_label_randomized_spurious_nuisance
         methods:
           - sequence_erm
           - core_only_oracle
@@ -283,3 +399,15 @@ profiles:
           - final_frame_mlp
         data:
           disable_nuisance: true
+      - name: residue_visible_control
+        methods:
+          - final_frame_mlp
+          - sequence_erm
+          - core_only_oracle
+          - nuisance_only_oracle
+          - time_reversed_sequence
+          - counterfactual_invariance
+          - group_invariance_light
+        data:
+          benchmark_variant: residue_visible
+          ood_mode: reversed

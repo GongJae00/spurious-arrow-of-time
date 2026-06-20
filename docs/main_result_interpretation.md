@@ -1,148 +1,107 @@
 # Main Result Interpretation
 
-This document interprets the completed non-runtime-limited main run and the
-runtime-limited sweep pilot. It separates benchmark evidence from method
-success.
+This document interprets the completed non-runtime-limited ten-seed `full`
+profile. The older five-seed `main` profile is a smaller confirmation run, not
+the primary evidence package.
 
-## Completed Main Run
+## Active Design
+
+The main scenario is endpoint-matched:
 
 ```text
-profile: main
-scenario: main_reversed
-seeds: 5
+main_spurious_arrow:
+  benchmark_variant: endpoint_matched
+  observation_layout: two_channel
+  OOD: nuisance arrow reversed
+```
+
+The endpoint-matched variant keeps the final nuisance endpoint
+label-independent while preserving a directed trail through the sequence. This
+separates temporal spurious-arrow shortcutting from final-frame nuisance
+residue.
+
+## Main Results
+
+```text
+profile: full
+seeds: 10
 runtime_limited: false
-source: results/main_experiments/main/
+source: results/main_experiments/full/
+phenomenon gate audit: passed
+counterfactual mitigation gate: failed seed-stability
 ```
 
-Main table:
+Key neural results:
 
 ```text
-core_only_oracle:
-  IID = 1.000
-  OOD = 1.000
-  gap = 0.000
+main_spurious_arrow:
+  final_frame_mlp:          IID 0.501, OOD 0.500, gap 0.000
+  sequence_erm:             IID 0.971, OOD 0.124, gap 0.848
+  nuisance_only_oracle:     IID 0.969, OOD 0.031, gap 0.938
+  core_only_oracle:         IID 1.000, OOD 1.000, gap 0.000
+  counterfactual_invariance: IID 0.943, OOD 0.756, gap 0.187
+  counterfactual seed success: 7/10
 
-sequence_erm:
-  IID = 0.968
-  OOD = 0.032
-  gap = 0.936
+no_spurious_correlation:
+  sequence_erm:             IID 0.898, OOD 0.899, gap -0.001
+  seed-level success:       8/10
 
-nuisance_only_oracle:
-  IID = 0.968
-  OOD = 0.032
-  gap = 0.936
-
-final_frame_mlp:
-  IID = 0.968
-  OOD = 0.032
-  gap = 0.936
-
-time_reversed_sequence:
-  IID = 0.968
-  OOD = 0.032
-  gap = 0.936
-
-group_invariance_light:
-  IID = 0.968
-  OOD = 0.032
-  gap = 0.936
-
-counterfactual_invariance:
-  IID = 0.533
-  OOD = 0.465
-  gap = 0.068
+residue_visible_control:
+  final_frame_mlp:          IID 0.969, OOD 0.031, gap 0.938
+  sequence_erm:             IID 0.969, OOD 0.031, gap 0.938
 ```
 
-## Supported
+## Interpretation
 
-The benchmark phenomenon is strongly observed in the main reversed-OOD setting:
+The main run supports the intended claim structure:
 
 ```text
-sequence_erm learns a high-IID predictor that collapses under OOD reversal.
-nuisance_only_oracle matches the same IID/OOD pattern.
-core_only_oracle remains high on both IID and OOD.
+1. When the nuisance arrow is label-independent, the mixed sequence model learns
+   the causal core.
+2. When the endpoint-matched nuisance arrow is label-correlated, the same model
+   follows the nuisance and collapses under OOD reversal.
+3. The final-frame model is near chance in the endpoint-matched main scenario,
+   so the main failure is not explained by final-frame endpoint leakage.
+4. The residue-visible control shows the opposite regime: when residue is
+   visible, final-frame MLP collapses too.
+5. Counterfactual invariance improves mean OOD but reaches the OOD success
+   threshold in only 7/10 full seeds, so it is a mitigation diagnostic rather
+   than a solved method.
 ```
 
-This supports the claim that a stronger non-causal irreversible nuisance process
-can dominate a learned sequence predictor in this controlled setting.
-
-## Not Supported
-
-The simple counterfactual invariance control is not a successful robustness
-method in this run:
+Important static-leakage nuance:
 
 ```text
-it reduces the OOD gap
-but it also drops IID performance close to chance
+The endpoint-matched final-frame result rules out final nuisance endpoint
+leakage as the explanation for the main OOD collapse. It does not prove that
+all possible final-frame core evidence is absent. The clean core-only/no-
+nuisance scenario is an upper-bound diagnostic and should not be used as the
+main static leakage comparison.
 ```
 
-This must be reported as a method failure or tradeoff, not as method success.
-
-## High-Risk Observation
-
-`final_frame_mlp` behaves like `sequence_erm` and `nuisance_only_oracle`.
-
-Interpretation risk:
-
-```text
-The nuisance process may leave a visible endpoint or static residue strong
-enough for a final-frame model to exploit.
-```
-
-This does not automatically invalidate the benchmark, but it weakens any claim
-that the failure is purely due to sequence-temporal reasoning. The paper must
-frame the shortcut as an irreversible nuisance process with visible trajectory
-residue unless a stricter static-leak audit says otherwise.
-
-## Sweep Pilot
-
-```text
-profile: sweep_pilot
-seeds: 3
-runtime_limited: true
-source: results/main_experiments/sweep_pilot_goal/
-```
-
-The sweep pilot is diagnostic only. It suggests:
-
-```text
-reversed OOD produces the largest ERM gap
-randomized OOD produces an intermediate gap
-partial_shift produces an intermediate gap
-low and mid nuisance-scale settings still produce large gaps in this pilot
-easy and hard core-difficulty settings still leave sequence ERM dominated by
-the nuisance shortcut
-no_spurious_correlation removes the large OOD gap but raw mixed ERM does not
-recover the core well in the pilot budget
-core_only_no_nuisance improves sequence ERM but remains below the core oracle in
-the pilot budget
-```
-
-These findings should guide discussion and further checks, but they should not
-be presented as full-scale camera-ready sweep evidence unless rerun at full
-scale.
-
-The difficulty sweep is especially important for wording:
-
-```text
-Changing core difficulty alone does not rescue sequence ERM in the pilot.
-This supports the benchmark stress-test interpretation, but it also warns that
-the mixed observation is strongly shortcut-dominated.
-```
-
-## Claim Wording
+## Claim Boundary
 
 Allowed:
 
 ```text
 In a controlled irreversible inverse benchmark, standard raw sequence models can
-prefer a non-causal nuisance arrow over the task-causal source process.
+prefer a non-causal nuisance arrow over a recoverable task-causal core, even when
+final-frame nuisance leakage is controlled.
+```
+
+Allowed with qualification:
+
+```text
+Counterfactual nuisance replacement can rescue the model in this synthetic
+setting where valid counterfactual pairs are available, but the current simple
+implementation is not seed-stable enough for a primary method-success claim.
 ```
 
 Not allowed:
 
 ```text
-Counterfactual invariance solves the problem.
-The model failure is proven to be purely temporal rather than endpoint leakage.
-The result establishes a universal law of neural networks.
+The result is a universal statement about all sequence models.
+The counterfactual method is directly deployable on real data without a valid
+intervention, simulator, augmentation, or learned counterfactual generator.
+The project measures physical entropy production.
 ```

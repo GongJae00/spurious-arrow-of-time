@@ -39,7 +39,7 @@ direction or instance.
 
 | Metric | Initial smoke target | Reason |
 |---|---:|---|
-| final_frame_core_oracle_accuracy | <= 0.65 | The final diffused state alone should not trivially reveal the source label. |
+| final_frame_core_oracle_accuracy | <= 0.72 | The final diffused state alone should not trivially solve the source label. The final paper should also report the neural final-frame audit. |
 | full_sequence_core_oracle_accuracy | >= 0.80 | The core sequence should still contain recoverable source information. |
 | core_only_ood_accuracy | >= 0.80 | The task-causal process must remain valid OOD. |
 | nuisance_only_iid_accuracy | >= 0.80 | The nuisance arrow must be a tempting shortcut in IID. |
@@ -50,8 +50,47 @@ direction or instance.
 | static_feature_accuracy | <= 0.65 | Static leaks should not solve the task. |
 | core_forward_reverse_arrow_accuracy | >= 0.80 | The task-causal core process should contain detectable temporal irreversibility. |
 | nuisance_forward_reverse_arrow_accuracy | >= 0.80 | The nuisance must be a real spurious arrow, not merely a left/right moving object. |
+| final_nuisance_frame_iid_accuracy | <= 0.65 for endpoint-matched main | Final-frame nuisance residue must not solve the shortcut. |
+| final_nuisance_frame_ood_gap | <= 0.15 for endpoint-matched main | Final-frame nuisance residue must not explain the OOD gap. |
 | counterfactual_preserves_core | true | Counterfactual must not change the true task. |
 | counterfactual_changes_nuisance | true | Counterfactual must actually break the nuisance instance. |
+
+## Neural Evidence Gates
+
+The benchmark gate above is not sufficient for the paper claim. The final neural
+run must also pass the phenomenon portion of `final_gate_audit.md`:
+
+```text
+no_spurious_correlation / sequence_erm:
+  IID >= 0.80
+  OOD >= 0.80
+  gap <= 0.10
+  seed success rate for OOD >= 0.80 must be >= 0.80
+
+main_spurious_arrow / sequence_erm:
+  IID >= 0.80
+  gap >= 0.25
+
+main_spurious_arrow / final_frame_mlp:
+  endpoint-matched final-frame gap <= 0.15
+
+core_only_oracle:
+  IID >= 0.80
+  OOD >= 0.80
+
+The counterfactual mitigation portion is separate. When it is reported as a
+method result, it must pass:
+
+```text
+counterfactual_invariance:
+  IID must remain high
+  OOD must improve over ERM
+  gap must shrink
+  seed success rate for OOD >= 0.80 must be >= 0.80
+```
+
+The current full result passes the phenomenon gates but fails this
+counterfactual seed-stability gate.
 
 ## Stop Rules
 

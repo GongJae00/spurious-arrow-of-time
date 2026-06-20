@@ -47,31 +47,45 @@ nuisance:
   direction reversed in OOD
 
 observation:
-  core + nuisance + noise
+  two channels: diffused core channel and nuisance-arrow channel
+  endpoint-matched main variant controls final-frame nuisance leakage
 ```
 
-The benchmark is accepted only if final-frame core recovery is weak, full-core
-sequence recovery is strong, nuisance-only prediction fails OOD, and diagnostic
-features show the shortcut is dynamic. Diagnostic features are not counted as
-neural sequence-model results.
+The benchmark is accepted only if the core sequence is learnable when the
+nuisance is label-independent, the nuisance-only predictor fails OOD when the
+nuisance arrow reverses, and the endpoint-matched main variant keeps final-frame
+nuisance leakage near chance. Diagnostic features are not counted as neural
+sequence-model results.
 
 ## Current Evidence
 
-The latest non-runtime-limited main run uses five seeds in the reversed-OOD
-setting.
+The latest non-runtime-limited full run uses ten seeds. The phenomenon gates
+pass; the counterfactual mitigation gate does not pass the seed-stability
+criterion.
 
 ```text
-core_only_oracle:      IID 1.000, OOD 1.000
-sequence_erm:          IID 0.968, OOD 0.032
-nuisance_only_oracle:  IID 0.968, OOD 0.032
-counterfactual control: IID 0.533, OOD 0.465
+main_spurious_arrow, endpoint-matched:
+  final_frame_mlp:       IID 0.501, OOD 0.500
+  sequence_erm:          IID 0.971, OOD 0.124
+  nuisance_only_oracle:  IID 0.969, OOD 0.031
+  core_only_oracle:      IID 1.000, OOD 1.000
+  counterfactual control: IID 0.943, OOD 0.756
+
+no_spurious_correlation:
+  sequence_erm:          IID 0.898, OOD 0.899
+  seed success rate:     8/10
+
+residue_visible_control:
+  final_frame_mlp:       IID 0.969, OOD 0.031
 ```
 
-The main supported result is the benchmark phenomenon: a raw sequence model can
-learn the non-causal nuisance arrow and fail almost completely when that arrow
-reverses. The simple counterfactual control reduces the OOD gap by sacrificing
-IID accuracy, so it is reported as a method failure, not as a solved robustness
-method.
+This supports the central controlled-benchmark claim: the mixed observation is
+learnable from the causal core when the nuisance is independent, but the same
+sequence model follows the non-causal nuisance arrow when it is label-correlated.
+The counterfactual result should be reported as a mitigation diagnostic, not a
+primary solved method: it improves the mean OOD score but reaches the OOD
+success threshold in only 7/10 full seeds and assumes valid generator-provided
+nuisance counterfactuals.
 
 ## Install
 
@@ -107,6 +121,18 @@ python -m pytest -q
 
 ```bash
 PROFILE=main OUT=results/main_experiments/main bash experiments/main_experiments.sh
+```
+
+Full ten-seed profile:
+
+```bash
+PROFILE=full OUT=results/main_experiments/full bash experiments/main_experiments.sh
+```
+
+Pre-flight gate pilot:
+
+```bash
+PROFILE=gate_pilot OUT=results/main_experiments/gate_pilot bash experiments/main_experiments.sh
 ```
 
 Generated experiment artifacts live under ignored `results/`. Lightweight

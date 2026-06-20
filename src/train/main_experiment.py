@@ -80,6 +80,11 @@ def stable_hash(payload: Any) -> str:
     return hashlib.sha256(raw).hexdigest()[:12]
 
 
+def stable_run_seed(seed: int, scenario: str, method: str) -> int:
+    raw = f"{seed}:{scenario}:{method}".encode("utf-8")
+    return int(hashlib.sha256(raw).hexdigest()[:8], 16) % (2**31 - 1)
+
+
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -111,6 +116,14 @@ def split_tensor(split: IrreversibleSourceSplit, input_key: str) -> np.ndarray:
         return split.mixed[:, ::-1].copy()
     value = getattr(split, input_key)
     return np.asarray(value)
+
+
+def infer_input_channels(x: np.ndarray) -> int:
+    if x.ndim == 4:
+        return 1
+    if x.ndim == 5:
+        return int(x.shape[2])
+    raise ValueError(f"expected 4D or 5D input, got shape {x.shape}")
 
 
 def normalize_with_train(
@@ -209,6 +222,7 @@ def train_one_method(
     model_config: dict[str, Any],
     out_dir: Path,
     seed: int,
+    run_seed: int,
     device: torch.device,
 ) -> dict[str, Any]:
     if method not in METHODS:
@@ -235,7 +249,7 @@ def train_one_method(
         splits["train"].y,
         batch_size=batch_size,
         shuffle=True,
-        seed=seed,
+        seed=run_seed,
         x_cf=normalized_cf.get("train"),
         group=(splits["train"].nuisance_direction > 0).astype(np.int64)
         if uses_group_balancing
@@ -247,7 +261,7 @@ def train_one_method(
             splits[name].y,
             batch_size=batch_size,
             shuffle=False,
-            seed=seed,
+            seed=run_seed,
             x_cf=normalized_cf.get(name),
         )
         for name, x in normalized.items()
@@ -259,6 +273,7 @@ def train_one_method(
         hidden_dim=int(model_config.get("hidden_dim", 64)),
         num_layers=int(model_config.get("num_layers", 1)),
         dropout=float(model_config.get("dropout", 0.0)),
+        input_channels=infer_input_channels(raw["train"]),
     ).to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -323,6 +338,13 @@ def train_one_method(
                 consistency_loss_sum += float(consistency_loss.item()) * batch_size_seen
 
             val_metrics = evaluate(model, eval_loaders["val_iid"], device, has_counterfactual=uses_cf)
+            if uses_cf:
+                validation_score = min(
+                    val_metrics["accuracy"],
+                    val_metrics["accuracy_on_x_cf"],
+                )
+            else:
+                validation_score = val_metrics["accuracy"]
             record = {
                 "seed": seed,
                 "method": method,
@@ -332,11 +354,14 @@ def train_one_method(
                 "cf_task_loss": cf_task_loss_sum / max(seen, 1),
                 "consistency_loss": consistency_loss_sum / max(seen, 1),
                 "val_iid_accuracy": val_metrics["accuracy"],
+                "val_iid_selection_score": validation_score,
                 "val_iid_loss": val_metrics["loss"],
             }
+            if uses_cf:
+                record["val_iid_accuracy_on_x_cf"] = val_metrics["accuracy_on_x_cf"]
             epoch_file.write(json.dumps(record) + "\n")
-            if val_metrics["accuracy"] > best_val:
-                best_val = val_metrics["accuracy"]
+            if validation_score > best_val:
+                best_val = validation_score
                 best_epoch = epoch
                 best_state = {
                     key: value.detach().cpu().clone() for key, value in model.state_dict().items()
@@ -356,6 +381,7 @@ def train_one_method(
     elapsed = time.time() - start
     result = {
         "seed": seed,
+        "run_seed": run_seed,
         "method": method,
         "input_key": input_key,
         "uses_counterfactual": uses_cf,
@@ -517,11 +543,27 @@ def claim_status_text(summary: dict[str, Any], manifest: dict[str, Any]) -> str:
     cf_gap = methods["counterfactual_invariance"]["ood_gap"]["mean"]
     cf_ood = methods["counterfactual_invariance"]["ood_test_accuracy"]["mean"]
     cf_iid = methods["counterfactual_invariance"]["iid_test_accuracy"]["mean"]
+    cf_ood_values = methods["counterfactual_invariance"]["ood_test_accuracy"].get("values", [])
+    cf_seed_success = (
+        sum(float(value) >= 0.80 for value in cf_ood_values) / len(cf_ood_values)
+        if cf_ood_values
+        else None
+    )
     erm_ood = methods["sequence_erm"]["ood_test_accuracy"]["mean"]
     erm_iid = methods["sequence_erm"]["iid_test_accuracy"]["mean"]
     iid_preserved = cf_iid >= max(0.75, erm_iid - 0.15)
-    if cf_gap < erm_gap and cf_ood > erm_ood and iid_preserved:
-        return "Supported in this controlled benchmark: ERM shows an OOD gap and counterfactual invariance reduces it."
+    stable = cf_seed_success is not None and cf_seed_success >= 0.80
+    if cf_gap < erm_gap and cf_ood > erm_ood and iid_preserved and stable:
+        return (
+            "Supported in this controlled benchmark: ERM shows an OOD gap and "
+            "counterfactual invariance reduces it with seed-level stability."
+        )
+    if cf_gap < erm_gap and cf_ood > erm_ood and iid_preserved and not stable:
+        return (
+            "Phenomenon supported: ERM shows an OOD gap. Counterfactual "
+            "invariance improves mean OOD but is not seed-stable enough for a "
+            "primary method-success claim."
+        )
     if cf_gap < erm_gap and cf_ood > erm_ood and not iid_preserved:
         return (
             "Partially supported: ERM shows an OOD gap, but counterfactual "
@@ -543,7 +585,7 @@ def run_experiment(
     profile = profiles[profile_name]
     seeds = [int(seed) for seed in profile.get("seeds", [0])]
     methods = list(profile.get("methods", config.get("methods", [])))
-    scenarios = profile.get("scenarios") or [{"name": "main_reversed", "data": {}}]
+    scenarios = profile.get("scenarios") or [{"name": "main_spurious_arrow", "data": {}}]
     primary_scenario = str(profile.get("primary_scenario", scenarios[0]["name"]))
     training = deep_update(config.get("training", {}), profile.get("training", {}))
     model_config = deep_update(config.get("model", {}), profile.get("model", {}))
@@ -575,6 +617,8 @@ def run_experiment(
             with (seed_dir / "diagnostics.json").open("w", encoding="utf-8") as f:
                 json.dump(diagnostics, f, indent=2)
             for method in scenario_methods:
+                run_seed = stable_run_seed(seed, scenario_name, method)
+                set_seed(run_seed)
                 method_dir = seed_dir / method
                 method_dir.mkdir(parents=True, exist_ok=True)
                 result = train_one_method(
@@ -585,6 +629,7 @@ def run_experiment(
                     model_config=model_config,
                     out_dir=method_dir,
                     seed=seed,
+                    run_seed=run_seed,
                     device=device,
                 )
                 result.update(
@@ -627,7 +672,7 @@ def run_experiment(
         summary=summary,
     )
     (out_dir / "summary.md").write_text(summary_md, encoding="utf-8")
-    if write_docs_summary:
+    if write_docs_summary and not runtime_limited:
         docs_summary = Path("docs/latest_result_summary.md")
         docs_summary.write_text(summary_md, encoding="utf-8")
     return {"manifest": manifest, "summary": summary}

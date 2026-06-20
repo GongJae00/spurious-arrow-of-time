@@ -4,6 +4,12 @@ from src.data.irreversible_source_inference import (
     IrreversibleSourceConfig,
     generate_irreversible_source_splits,
 )
+from src.eval.benchmark_diagnostics import (
+    evaluate_classifier,
+    final_frame,
+    fit_classifier,
+    motion_arrow_features,
+)
 
 
 def small_config() -> IrreversibleSourceConfig:
@@ -109,3 +115,59 @@ def test_disable_nuisance_replaces_mixed_with_core_only() -> None:
     split = generate_irreversible_source_splits(cfg)["train"]
     np.testing.assert_allclose(split.mixed, split.core_only)
     np.testing.assert_allclose(split.counterfactual, split.core_only)
+
+
+def test_two_channel_observation_layout_keeps_components_separable() -> None:
+    cfg = small_config()
+    cfg = cfg.__class__(**{**cfg.__dict__, "observation_layout": "two_channel"})
+    split = generate_irreversible_source_splits(cfg)["train"]
+    assert split.core_only.shape == (64, 6, 12, 12)
+    assert split.mixed.shape == (64, 6, 2, 12, 12)
+    assert split.counterfactual.shape == split.mixed.shape
+    assert split.metadata["observation_layout"] == "two_channel"
+    assert np.mean(np.abs(split.mixed[:, :, 0])) > 0.0
+    assert np.mean(np.abs(split.mixed[:, :, 1])) > 0.0
+
+
+def test_endpoint_matched_controls_final_nuisance_leakage() -> None:
+    cfg = small_config()
+    cfg = cfg.__class__(
+        **{
+            **cfg.__dict__,
+            "benchmark_variant": "endpoint_matched",
+            "n_train": 512,
+            "n_iid_test": 512,
+            "n_ood_test": 512,
+        }
+    )
+    splits = generate_irreversible_source_splits(cfg)
+    train = splits["train"]
+    iid = splits["iid_test"]
+
+    final_model = fit_classifier(final_frame(train.nuisance_only), train.y)
+    final_acc = evaluate_classifier(final_model, final_frame(iid.nuisance_only), iid.y)
+    motion_model = fit_classifier(motion_arrow_features(train.nuisance_only), train.y)
+    motion_acc = evaluate_classifier(
+        motion_model,
+        motion_arrow_features(iid.nuisance_only),
+        iid.y,
+    )
+
+    assert final_acc <= 0.65
+    assert motion_acc >= 0.85
+    assert train.metadata["benchmark_variant"] == "endpoint_matched"
+
+
+def test_randomized_counterfactual_is_not_label_aligned() -> None:
+    cfg = small_config()
+    cfg = cfg.__class__(
+        **{
+            **cfg.__dict__,
+            "counterfactual_mode": "randomized",
+            "n_train": 512,
+        }
+    )
+    split = generate_irreversible_source_splits(cfg)["train"]
+    corr = np.corrcoef(split.y, split.counterfactual_direction)[0, 1]
+    assert abs(corr) < 0.2
+    assert 0.35 < split.metadata["counterfactual_changed_fraction"] < 0.65
