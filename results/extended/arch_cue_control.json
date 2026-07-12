@@ -1,0 +1,55 @@
+{
+  "lstm/nuisance_only": {
+    "iid": 0.9681640625,
+    "iid_std": 0.0025640577838117427,
+    "ood": 0.031884765625,
+    "ood_std": 0.002469322814158258
+  },
+  "lstm/core_only": {
+    "iid": 1.0,
+    "iid_std": 0.0,
+    "ood": 1.0,
+    "ood_std": 0.0
+  },
+  "tcn/nuisance_only": {
+    "iid": 0.9681640625,
+    "iid_std": 0.0025640577838117427,
+    "ood": 0.031884765625,
+    "ood_std": 0.002469322814158258
+  },
+  "tcn/core_only": {
+    "iid": 1.0,
+    "iid_std": 0.0,
+    "ood": 1.0,
+    "ood_std": 0.0
+  },
+  "transformer/nuisance_only": {
+    "iid": 0.782470703125,
+    "iid_std": 0.25585972443767885,
+    "ood": 0.220458984375,
+    "ood_std": 0.2568654670709927
+  },
+  "transformer/core_only": {
+    "iid": 1.0,
+    "iid_std": 0.0,
+    "ood": 1.0,
+    "ood_std": 0.0
+  },
+  "pooling/nuisance_only": {
+    "iid": 0.500146484375,
+    "iid_std": 0.004331690452386109,
+    "ood": 0.505517578125,
+    "ood_std": 0.003923758369915686
+  },
+  "pooling/core_only": {
+    "iid": 1.0,
+    "iid_std": 0.0,
+    "ood": 1.0,
+    "ood_std": 0.0
+  },
+  "groupdro_corr0.70": {
+    "iid": 0.999853515625,
+    "ood": 0.999853515625,
+    "core": 5
+  }
+}
