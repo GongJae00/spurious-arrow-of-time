@@ -1,0 +1,22 @@
+{
+ "seed0": {
+  "reader_persample_shuffle_ood": 0.4966,
+  "mixed_persample_shuffle_nuis_ood": 0.4946
+ },
+ "seed1": {
+  "reader_persample_shuffle_ood": 0.5085,
+  "mixed_persample_shuffle_nuis_ood": 0.5012
+ },
+ "seed2": {
+  "reader_persample_shuffle_ood": 0.4863,
+  "mixed_persample_shuffle_nuis_ood": 0.4946
+ },
+ "seed3": {
+  "reader_persample_shuffle_ood": 0.502,
+  "mixed_persample_shuffle_nuis_ood": 0.501
+ },
+ "seed4": {
+  "reader_persample_shuffle_ood": 0.5098,
+  "mixed_persample_shuffle_nuis_ood": 0.5081
+ }
+}
