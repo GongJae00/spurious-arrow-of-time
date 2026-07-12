@@ -1,0 +1,127 @@
+{
+ "seed0": {
+  "core_only": [
+   0.9258,
+   0.9395
+  ],
+  "nuisance_only": [
+   0.9742,
+   0.0363
+  ],
+  "erm": [
+   0.9803,
+   0.5204
+  ],
+  "erm_shuffle_nuis": 0.8608,
+  "erm_reverse_nuis": 0.9728,
+  "erm_reverse_core": 0.5068,
+  "no_spurious": [
+   0.9121,
+   0.9244
+  ],
+  "best_single_seg_dir": 0.5227,
+  "unordered_set_dir": 0.5364,
+  "final_seg_label": 0.7545,
+  "final_seg_dir": 0.7424
+ },
+ "seed1": {
+  "core_only": [
+   0.9364,
+   0.9319
+  ],
+  "nuisance_only": [
+   0.9727,
+   0.0197
+  ],
+  "erm": [
+   0.9833,
+   0.4508
+  ],
+  "erm_shuffle_nuis": 0.8064,
+  "erm_reverse_nuis": 0.9818,
+  "erm_reverse_core": 0.4191,
+  "no_spurious": [
+   0.9394,
+   0.9107
+  ],
+  "best_single_seg_dir": 0.5091,
+  "unordered_set_dir": 0.5182,
+  "final_seg_label": 0.7545,
+  "final_seg_dir": 0.7409
+ },
+ "seed2": {
+  "core_only": [
+   0.9212,
+   0.9198
+  ],
+  "nuisance_only": [
+   0.9667,
+   0.0303
+  ],
+  "erm": [
+   0.9788,
+   0.4523
+  ],
+  "erm_shuffle_nuis": 0.8654,
+  "erm_reverse_nuis": 0.9758,
+  "erm_reverse_core": 0.4266,
+  "no_spurious": [
+   0.9288,
+   0.9349
+  ],
+  "best_single_seg_dir": 0.547,
+  "unordered_set_dir": 0.5121,
+  "final_seg_label": 0.7212,
+  "final_seg_dir": 0.7015
+ },
+ "seed3": {
+  "core_only": [
+   0.9424,
+   0.9334
+  ],
+  "nuisance_only": [
+   0.9727,
+   0.0378
+  ],
+  "erm": [
+   0.9742,
+   0.4327
+  ],
+  "erm_shuffle_nuis": 0.8336,
+  "erm_reverse_nuis": 0.9652,
+  "erm_reverse_core": 0.4539,
+  "no_spurious": [
+   0.9348,
+   0.9274
+  ],
+  "best_single_seg_dir": 0.5409,
+  "unordered_set_dir": 0.497,
+  "final_seg_label": 0.747,
+  "final_seg_dir": 0.7076
+ },
+ "seed4": {
+  "core_only": [
+   0.9212,
+   0.9304
+  ],
+  "nuisance_only": [
+   0.9606,
+   0.0348
+  ],
+  "erm": [
+   0.9742,
+   0.3812
+  ],
+  "erm_shuffle_nuis": 0.8714,
+  "erm_reverse_nuis": 0.9697,
+  "erm_reverse_core": 0.3631,
+  "no_spurious": [
+   0.9318,
+   0.9183
+  ],
+  "best_single_seg_dir": 0.553,
+  "unordered_set_dir": 0.4742,
+  "final_seg_label": 0.7136,
+  "final_seg_dir": 0.7091
+ }
+}

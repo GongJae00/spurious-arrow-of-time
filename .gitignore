@@ -46,3 +46,4 @@ smoke_tmp*/
 .DS_Store
 Thumbs.db
 *.swp
+data/ucr/
