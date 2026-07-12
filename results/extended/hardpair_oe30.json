@@ -1,0 +1,412 @@
+{
+ "seed0": {
+  "erm": [
+   0.9685,
+   0.0332
+  ],
+  "shuffle_nuis": 0.647,
+  "reverse_nuis": 0.9668,
+  "reverse_core": 0.0332,
+  "nuisance_only": [
+   0.9685,
+   0.0332
+  ],
+  "firstlast_pair_dir": 0.5083,
+  "best_single_frame_dir": 0.5083,
+  "set_dir": 0.5083,
+  "adjacent_pair_dir": 1.0
+ },
+ "seed1": {
+  "erm": [
+   0.9727,
+   0.0295
+  ],
+  "shuffle_nuis": 0.5955,
+  "reverse_nuis": 0.9705,
+  "reverse_core": 0.0295,
+  "nuisance_only": [
+   0.9727,
+   0.0295
+  ],
+  "firstlast_pair_dir": 0.4993,
+  "best_single_frame_dir": 0.509,
+  "set_dir": 0.5056,
+  "adjacent_pair_dir": 1.0
+ },
+ "seed2": {
+  "erm": [
+   0.9683,
+   0.0295
+  ],
+  "shuffle_nuis": 0.2021,
+  "reverse_nuis": 0.9705,
+  "reverse_core": 0.0295,
+  "nuisance_only": [
+   0.9683,
+   0.0295
+  ],
+  "firstlast_pair_dir": 0.4988,
+  "best_single_frame_dir": 0.5149,
+  "set_dir": 0.4988,
+  "adjacent_pair_dir": 1.0
+ },
+ "seed3": {
+  "erm": [
+   0.9705,
+   0.0271
+  ],
+  "shuffle_nuis": 0.0271,
+  "reverse_nuis": 0.9729,
+  "reverse_core": 0.0271,
+  "nuisance_only": [
+   0.9705,
+   0.0271
+  ],
+  "firstlast_pair_dir": 0.5068,
+  "best_single_frame_dir": 0.5076,
+  "set_dir": 0.5046,
+  "adjacent_pair_dir": 1.0
+ },
+ "seed4": {
+  "erm": [
+   0.9683,
+   0.0295
+  ],
+  "shuffle_nuis": 0.3206,
+  "reverse_nuis": 0.9705,
+  "reverse_core": 0.0295,
+  "nuisance_only": [
+   0.9683,
+   0.0295
+  ],
+  "firstlast_pair_dir": 0.4951,
+  "best_single_frame_dir": 0.5088,
+  "set_dir": 0.4897,
+  "adjacent_pair_dir": 1.0
+ },
+ "seed5": {
+  "erm": [
+   0.9729,
+   0.0305
+  ],
+  "shuffle_nuis": 0.0583,
+  "reverse_nuis": 0.9695,
+  "reverse_core": 0.0305,
+  "nuisance_only": [
+   0.9729,
+   0.0305
+  ]
+ },
+ "seed6": {
+  "erm": [
+   0.9695,
+   0.0295
+  ],
+  "shuffle_nuis": 0.2747,
+  "reverse_nuis": 0.9705,
+  "reverse_core": 0.0295,
+  "nuisance_only": [
+   0.9695,
+   0.0295
+  ]
+ },
+ "seed7": {
+  "erm": [
+   0.9695,
+   0.0308
+  ],
+  "shuffle_nuis": 0.7629,
+  "reverse_nuis": 0.9692,
+  "reverse_core": 0.0308,
+  "nuisance_only": [
+   0.9695,
+   0.0308
+  ]
+ },
+ "seed8": {
+  "erm": [
+   0.9736,
+   0.0317
+  ],
+  "shuffle_nuis": 0.2134,
+  "reverse_nuis": 0.9683,
+  "reverse_core": 0.0317,
+  "nuisance_only": [
+   0.9736,
+   0.0317
+  ]
+ },
+ "seed9": {
+  "erm": [
+   0.9709,
+   0.0266
+  ],
+  "shuffle_nuis": 0.5669,
+  "reverse_nuis": 0.9734,
+  "reverse_core": 0.0266,
+  "nuisance_only": [
+   0.9709,
+   0.0266
+  ]
+ },
+ "seed10": {
+  "erm": [
+   0.9651,
+   0.0315
+  ],
+  "shuffle_nuis": 0.5359,
+  "reverse_nuis": 0.9685,
+  "reverse_core": 0.0315,
+  "nuisance_only": [
+   0.9651,
+   0.0315
+  ]
+ },
+ "seed11": {
+  "erm": [
+   0.9697,
+   0.0349
+  ],
+  "shuffle_nuis": 0.7681,
+  "reverse_nuis": 0.9651,
+  "reverse_core": 0.0349,
+  "nuisance_only": [
+   0.9697,
+   0.0349
+  ]
+ },
+ "seed12": {
+  "erm": [
+   0.9714,
+   0.0281
+  ],
+  "shuffle_nuis": 0.4133,
+  "reverse_nuis": 0.9719,
+  "reverse_core": 0.0281,
+  "nuisance_only": [
+   0.9714,
+   0.0281
+  ]
+ },
+ "seed13": {
+  "erm": [
+   0.9736,
+   0.03
+  ],
+  "shuffle_nuis": 0.4131,
+  "reverse_nuis": 0.97,
+  "reverse_core": 0.03,
+  "nuisance_only": [
+   0.9736,
+   0.03
+  ]
+ },
+ "seed14": {
+  "erm": [
+   0.9695,
+   0.0259
+  ],
+  "shuffle_nuis": 0.0923,
+  "reverse_nuis": 0.9741,
+  "reverse_core": 0.0259,
+  "nuisance_only": [
+   0.9695,
+   0.0259
+  ]
+ },
+ "seed15": {
+  "erm": [
+   0.9729,
+   0.0315
+  ],
+  "shuffle_nuis": 0.4668,
+  "reverse_nuis": 0.9685,
+  "reverse_core": 0.0315,
+  "nuisance_only": [
+   0.9729,
+   0.0315
+  ]
+ },
+ "seed16": {
+  "erm": [
+   0.9727,
+   0.0266
+  ],
+  "shuffle_nuis": 0.2244,
+  "reverse_nuis": 0.9734,
+  "reverse_core": 0.0266,
+  "nuisance_only": [
+   0.9727,
+   0.0266
+  ]
+ },
+ "seed17": {
+  "erm": [
+   0.968,
+   0.0264
+  ],
+  "shuffle_nuis": 0.5,
+  "reverse_nuis": 0.9736,
+  "reverse_core": 0.0264,
+  "nuisance_only": [
+   0.968,
+   0.0264
+  ]
+ },
+ "seed18": {
+  "erm": [
+   0.9702,
+   0.0305
+  ],
+  "shuffle_nuis": 0.064,
+  "reverse_nuis": 0.9695,
+  "reverse_core": 0.0305,
+  "nuisance_only": [
+   0.9702,
+   0.0305
+  ]
+ },
+ "seed19": {
+  "erm": [
+   0.9707,
+   0.0288
+  ],
+  "shuffle_nuis": 0.0896,
+  "reverse_nuis": 0.9712,
+  "reverse_core": 0.0288,
+  "nuisance_only": [
+   0.9707,
+   0.0288
+  ]
+ },
+ "seed20": {
+  "erm": [
+   0.9731,
+   0.0298
+  ],
+  "shuffle_nuis": 0.3831,
+  "reverse_nuis": 0.9702,
+  "reverse_core": 0.0298,
+  "nuisance_only": [
+   0.9731,
+   0.0298
+  ]
+ },
+ "seed21": {
+  "erm": [
+   0.9709,
+   0.0283
+  ],
+  "shuffle_nuis": 0.3367,
+  "reverse_nuis": 0.9717,
+  "reverse_core": 0.0283,
+  "nuisance_only": [
+   0.9709,
+   0.0283
+  ]
+ },
+ "seed22": {
+  "erm": [
+   0.9656,
+   0.0356
+  ],
+  "shuffle_nuis": 0.2092,
+  "reverse_nuis": 0.9644,
+  "reverse_core": 0.0356,
+  "nuisance_only": [
+   0.9656,
+   0.0356
+  ]
+ },
+ "seed23": {
+  "erm": [
+   0.969,
+   0.03
+  ],
+  "shuffle_nuis": 0.3484,
+  "reverse_nuis": 0.97,
+  "reverse_core": 0.03,
+  "nuisance_only": [
+   0.969,
+   0.03
+  ]
+ },
+ "seed24": {
+  "erm": [
+   0.9709,
+   0.031
+  ],
+  "shuffle_nuis": 0.675,
+  "reverse_nuis": 0.969,
+  "reverse_core": 0.031,
+  "nuisance_only": [
+   0.9709,
+   0.031
+  ]
+ },
+ "seed25": {
+  "erm": [
+   0.9727,
+   0.0317
+  ],
+  "shuffle_nuis": 0.7903,
+  "reverse_nuis": 0.9683,
+  "reverse_core": 0.0317,
+  "nuisance_only": [
+   0.9727,
+   0.0317
+  ]
+ },
+ "seed26": {
+  "erm": [
+   0.9661,
+   0.0266
+  ],
+  "shuffle_nuis": 0.8542,
+  "reverse_nuis": 0.9734,
+  "reverse_core": 0.0266,
+  "nuisance_only": [
+   0.9661,
+   0.0266
+  ]
+ },
+ "seed27": {
+  "erm": [
+   0.9722,
+   0.0298
+  ],
+  "shuffle_nuis": 0.2622,
+  "reverse_nuis": 0.9702,
+  "reverse_core": 0.0298,
+  "nuisance_only": [
+   0.9722,
+   0.0298
+  ]
+ },
+ "seed28": {
+  "erm": [
+   0.9712,
+   0.0298
+  ],
+  "shuffle_nuis": 0.3997,
+  "reverse_nuis": 0.9702,
+  "reverse_core": 0.0298,
+  "nuisance_only": [
+   0.9712,
+   0.0298
+  ]
+ },
+ "seed29": {
+  "erm": [
+   0.9712,
+   0.0271
+  ],
+  "shuffle_nuis": 0.0271,
+  "reverse_nuis": 0.9729,
+  "reverse_core": 0.0271,
+  "nuisance_only": [
+   0.9712,
+   0.0271
+  ]
+ }
+}

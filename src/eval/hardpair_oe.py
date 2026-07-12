@@ -64,7 +64,7 @@ def make(seed, corr_train=0.97):
     return out
 
 
-def train_gru(sp, seed, device, field=None):
+def train_gru(sp, seed, device, field=None, ret_model=False, epochs=40, patience=12):
     mu = sp["train"][0].mean()
     sd = sp["train"][0].std() or 1.0
 
@@ -82,7 +82,7 @@ def train_gru(sp, seed, device, field=None):
                     input_channels=1 if field is not None else 2).to(device)
     opt = torch.optim.AdamW(m.parameters(), lr=1e-3, weight_decay=1e-4)
     best, state, bad = -1, None, 0
-    for _ in range(40):
+    for _ in range(epochs):
         m.train()
         perm = torch.randperm(len(x("train")))
         for i in range(0, len(perm), 128):
@@ -98,12 +98,15 @@ def train_gru(sp, seed, device, field=None):
             state = {k: v.cpu().clone() for k, v in m.state_dict().items()}
         else:
             bad += 1
-            if bad >= 12:
+            if bad >= patience:
                 break
     m.load_state_dict(state)
     m.eval()
-    return (accuracy(m, x("iid_test"), y["iid_test"], device),
-            accuracy(m, x("ood_test"), y["ood_test"], device))
+    res = (accuracy(m, x("iid_test"), y["iid_test"], device),
+           accuracy(m, x("ood_test"), y["ood_test"], device))
+    if ret_model:
+        return res + (m, mu, sd)
+    return res
 
 
 def probe(xtr, ttr, xte, tte, device, epochs=30):
@@ -125,7 +128,8 @@ def probe(xtr, ttr, xte, tte, device, epochs=30):
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--seeds", type=int, default=10)
-    p.add_argument("--out", default="results/extended/hardpair_oe.json")
+    p.add_argument("--out", default="results/extended/hardpair_oe30.json")
+    p.add_argument("--nospurious", action="store_true")
     a = p.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     outpath = Path(a.out)
@@ -134,9 +138,29 @@ def main() -> None:
         key = f"seed{seed}"
         if key in out:
             continue
+        if a.nospurious:
+            sp = make(seed, corr_train=0.5)
+            r = {"nospur": train_gru(sp, seed, device, epochs=100,
+                                     patience=30)}
+            out[key] = {k: [round(t, 4) for t in v] for k, v in r.items()}
+            print(key, out[key], flush=True)
+            outpath.parent.mkdir(parents=True, exist_ok=True)
+            json.dump(out, open(outpath, "w", encoding="utf-8"), indent=1)
+            continue
         sp = make(seed)
         r = {}
-        r["erm"] = train_gru(sp, seed, device)
+        iid, ood, m, mu, sd = train_gru(sp, seed, device, ret_model=True)
+        r["erm"] = (iid, ood)
+        xo = to_tensor((sp["ood_test"][0] - mu) / sd)
+        yo = torch.from_numpy(sp["ood_test"][1])
+        perm = torch.randperm(L)
+        xs = xo.clone(); xs[:, :, 1] = xs[:, perm, 1]
+        r["shuffle_nuis"] = accuracy(m, xs, yo, device)
+        xr = xo.clone(); xr[:, :, 1] = torch.flip(xr[:, :, 1], dims=[1])
+        r["reverse_nuis"] = accuracy(m, xr, yo, device)
+        xc = xo.clone(); xc[:, :, 0] = torch.flip(xc[:, :, 0], dims=[1])
+        r["reverse_core"] = accuracy(m, xc, yo, device)
+        del m
         r["nuisance_only"] = train_gru(sp, seed + 5000, device, field=1)
         if seed < 5:
             nu_tr = torch.from_numpy(sp["train"][0][:, :, 1])
