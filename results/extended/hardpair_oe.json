@@ -1,0 +1,122 @@
+{
+ "seed0": {
+  "erm": [
+   0.9697,
+   0.0259
+  ],
+  "nuisance_only": [
+   0.9697,
+   0.0259
+  ],
+  "firstlast_pair_dir": 0.4888,
+  "best_single_frame_dir": 0.5005,
+  "set_dir": 0.4888,
+  "adjacent_pair_dir": 1.0
+ },
+ "seed1": {
+  "erm": [
+   0.968,
+   0.0303
+  ],
+  "nuisance_only": [
+   0.968,
+   0.0303
+  ],
+  "firstlast_pair_dir": 0.4939,
+  "best_single_frame_dir": 0.5022,
+  "set_dir": 0.4939,
+  "adjacent_pair_dir": 1.0
+ },
+ "seed2": {
+  "erm": [
+   0.9717,
+   0.0298
+  ],
+  "nuisance_only": [
+   0.9717,
+   0.0298
+  ],
+  "firstlast_pair_dir": 0.5032,
+  "best_single_frame_dir": 0.5032,
+  "set_dir": 0.4956,
+  "adjacent_pair_dir": 1.0
+ },
+ "seed3": {
+  "erm": [
+   0.967,
+   0.0322
+  ],
+  "nuisance_only": [
+   0.967,
+   0.0322
+  ],
+  "firstlast_pair_dir": 0.5034,
+  "best_single_frame_dir": 0.5281,
+  "set_dir": 0.5078,
+  "adjacent_pair_dir": 1.0
+ },
+ "seed4": {
+  "erm": [
+   0.9658,
+   0.0276
+  ],
+  "nuisance_only": [
+   0.9658,
+   0.0276
+  ],
+  "firstlast_pair_dir": 0.5034,
+  "best_single_frame_dir": 0.5049,
+  "set_dir": 0.5034,
+  "adjacent_pair_dir": 1.0
+ },
+ "seed5": {
+  "erm": [
+   0.9712,
+   0.0325
+  ],
+  "nuisance_only": [
+   0.9712,
+   0.0325
+  ]
+ },
+ "seed6": {
+  "erm": [
+   0.9685,
+   0.0361
+  ],
+  "nuisance_only": [
+   0.9685,
+   0.0361
+  ]
+ },
+ "seed7": {
+  "erm": [
+   0.9727,
+   0.0291
+  ],
+  "nuisance_only": [
+   0.9727,
+   0.0291
+  ]
+ },
+ "seed8": {
+  "erm": [
+   0.9683,
+   0.0256
+  ],
+  "nuisance_only": [
+   0.9683,
+   0.0256
+  ]
+ },
+ "seed9": {
+  "erm": [
+   0.9705,
+   0.0291
+  ],
+  "nuisance_only": [
+   0.9705,
+   0.0291
+  ]
+ }
+}
