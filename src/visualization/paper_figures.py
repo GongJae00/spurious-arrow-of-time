@@ -132,13 +132,15 @@ def figure_benchmark(out_dir: Path, config_path: Path) -> None:
     splits = generate_irreversible_source_splits(config)
     train = splits["train"]
     ood = splits["ood_test"]
+    config_oe = replace(config, nuisance_trail_decay=0.0)
+    train_oe = generate_irreversible_source_splits(config_oe)["train"]
     idx = int(np.where(train.y == 1)[0][0])
     idx_ood = int(np.where(ood.y == 1)[0][0])
     times = list(range(config.length))
 
-    fig = plt.figure(figsize=(7.55, 3.55))
+    fig = plt.figure(figsize=(7.55, 4.25))
     grid = gridspec.GridSpec(
-        5,
+        6,
         1 + len(times),
         figure=fig,
         width_ratios=[1.25] + [1] * len(times),
@@ -155,6 +157,7 @@ def figure_benchmark(out_dir: Path, config_path: Path) -> None:
         ("C", "Mixed input", "train/IID", train.mixed[idx], "mixed"),
         ("D", "Counterfactual", "core fixed", train.counterfactual[idx], "mixed"),
         ("E", "OOD input", "arrow shifted", ood.mixed[idx_ood], "mixed"),
+        ("F", "Order-encoded", "nuisance, no residue", train_oe.nuisance_only[idx], "nuisance"),
     ]
     core_stack = [
         train.core_only[idx],
