@@ -1,0 +1,142 @@
+{
+ "seed0": {
+  "erm": [
+   0.9692,
+   0.031
+  ],
+  "reverse_nuis": 0.969,
+  "reverse_core": 0.031,
+  "persample_shuffle_nuis": 0.51,
+  "nuisance_only": [
+   0.9692,
+   0.031
+  ],
+  "best_single_frame_dir": 0.5105,
+  "set_dir": 0.4985
+ },
+ "seed1": {
+  "erm": [
+   0.9661,
+   0.0303
+  ],
+  "reverse_nuis": 0.9697,
+  "reverse_core": 0.0303,
+  "persample_shuffle_nuis": 0.4927,
+  "nuisance_only": [
+   0.9661,
+   0.0303
+  ],
+  "best_single_frame_dir": 0.501,
+  "set_dir": 0.5002
+ },
+ "seed2": {
+  "erm": [
+   0.9709,
+   0.0303
+  ],
+  "reverse_nuis": 0.9697,
+  "reverse_core": 0.0303,
+  "persample_shuffle_nuis": 0.5002,
+  "nuisance_only": [
+   0.9709,
+   0.0303
+  ],
+  "best_single_frame_dir": 0.5068,
+  "set_dir": 0.5032
+ },
+ "seed3": {
+  "erm": [
+   0.969,
+   0.0288
+  ],
+  "reverse_nuis": 0.9712,
+  "reverse_core": 0.0288,
+  "persample_shuffle_nuis": 0.4958,
+  "nuisance_only": [
+   0.969,
+   0.0288
+  ],
+  "best_single_frame_dir": 0.5125,
+  "set_dir": 0.5002
+ },
+ "seed4": {
+  "erm": [
+   0.9673,
+   0.0322
+  ],
+  "reverse_nuis": 0.9678,
+  "reverse_core": 0.0322,
+  "persample_shuffle_nuis": 0.5061,
+  "nuisance_only": [
+   0.9673,
+   0.0322
+  ],
+  "best_single_frame_dir": 0.5085,
+  "set_dir": 0.502
+ },
+ "seed5": {
+  "erm": [
+   0.9709,
+   0.0342
+  ],
+  "reverse_nuis": 0.9658,
+  "reverse_core": 0.0342,
+  "persample_shuffle_nuis": 0.4993,
+  "nuisance_only": [
+   0.9709,
+   0.0342
+  ]
+ },
+ "seed6": {
+  "erm": [
+   0.967,
+   0.0271
+  ],
+  "reverse_nuis": 0.9729,
+  "reverse_core": 0.0271,
+  "persample_shuffle_nuis": 0.5093,
+  "nuisance_only": [
+   0.967,
+   0.0271
+  ]
+ },
+ "seed7": {
+  "erm": [
+   0.9673,
+   0.0344
+  ],
+  "reverse_nuis": 0.9656,
+  "reverse_core": 0.0344,
+  "persample_shuffle_nuis": 0.5085,
+  "nuisance_only": [
+   0.9673,
+   0.0344
+  ]
+ },
+ "seed8": {
+  "erm": [
+   0.9695,
+   0.0327
+  ],
+  "reverse_nuis": 0.9673,
+  "reverse_core": 0.0327,
+  "persample_shuffle_nuis": 0.5081,
+  "nuisance_only": [
+   0.9695,
+   0.0327
+  ]
+ },
+ "seed9": {
+  "erm": [
+   0.9714,
+   0.0276
+  ],
+  "reverse_nuis": 0.9724,
+  "reverse_core": 0.0276,
+  "persample_shuffle_nuis": 0.4988,
+  "nuisance_only": [
+   0.9714,
+   0.0276
+  ]
+ }
+}

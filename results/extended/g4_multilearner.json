@@ -1,0 +1,38 @@
+{
+ "gru/seed0": [
+  1.0,
+  1.0
+ ],
+ "gru/seed1": [
+  1.0,
+  1.0
+ ],
+ "gru/seed2": [
+  1.0,
+  1.0
+ ],
+ "tcn/seed0": [
+  1.0,
+  1.0
+ ],
+ "tcn/seed1": [
+  1.0,
+  1.0
+ ],
+ "tcn/seed2": [
+  0.9993,
+  0.9993
+ ],
+ "transformer/seed0": [
+  1.0,
+  1.0
+ ],
+ "transformer/seed1": [
+  1.0,
+  1.0
+ ],
+ "transformer/seed2": [
+  1.0,
+  1.0
+ ]
+}
