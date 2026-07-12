@@ -52,6 +52,7 @@ class IrreversibleSourceConfig:
     real_video_cache: str = ""  # npz of [N, L, grid, grid] uint8 crops for real_video
     real_video_standardize: bool = False  # zero-mean/unit-std per crop (removes static energy)
     real_video_blur_sigma: float = 0.0  # spatial Gaussian blur (keeps motion, removes texture)
+    real_video_endpoint_roll: bool = False  # per-sample random circular time roll: the final-frame marginal becomes direction-independent (endpoint matching for real clips)
     core_process: str = "diffusion"  # diffusion | advection | directional_pulse
     core_direction_flip_prob: float = 0.0  # directional_pulse: P(core pulse direction disagrees with label); caps the core predictive ceiling
     advection_shift: int = 1  # cells shifted per diffusion step for advection core
@@ -429,6 +430,18 @@ def build_real_video_nuisance(
     seq = crops[idx].astype(np.float32) / 255.0
     reverse = direction < 0
     seq[reverse] = seq[reverse, ::-1]
+    if config.real_video_endpoint_roll:
+        # Circular time roll with a per-sample random offset. Reversal
+        # preserves the frame multiset; the roll additionally makes the
+        # marginal distribution of every frame position (including the final
+        # frame) direction-independent, at the cost of one wrap-around seam
+        # in the motion. This is the real-clip analogue of the wrap-around
+        # endpoint matching used by the synthetic translate nuisance.
+        shifts = rng.integers(0, seq.shape[1], size=len(seq))
+        for s in np.unique(shifts):
+            mask = shifts == s
+            if s:
+                seq[mask] = np.roll(seq[mask], int(s), axis=1)
     if config.real_video_blur_sigma > 0:
         import cv2  # local import; only needed for the real-video extension
 
