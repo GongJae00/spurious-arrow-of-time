@@ -37,11 +37,12 @@ def load_forda():
     rows = []
     for f in ["data/ucr/FordA_TRAIN.tsv", "data/ucr/FordA_TEST.tsv"]:
         rows.append(np.loadtxt(f))
+    ntr = len(rows[0])
     a = np.concatenate(rows)
     y = (a[:, 0] > 0).astype(np.int64)
     x = a[:, 1:].astype(np.float32)
     x = (x - x.mean(1, keepdims=True)) / (x.std(1, keepdims=True) + 1e-8)
-    return x.reshape(len(x), L, W), y
+    return x.reshape(len(x), L, W), y, ntr
 
 
 def load_har(mode="har"):
@@ -58,10 +59,11 @@ def load_har(mode="har"):
         ys.append(yy)
     x = np.concatenate(xs).astype(np.float32)
     yy = np.concatenate(ys)
+    is_tr = np.arange(len(yy)) < len(ys[0])
     if mode == "har2":
         # fine-grained dynamic pair: walking (1) vs walking upstairs (2)
         keep = yy <= 2
-        x, yy = x[keep], yy[keep]
+        x, yy, is_tr = x[keep], yy[keep], is_tr[keep]
         y = (yy == 1).astype(np.int64)
     else:
         y = (yy <= 3).astype(np.int64)
@@ -69,7 +71,8 @@ def load_har(mode="har"):
     t_old = np.linspace(0, 1, x.shape[1])
     t_new = np.linspace(0, 1, L * W)
     x = np.stack([np.interp(t_new, t_old, r) for r in x]).astype(np.float32)
-    return x.reshape(len(x), L, W), y
+    ntr = int(is_tr.sum())
+    return x.reshape(len(x), L, W), y, ntr
 
 
 def make_split(xc, y, rng, corr, n):
@@ -134,20 +137,28 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--seeds", type=int, default=5)
     p.add_argument("--dataset", default="forda", choices=["forda", "har", "har2"])
+    p.add_argument("--official", action="store_true")
     p.add_argument("--out", default="results/extended/semisynthetic_ucr.json")
     a = p.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if a.dataset in ("har", "har2"):
-        xc_all, y_all = load_har(a.dataset)
-        n = len(y_all)
-        cut = [int(n*0.62), int(n*0.70), int(n*0.85), n]
+        xc_all, y_all, ntr = load_har(a.dataset)
     else:
-        xc_all, y_all = load_forda()
-        cut = [3200, 3600, 4260, 4921]
+        xc_all, y_all, ntr = load_forda()
+    n = len(y_all)
+    if a.official:
+        # official train/test boundary: loaders place train rows first
+        cut = [int(ntr * 0.9), ntr, ntr + (n - ntr) // 2, n]
+    else:
+        cut = [int(n * 0.62), int(n * 0.70), int(n * 0.85), n]
     out = {}
     for seed in range(a.seeds):
         rng = np.random.default_rng(seed)
-        order = rng.permutation(len(y_all))
+        if a.official:
+            order = np.concatenate([rng.permutation(ntr),
+                                    ntr + rng.permutation(n - ntr)])
+        else:
+            order = rng.permutation(n)
         pool = {}
         for name, s, e, corr in [("train", 0, cut[0], CORR),
                                  ("val", cut[0], cut[1], CORR),
