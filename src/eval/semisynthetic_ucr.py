@@ -44,6 +44,34 @@ def load_forda():
     return x.reshape(len(x), L, W), y
 
 
+def load_har(mode="har"):
+    """UCI HAR body-acceleration windows (128 samples at 50 Hz), binarized
+    into dynamic (walking variants, labels 1-3) vs. static (sitting,
+    standing, lying, labels 4-6); windows are linearly resampled to length
+    L*W so the same segmenting pipeline applies."""
+    base = "data/ucr/har/UCI HAR Dataset"
+    xs, ys = [], []
+    for split in ["train", "test"]:
+        x = np.loadtxt(f"{base}/{split}/Inertial Signals/body_acc_x_{split}.txt")
+        yy = np.loadtxt(f"{base}/{split}/y_{split}.txt")
+        xs.append(x)
+        ys.append(yy)
+    x = np.concatenate(xs).astype(np.float32)
+    yy = np.concatenate(ys)
+    if mode == "har2":
+        # fine-grained dynamic pair: walking (1) vs walking upstairs (2)
+        keep = yy <= 2
+        x, yy = x[keep], yy[keep]
+        y = (yy == 1).astype(np.int64)
+    else:
+        y = (yy <= 3).astype(np.int64)
+    x = (x - x.mean(1, keepdims=True)) / (x.std(1, keepdims=True) + 1e-8)
+    t_old = np.linspace(0, 1, x.shape[1])
+    t_new = np.linspace(0, 1, L * W)
+    x = np.stack([np.interp(t_new, t_old, r) for r in x]).astype(np.float32)
+    return x.reshape(len(x), L, W), y
+
+
 def make_split(xc, y, rng, corr, n):
     idx = rng.choice(len(y), size=n, replace=False)
     xcs, ys = xc[idx], y[idx]
@@ -105,15 +133,21 @@ def acc(model, x, y, device):
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--seeds", type=int, default=5)
+    p.add_argument("--dataset", default="forda", choices=["forda", "har", "har2"])
     p.add_argument("--out", default="results/extended/semisynthetic_ucr.json")
     a = p.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    xc_all, y_all = load_forda()
+    if a.dataset in ("har", "har2"):
+        xc_all, y_all = load_har(a.dataset)
+        n = len(y_all)
+        cut = [int(n*0.62), int(n*0.70), int(n*0.85), n]
+    else:
+        xc_all, y_all = load_forda()
+        cut = [3200, 3600, 4260, 4921]
     out = {}
     for seed in range(a.seeds):
         rng = np.random.default_rng(seed)
         order = rng.permutation(len(y_all))
-        cut = [3200, 3600, 4260, 4921]
         pool = {}
         for name, s, e, corr in [("train", 0, cut[0], CORR),
                                  ("val", cut[0], cut[1], CORR),

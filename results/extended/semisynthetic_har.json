@@ -1,0 +1,127 @@
+{
+ "seed0": {
+  "core_only": [
+   0.996,
+   0.995
+  ],
+  "nuisance_only": [
+   0.976,
+   0.025
+  ],
+  "erm": [
+   0.9953,
+   0.9931
+  ],
+  "erm_shuffle_nuis": 0.9919,
+  "erm_reverse_nuis": 0.9912,
+  "erm_reverse_core": 0.9906,
+  "no_spurious": [
+   0.9933,
+   0.9931
+  ],
+  "best_single_seg_dir": 0.5333,
+  "unordered_set_dir": 0.53,
+  "final_seg_label": 0.822,
+  "final_seg_dir": 0.8107
+ },
+ "seed1": {
+  "core_only": [
+   0.9973,
+   0.9969
+  ],
+  "nuisance_only": [
+   0.9713,
+   0.0319
+  ],
+  "erm": [
+   0.998,
+   0.9962
+  ],
+  "erm_shuffle_nuis": 0.9975,
+  "erm_reverse_nuis": 0.9962,
+  "erm_reverse_core": 0.9894,
+  "no_spurious": [
+   0.998,
+   0.9975
+  ],
+  "best_single_seg_dir": 0.5487,
+  "unordered_set_dir": 0.546,
+  "final_seg_label": 0.828,
+  "final_seg_dir": 0.8093
+ },
+ "seed2": {
+  "core_only": [
+   0.9947,
+   0.9944
+  ],
+  "nuisance_only": [
+   0.9693,
+   0.0319
+  ],
+  "erm": [
+   0.9967,
+   0.9894
+  ],
+  "erm_shuffle_nuis": 0.9925,
+  "erm_reverse_nuis": 0.9931,
+  "erm_reverse_core": 0.9862,
+  "no_spurious": [
+   0.9987,
+   0.9962
+  ],
+  "best_single_seg_dir": 0.5393,
+  "unordered_set_dir": 0.5393,
+  "final_seg_label": 0.8273,
+  "final_seg_dir": 0.8007
+ },
+ "seed3": {
+  "core_only": [
+   0.9947,
+   0.9975
+  ],
+  "nuisance_only": [
+   0.9687,
+   0.0319
+  ],
+  "erm": [
+   0.9927,
+   0.9919
+  ],
+  "erm_shuffle_nuis": 0.9925,
+  "erm_reverse_nuis": 0.9937,
+  "erm_reverse_core": 0.9887,
+  "no_spurious": [
+   0.994,
+   0.9969
+  ],
+  "best_single_seg_dir": 0.5473,
+  "unordered_set_dir": 0.5473,
+  "final_seg_label": 0.8307,
+  "final_seg_dir": 0.8107
+ },
+ "seed4": {
+  "core_only": [
+   0.9967,
+   0.9937
+  ],
+  "nuisance_only": [
+   0.9687,
+   0.0344
+  ],
+  "erm": [
+   0.9973,
+   0.9919
+  ],
+  "erm_shuffle_nuis": 0.9912,
+  "erm_reverse_nuis": 0.9919,
+  "erm_reverse_core": 0.9894,
+  "no_spurious": [
+   0.9987,
+   0.9944
+  ],
+  "best_single_seg_dir": 0.5427,
+  "unordered_set_dir": 0.5467,
+  "final_seg_label": 0.836,
+  "final_seg_dir": 0.8067
+ }
+}
