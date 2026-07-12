@@ -1,0 +1,32 @@
+{
+ "seed0": {
+  "ordered_iid": 0.9658,
+  "ordered_ood": 0.0325,
+  "shuffled_ood": 0.8889,
+  "reversed_ood": 0.9675
+ },
+ "seed1": {
+  "ordered_iid": 0.9712,
+  "ordered_ood": 0.0303,
+  "shuffled_ood": 0.7859,
+  "reversed_ood": 0.9697
+ },
+ "seed2": {
+  "ordered_iid": 0.9685,
+  "ordered_ood": 0.032,
+  "shuffled_ood": 0.9075,
+  "reversed_ood": 0.968
+ },
+ "seed3": {
+  "ordered_iid": 0.9727,
+  "ordered_ood": 0.0295,
+  "shuffled_ood": 0.5925,
+  "reversed_ood": 0.9705
+ },
+ "seed4": {
+  "ordered_iid": 0.9683,
+  "ordered_ood": 0.0334,
+  "shuffled_ood": 0.7957,
+  "reversed_ood": 0.9666
+ }
+}
