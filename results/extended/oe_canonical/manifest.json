@@ -1,0 +1,70 @@
+{
+  "command": "python -m src.train.main_experiment --config configs\\irreversible_source_extended.yaml --out results\\extended\\oe_canonical --profile oe_canonical",
+  "profile": "oe_canonical",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29
+  ],
+  "methods": [
+    "final_frame_mlp",
+    "sequence_erm",
+    "core_only_oracle",
+    "nuisance_only_oracle"
+  ],
+  "primary_scenario": "oe_main",
+  "scenarios": [
+    {
+      "name": "oe_main",
+      "data": {
+        "ood_mode": "reversed"
+      }
+    },
+    {
+      "name": "oe_no_spurious",
+      "methods": [
+        "sequence_erm",
+        "core_only_oracle",
+        "nuisance_only_oracle"
+      ],
+      "data": {
+        "train_nuisance_mode": "randomized",
+        "ood_mode": "randomized"
+      }
+    }
+  ],
+  "device": "cuda",
+  "runtime_limited": false,
+  "python": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "config_path": "configs\\irreversible_source_extended.yaml",
+  "config_hash": "24a1cb4d1612",
+  "results_count": 210
+}
