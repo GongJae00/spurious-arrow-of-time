@@ -140,13 +140,13 @@ def figure_conceptual(out_dir: Path) -> None:
     draw_node(ax, (0.565, 0.655), (0.12, 0.12), "label", edge=CORE, face=CORE_LIGHT)
     draw_arrow(ax, (0.265, 0.715), (0.325, 0.715), color=CORE, lw=2.0)
     draw_arrow(ax, (0.455, 0.715), (0.565, 0.715), color=CORE, lw=2.0)
-    ax.text(0.395, 0.82, "stable causal arrow", fontsize=7.2, color=CORE, ha="center", fontweight="bold")
+    ax.text(0.395, 0.82, "stable task-relevant relation", fontsize=7.2, color=CORE, ha="center", fontweight="bold")
 
     # Train nuisance path.
     draw_nuisance_trajectory(ax, [(0.145, 0.515), (0.225, 0.575), (0.325, 0.555), (0.43, 0.595)])
     ax.plot([0.46, 0.565], [0.585, 0.715], color=NUISANCE, linewidth=1.55, linestyle=(0, (4, 2)))
     draw_arrow(ax, (0.50, 0.635), (0.565, 0.705), color=NUISANCE, lw=1.6, rad=0.0)
-    ax.text(0.29, 0.475, "non-causal nuisance arrow is predictive", fontsize=7.0, color=NUISANCE, ha="center")
+    ax.text(0.29, 0.475, "environment-dependent nuisance relation is predictive", fontsize=7.0, color=NUISANCE, ha="center")
 
     # OOD row.
     draw_node(ax, (0.145, 0.225), (0.12, 0.12), "same\nsource", edge=CORE, face=CORE_LIGHT)
@@ -293,13 +293,13 @@ def figure_evidence_gates(out_dir: Path, store: MetricStore) -> None:
     gates = [
         {
             "label": "A",
-            "title": "Core accessible",
-            "subtitle": "No-spurious sequence ERM",
+            "title": "No-spurious recovery",
+            "subtitle": "Core recoverable from the mixture",
             "lines": [
-                ("IID", store.aggregate("sequence_erm", "iid_test_accuracy", "no_spurious_correlation").mean),
-                ("OOD", store.aggregate("sequence_erm", "ood_test_accuracy", "no_spurious_correlation").mean),
+                ("Std. budget", 21 / 30, "21/30 core"),
+                ("Ext. budget", 30 / 30, "30/30 core"),
             ],
-            "message": "core learnable",
+            "message": "std.: 9/30 at chance; ext.: 30/30 core (OOD 0.997)",
             "color": CORE,
         },
         {
@@ -310,18 +310,18 @@ def figure_evidence_gates(out_dir: Path, store: MetricStore) -> None:
                 ("IID", store.aggregate("sequence_erm", "iid_test_accuracy").mean),
                 ("OOD", store.aggregate("sequence_erm", "ood_test_accuracy").mean),
             ],
-            "message": "large reversal gap",
+            "message": "collapse: 29/30 std., 19/30 ext. budget",
             "color": NUISANCE,
         },
         {
             "label": "C",
             "title": "Mechanisms separated",
-            "subtitle": "Oracle inputs",
+            "subtitle": "Reference inputs",
             "lines": [
                 ("Core OOD", store.aggregate("core_only_oracle", "ood_test_accuracy").mean),
                 ("Nuis. OOD", store.aggregate("nuisance_only_oracle", "ood_test_accuracy").mean),
             ],
-            "message": "right vs wrong arrow",
+            "message": "valid vs invalid cue",
             "color": SEQUENCE,
         },
         {
@@ -366,18 +366,20 @@ def figure_evidence_gates(out_dir: Path, store: MetricStore) -> None:
         )
         bar_x0 = x0 + 0.055
         bar_w = card_w - 0.11
-        for k, (name, val) in enumerate(gate["lines"]):
+        for k, line in enumerate(gate["lines"]):
+            name, val = line[0], line[1]
+            display = line[2] if len(line) > 2 else f"{val:.3f}"
             y = y0 + 0.17 - 0.105 * k
             fill = gate["color"] if idx != 2 or k == 0 else NUISANCE
             if idx == 3 and k == 1:
                 fill = FINAL
             ax.text(bar_x0, y + 0.035, name, fontsize=6.8, color=TEXT, ha="left", va="center")
-            ax.text(bar_x0 + bar_w, y + 0.035, f"{val:.3f}", fontsize=7.0, fontweight="bold", color=TEXT, ha="right", va="center")
+            ax.text(bar_x0 + bar_w, y + 0.035, display, fontsize=7.0, fontweight="bold", color=TEXT, ha="right", va="center")
             ax.add_patch(Rectangle((bar_x0, y - 0.018), bar_w, 0.035, facecolor="#EEF1F4", edgecolor="none"))
             ax.add_patch(Rectangle((bar_x0, y - 0.018), max(0.0, min(1.0, val)) * bar_w, 0.035, facecolor=fill, edgecolor="none", alpha=0.88))
         ax.text(x0 + 0.055, y0 + 0.035, gate["message"], fontsize=6.7, color=MUTED_TEXT, ha="left", va="center")
-    ax.text(0.012, 0.94, "Evidence gates for accepting the spurious-arrow claim", fontsize=9.0, fontweight="bold", color=TEXT)
-    ax.text(0.012, 0.035, "Each card reports the minimal artifact-backed evidence required for the claim to be admissible.", fontsize=6.8, color=MUTED_TEXT)
+    ax.text(0.012, 0.94, "Evidence gates for the spurious-shortcut interpretation", fontsize=9.0, fontweight="bold", color=TEXT)
+    ax.text(0.012, 0.035, "Each card reports the minimal artifact-backed evidence required to support the interpretation.", fontsize=6.8, color=MUTED_TEXT)
 
     fig.subplots_adjust(left=0.005, right=0.995, top=0.98, bottom=0.02)
     save_figure(fig, out_dir, "fig03_evidence_gates")
@@ -442,7 +444,7 @@ def figure_main_results(out_dir: Path, store: MetricStore) -> None:
     ax.text(
         0.03,
         0.815,
-        f"0.80 threshold ({stable_count}/10 above)",
+        f"0.80 threshold ({stable_count}/{len(seeds)} above)",
         transform=ax.get_yaxis_transform(),
         ha="left",
         va="bottom",
@@ -473,7 +475,7 @@ def figure_scenario_audit(out_dir: Path, store: MetricStore) -> None:
     ]
     columns = ["Main\nreversal", "No\nspurious", "Residue\nvisible", "OOD\nrandom", "Partial\nshift"]
     methods = ["sequence_erm", "final_frame_mlp", "nuisance_only_oracle", "counterfactual_invariance"]
-    rows = ["Seq. ERM", "Final frame", "Nuis. oracle", "Counterfactual"]
+    rows = ["Seq. ERM", "Final frame", "Nuis. reference", "Counterfactual"]
     matrix = np.full((len(methods), len(scenarios)), np.nan)
     for i, method in enumerate(methods):
         for j, scenario in enumerate(scenarios):
@@ -509,8 +511,8 @@ def figure_scenario_audit(out_dir: Path, store: MetricStore) -> None:
             txt_color = "white" if val >= 0.64 else TEXT
             if val <= 0.20:
                 tag = "collapse"
-            elif 0.42 <= val <= 0.58:
-                tag = "chance"
+            elif 0.40 <= val <= 0.60:
+                tag = "near chance"
             elif val >= 0.80:
                 tag = "robust"
             else:

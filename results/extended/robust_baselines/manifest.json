@@ -1,0 +1,41 @@
+{
+  "command": "python -m src.train.main_experiment --config configs\\irreversible_source_extended.yaml --out results\\extended\\robust_baselines --profile robust_baselines",
+  "profile": "robust_baselines",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "methods": [
+    "sequence_erm",
+    "group_invariance_light",
+    "nuisance_channel_dropout",
+    "counterfactual_invariance",
+    "core_only_oracle",
+    "nuisance_only_oracle",
+    "final_frame_mlp"
+  ],
+  "primary_scenario": "main_spurious_arrow",
+  "scenarios": [
+    {
+      "name": "main_spurious_arrow",
+      "data": {
+        "ood_mode": "reversed"
+      }
+    }
+  ],
+  "device": "cuda",
+  "runtime_limited": false,
+  "python": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "config_path": "configs\\irreversible_source_extended.yaml",
+  "config_hash": "0dc42731e18e",
+  "results_count": 70
+}

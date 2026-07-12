@@ -1,0 +1,52 @@
+{
+  "command": "python -m src.train.main_experiment --config configs\\irreversible_source_extended.yaml --out results\\extended\\complexity --profile complexity",
+  "profile": "complexity",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "methods": [
+    "sequence_erm",
+    "core_only_oracle",
+    "nuisance_only_oracle",
+    "final_frame_mlp"
+  ],
+  "primary_scenario": "cx_grid32_clutter",
+  "scenarios": [
+    {
+      "name": "cx_grid32",
+      "data": {
+        "grid_size": 32,
+        "observation_noise_std": 0.06
+      }
+    },
+    {
+      "name": "cx_clutter",
+      "data": {
+        "background_clutter": 0.6,
+        "background_clutter_count": 4,
+        "observation_noise_std": 0.06
+      }
+    },
+    {
+      "name": "cx_grid32_clutter",
+      "data": {
+        "grid_size": 32,
+        "length": 10,
+        "background_clutter": 0.6,
+        "background_clutter_count": 5,
+        "observation_noise_std": 0.06
+      }
+    }
+  ],
+  "device": "cuda",
+  "runtime_limited": false,
+  "python": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "config_path": "configs\\irreversible_source_extended.yaml",
+  "config_hash": "082cfd96a4d9",
+  "results_count": 60
+}

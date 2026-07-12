@@ -1,0 +1,1178 @@
+{
+  "trail/data0/standard": {
+    "core": 2,
+    "collapse": 13,
+    "chance": 0,
+    "n": 15,
+    "rows": [
+      {
+        "init": 0,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 1,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 2,
+        "iid": 0.9998,
+        "ood": 0.9836,
+        "regime": "core"
+      },
+      {
+        "init": 3,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 4,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 5,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 6,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 7,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 8,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 9,
+        "iid": 0.9639,
+        "ood": 0.0322,
+        "regime": "collapse"
+      },
+      {
+        "init": 10,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 11,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 12,
+        "iid": 0.999,
+        "ood": 0.979,
+        "regime": "core"
+      },
+      {
+        "init": 13,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 14,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      }
+    ]
+  },
+  "trail/data0/extended": {
+    "core": 7,
+    "collapse": 8,
+    "chance": 0,
+    "n": 15,
+    "rows": [
+      {
+        "init": 0,
+        "iid": 0.9995,
+        "ood": 0.9905,
+        "regime": "core"
+      },
+      {
+        "init": 1,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 2,
+        "iid": 0.9993,
+        "ood": 0.9705,
+        "regime": "core"
+      },
+      {
+        "init": 3,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 4,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 5,
+        "iid": 0.9993,
+        "ood": 0.9854,
+        "regime": "core"
+      },
+      {
+        "init": 6,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 7,
+        "iid": 0.9988,
+        "ood": 0.9641,
+        "regime": "core"
+      },
+      {
+        "init": 8,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 9,
+        "iid": 0.9976,
+        "ood": 0.9451,
+        "regime": "core"
+      },
+      {
+        "init": 10,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 11,
+        "iid": 0.9988,
+        "ood": 0.9895,
+        "regime": "core"
+      },
+      {
+        "init": 12,
+        "iid": 0.999,
+        "ood": 0.9866,
+        "regime": "core"
+      },
+      {
+        "init": 13,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 14,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      }
+    ]
+  },
+  "trail/data1/standard": {
+    "core": 4,
+    "collapse": 11,
+    "chance": 0,
+    "n": 15,
+    "rows": [
+      {
+        "init": 0,
+        "iid": 0.9993,
+        "ood": 0.9932,
+        "regime": "core"
+      },
+      {
+        "init": 1,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 2,
+        "iid": 0.9995,
+        "ood": 0.9854,
+        "regime": "core"
+      },
+      {
+        "init": 3,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 4,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 5,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 6,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 7,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 8,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 9,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 10,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 11,
+        "iid": 0.999,
+        "ood": 0.9819,
+        "regime": "core"
+      },
+      {
+        "init": 12,
+        "iid": 0.9993,
+        "ood": 0.9785,
+        "regime": "core"
+      },
+      {
+        "init": 13,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 14,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      }
+    ]
+  },
+  "trail/data1/extended": {
+    "core": 4,
+    "collapse": 11,
+    "chance": 0,
+    "n": 15,
+    "rows": [
+      {
+        "init": 0,
+        "iid": 0.9995,
+        "ood": 0.9846,
+        "regime": "core"
+      },
+      {
+        "init": 1,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 2,
+        "iid": 0.9993,
+        "ood": 0.9792,
+        "regime": "core"
+      },
+      {
+        "init": 3,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 4,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 5,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 6,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 7,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 8,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 9,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 10,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 11,
+        "iid": 0.999,
+        "ood": 0.9814,
+        "regime": "core"
+      },
+      {
+        "init": 12,
+        "iid": 0.999,
+        "ood": 0.9758,
+        "regime": "core"
+      },
+      {
+        "init": 13,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 14,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      }
+    ]
+  },
+  "trail/data2/standard": {
+    "core": 0,
+    "collapse": 15,
+    "chance": 0,
+    "n": 15,
+    "rows": [
+      {
+        "init": 0,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 1,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 2,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 3,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 4,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 5,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 6,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 7,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 8,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 9,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 10,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 11,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 12,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 13,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 14,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      }
+    ]
+  },
+  "trail/data2/extended": {
+    "core": 4,
+    "collapse": 11,
+    "chance": 0,
+    "n": 15,
+    "rows": [
+      {
+        "init": 0,
+        "iid": 0.9998,
+        "ood": 0.9995,
+        "regime": "core"
+      },
+      {
+        "init": 1,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 2,
+        "iid": 0.9995,
+        "ood": 0.9871,
+        "regime": "core"
+      },
+      {
+        "init": 3,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 4,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 5,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 6,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 7,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 8,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 9,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 10,
+        "iid": 0.999,
+        "ood": 0.9893,
+        "regime": "core"
+      },
+      {
+        "init": 11,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 12,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 13,
+        "iid": 0.9995,
+        "ood": 0.9873,
+        "regime": "core"
+      },
+      {
+        "init": 14,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      }
+    ]
+  },
+  "order_encoded/data0/standard": {
+    "core": 0,
+    "collapse": 15,
+    "chance": 0,
+    "n": 15,
+    "rows": [
+      {
+        "init": 0,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 1,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 2,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 3,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 4,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 5,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 6,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 7,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 8,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 9,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 10,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 11,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 12,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 13,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 14,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      }
+    ]
+  },
+  "order_encoded/data0/extended": {
+    "core": 0,
+    "collapse": 15,
+    "chance": 0,
+    "n": 15,
+    "rows": [
+      {
+        "init": 0,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 1,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 2,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 3,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 4,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 5,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 6,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 7,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 8,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 9,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 10,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 11,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 12,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 13,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 14,
+        "iid": 0.9639,
+        "ood": 0.032,
+        "regime": "collapse"
+      }
+    ]
+  },
+  "order_encoded/data1/standard": {
+    "core": 0,
+    "collapse": 15,
+    "chance": 0,
+    "n": 15,
+    "rows": [
+      {
+        "init": 0,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 1,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 2,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 3,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 4,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 5,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 6,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 7,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 8,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 9,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 10,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 11,
+        "iid": 0.9683,
+        "ood": 0.0359,
+        "regime": "collapse"
+      },
+      {
+        "init": 12,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 13,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 14,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      }
+    ]
+  },
+  "order_encoded/data1/extended": {
+    "core": 0,
+    "collapse": 15,
+    "chance": 0,
+    "n": 15,
+    "rows": [
+      {
+        "init": 0,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 1,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 2,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 3,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 4,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 5,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 6,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 7,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 8,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 9,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 10,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 11,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 12,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 13,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      },
+      {
+        "init": 14,
+        "iid": 0.9683,
+        "ood": 0.0356,
+        "regime": "collapse"
+      }
+    ]
+  },
+  "order_encoded/data2/standard": {
+    "core": 0,
+    "collapse": 15,
+    "chance": 0,
+    "n": 15,
+    "rows": [
+      {
+        "init": 0,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 1,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 2,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 3,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 4,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 5,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 6,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 7,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 8,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 9,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 10,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 11,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 12,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 13,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 14,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      }
+    ]
+  },
+  "order_encoded/data2/extended": {
+    "core": 0,
+    "collapse": 15,
+    "chance": 0,
+    "n": 15,
+    "rows": [
+      {
+        "init": 0,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 1,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 2,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 3,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 4,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 5,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 6,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 7,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 8,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 9,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 10,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 11,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 12,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 13,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      },
+      {
+        "init": 14,
+        "iid": 0.9707,
+        "ood": 0.032,
+        "regime": "collapse"
+      }
+    ]
+  }
+}

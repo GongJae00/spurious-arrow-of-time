@@ -1,0 +1,48 @@
+{
+  "command": "python -m src.train.main_experiment --config configs\\irreversible_source_extended.yaml --out results\\extended\\seqlen_sweep --profile seqlen_sweep",
+  "profile": "seqlen_sweep",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "methods": [
+    "sequence_erm",
+    "core_only_oracle",
+    "nuisance_only_oracle",
+    "final_frame_mlp"
+  ],
+  "primary_scenario": "L8",
+  "scenarios": [
+    {
+      "name": "L4",
+      "data": {
+        "length": 4,
+        "ood_mode": "reversed"
+      }
+    },
+    {
+      "name": "L8",
+      "data": {
+        "length": 8,
+        "ood_mode": "reversed"
+      }
+    },
+    {
+      "name": "L16",
+      "data": {
+        "length": 16,
+        "ood_mode": "reversed"
+      }
+    }
+  ],
+  "device": "cuda",
+  "runtime_limited": false,
+  "python": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "config_path": "configs\\irreversible_source_extended.yaml",
+  "config_hash": "90e6d8ff42eb",
+  "results_count": 60
+}

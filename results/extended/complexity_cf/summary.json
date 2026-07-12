@@ -1,0 +1,114 @@
+{
+  "primary_scenario": "cx_grid32_clutter",
+  "methods": {
+    "counterfactual_invariance": {
+      "val_iid_accuracy": {
+        "mean": 0.6435546875,
+        "std": 0.13418054039030247,
+        "n": 5,
+        "values": [
+          0.515625,
+          0.808594,
+          0.729492,
+          0.5,
+          0.664062
+        ]
+      },
+      "iid_test_accuracy": {
+        "mean": 0.641796875,
+        "std": 0.12616076346679816,
+        "n": 5,
+        "values": [
+          0.530273,
+          0.783203,
+          0.74707,
+          0.5,
+          0.648438
+        ]
+      },
+      "ood_test_accuracy": {
+        "mean": 0.3544921875,
+        "std": 0.12774645080413857,
+        "n": 5,
+        "values": [
+          0.463867,
+          0.205566,
+          0.254883,
+          0.5,
+          0.348145
+        ]
+      },
+      "ood_gap": {
+        "mean": 0.2873046875,
+        "std": 0.25385943641457587,
+        "n": 5,
+        "values": [
+          0.066406,
+          0.577637,
+          0.492188,
+          0.0,
+          0.300293
+        ]
+      }
+    }
+  },
+  "scenarios": {
+    "cx_grid32": {
+      "counterfactual_invariance": {
+        "iid_test_accuracy": {
+          "mean": 0.62314453125,
+          "std": 0.19959430077773788,
+          "n": 5
+        },
+        "ood_test_accuracy": {
+          "mean": 0.375390625,
+          "std": 0.20116340100856933,
+          "n": 5
+        },
+        "ood_gap": {
+          "mean": 0.24775390625,
+          "std": 0.40012594266885904,
+          "n": 5
+        }
+      }
+    },
+    "cx_clutter": {
+      "counterfactual_invariance": {
+        "iid_test_accuracy": {
+          "mean": 0.5830078125,
+          "std": 0.11294453003815436,
+          "n": 5
+        },
+        "ood_test_accuracy": {
+          "mean": 0.42001953125,
+          "std": 0.11778534027227938,
+          "n": 5
+        },
+        "ood_gap": {
+          "mean": 0.16298828125,
+          "std": 0.23056012944455453,
+          "n": 5
+        }
+      }
+    },
+    "cx_grid32_clutter": {
+      "counterfactual_invariance": {
+        "iid_test_accuracy": {
+          "mean": 0.641796875,
+          "std": 0.12616076346679816,
+          "n": 5
+        },
+        "ood_test_accuracy": {
+          "mean": 0.3544921875,
+          "std": 0.12774645080413857,
+          "n": 5
+        },
+        "ood_gap": {
+          "mean": 0.2873046875,
+          "std": 0.25385943641457587,
+          "n": 5
+        }
+      }
+    }
+  }
+}

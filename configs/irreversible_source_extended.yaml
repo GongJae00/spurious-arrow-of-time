@@ -1,0 +1,1210 @@
+device: auto
+data:
+  grid_size: 16
+  length: 8
+  diffusion_alpha: 0.22
+  diffusion_start_step: 0
+  diffusion_steps_between_frames: 4
+  core_noise_std: 0.006
+  core_noise_growth_power: 1.0
+  observation_noise_std: 0.04
+  core_scale: 1.0
+  nuisance_scale: 1.2
+  nuisance_sigma: 1.15
+  nuisance_speed: 2.0
+  nuisance_trail_decay: 0.78
+  nuisance_correlation: 0.97
+  benchmark_variant: endpoint_matched
+  observation_layout: two_channel
+  ood_mode: reversed
+  partial_shift_target_correlation: -0.3
+  counterfactual_mode: randomized
+  train_nuisance_mode: correlated
+  random_labels: false
+  disable_nuisance: false
+model:
+  hidden_dim: 64
+  num_layers: 1
+  dropout: 0.0
+training:
+  batch_size: 128
+  epochs: 40
+  patience: 12
+  lr: 0.001
+  weight_decay: 0.0001
+  grad_clip_norm: 1.0
+  lambda_cf_task: 1.0
+  lambda_pred: 0.2
+methods:
+- final_frame_mlp
+- sequence_erm
+- core_only_oracle
+- nuisance_only_oracle
+- counterfactual_invariance
+profiles:
+  ext_smoke:
+    runtime_limited: true
+    primary_scenario: model_family_main
+    seeds:
+    - 0
+    data:
+      n_train: 256
+      n_val_iid: 128
+      n_iid_test: 128
+      n_ood_test: 128
+    training:
+      epochs: 4
+      patience: 3
+      batch_size: 64
+    scenarios:
+    - name: model_family_main
+      methods:
+      - sequence_erm
+      - sequence_erm_lstm
+      - sequence_erm_tcn
+      - sequence_erm_transformer
+      - sequence_erm_temporal_pool
+      - core_only_oracle
+      - nuisance_only_oracle
+      data:
+        ood_mode: reversed
+  corr_sweep:
+    runtime_limited: false
+    primary_scenario: corr_0p97
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    methods:
+    - final_frame_mlp
+    - sequence_erm
+    - core_only_oracle
+    - nuisance_only_oracle
+    - counterfactual_invariance
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+    scenarios:
+    - name: corr_0p55
+      data:
+        nuisance_correlation: 0.55
+        ood_mode: reversed
+    - name: corr_0p70
+      data:
+        nuisance_correlation: 0.7
+        ood_mode: reversed
+    - name: corr_0p85
+      data:
+        nuisance_correlation: 0.85
+        ood_mode: reversed
+    - name: corr_0p97
+      data:
+        nuisance_correlation: 0.97
+        ood_mode: reversed
+  nuisance_scale_sweep:
+    runtime_limited: false
+    primary_scenario: scale_2p8
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    methods:
+    - final_frame_mlp
+    - sequence_erm
+    - core_only_oracle
+    - nuisance_only_oracle
+    - counterfactual_invariance
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+    scenarios:
+    - name: scale_1p0
+      data:
+        nuisance_scale: 1.0
+        ood_mode: reversed
+    - name: scale_1p5
+      data:
+        nuisance_scale: 1.5
+        ood_mode: reversed
+    - name: scale_2p0
+      data:
+        nuisance_scale: 2.0
+        ood_mode: reversed
+    - name: scale_2p8
+      data:
+        nuisance_scale: 2.8
+        ood_mode: reversed
+  model_family:
+    runtime_limited: false
+    primary_scenario: model_family_main
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+    scenarios:
+    - name: model_family_main
+      methods:
+      - final_frame_mlp
+      - sequence_erm
+      - sequence_erm_lstm
+      - sequence_erm_tcn
+      - sequence_erm_transformer
+      - sequence_erm_temporal_pool
+      - core_only_oracle
+      - nuisance_only_oracle
+      data:
+        ood_mode: reversed
+    - name: model_family_no_spurious
+      methods:
+      - sequence_erm
+      - sequence_erm_lstm
+      - sequence_erm_tcn
+      - sequence_erm_transformer
+      - sequence_erm_temporal_pool
+      data:
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  family:
+    runtime_limited: false
+    primary_scenario: fam_diffusion_translate
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    methods:
+    - sequence_erm
+    - core_only_oracle
+    - nuisance_only_oracle
+    - final_frame_mlp
+    data:
+      n_train: 4096
+      n_val_iid: 1024
+      n_iid_test: 2048
+      n_ood_test: 2048
+    scenarios:
+    - name: fam_diffusion_translate
+      data:
+        core_process: diffusion
+        nuisance_motion: translate
+    - name: fam_diffusion_rotate
+      data:
+        core_process: diffusion
+        nuisance_motion: rotate
+    - name: fam_diffusion_diagonal
+      data:
+        core_process: diffusion
+        nuisance_motion: diagonal
+    - name: fam_advection_translate
+      data:
+        core_process: advection
+        advection_shift: 1
+        nuisance_motion: translate
+  complexity:
+    runtime_limited: false
+    primary_scenario: cx_grid32_clutter
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    methods:
+    - sequence_erm
+    - core_only_oracle
+    - nuisance_only_oracle
+    - final_frame_mlp
+    data:
+      n_train: 4096
+      n_val_iid: 1024
+      n_iid_test: 2048
+      n_ood_test: 2048
+    scenarios:
+    - name: cx_grid32
+      data:
+        grid_size: 32
+        observation_noise_std: 0.06
+    - name: cx_clutter
+      data:
+        background_clutter: 0.6
+        background_clutter_count: 4
+        observation_noise_std: 0.06
+    - name: cx_grid32_clutter
+      data:
+        grid_size: 32
+        length: 10
+        background_clutter: 0.6
+        background_clutter_count: 5
+        observation_noise_std: 0.06
+  family_controls:
+    runtime_limited: false
+    primary_scenario: famns_diffusion_translate
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    methods:
+    - sequence_erm
+    data:
+      n_train: 4096
+      n_val_iid: 1024
+      n_iid_test: 2048
+      n_ood_test: 2048
+    scenarios:
+    - name: famns_diffusion_translate
+      data:
+        core_process: diffusion
+        nuisance_motion: translate
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+    - name: famns_diffusion_rotate
+      data:
+        core_process: diffusion
+        nuisance_motion: rotate
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+    - name: famns_diffusion_diagonal
+      data:
+        core_process: diffusion
+        nuisance_motion: diagonal
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+    - name: famns_advection_translate
+      data:
+        core_process: advection
+        advection_shift: 1
+        nuisance_motion: translate
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  family_cf:
+    runtime_limited: false
+    primary_scenario: fam_diffusion_translate
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    methods:
+    - counterfactual_invariance
+    data:
+      n_train: 4096
+      n_val_iid: 1024
+      n_iid_test: 2048
+      n_ood_test: 2048
+    scenarios:
+    - name: fam_diffusion_translate
+      data:
+        core_process: diffusion
+        nuisance_motion: translate
+    - name: fam_diffusion_rotate
+      data:
+        core_process: diffusion
+        nuisance_motion: rotate
+    - name: fam_diffusion_diagonal
+      data:
+        core_process: diffusion
+        nuisance_motion: diagonal
+    - name: fam_advection_translate
+      data:
+        core_process: advection
+        advection_shift: 1
+        nuisance_motion: translate
+  complexity_controls:
+    runtime_limited: false
+    primary_scenario: cxns_grid32_clutter
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    methods:
+    - sequence_erm
+    data:
+      n_train: 4096
+      n_val_iid: 1024
+      n_iid_test: 2048
+      n_ood_test: 2048
+    scenarios:
+    - name: cxns_grid32
+      data:
+        grid_size: 32
+        observation_noise_std: 0.06
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+    - name: cxns_clutter
+      data:
+        background_clutter: 0.6
+        background_clutter_count: 4
+        observation_noise_std: 0.06
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+    - name: cxns_grid32_clutter
+      data:
+        grid_size: 32
+        length: 10
+        background_clutter: 0.6
+        background_clutter_count: 5
+        observation_noise_std: 0.06
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  complexity_cf:
+    runtime_limited: false
+    primary_scenario: cx_grid32_clutter
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    methods:
+    - counterfactual_invariance
+    data:
+      n_train: 4096
+      n_val_iid: 1024
+      n_iid_test: 2048
+      n_ood_test: 2048
+    scenarios:
+    - name: cx_grid32
+      data:
+        grid_size: 32
+        observation_noise_std: 0.06
+    - name: cx_clutter
+      data:
+        background_clutter: 0.6
+        background_clutter_count: 4
+        observation_noise_std: 0.06
+    - name: cx_grid32_clutter
+      data:
+        grid_size: 32
+        length: 10
+        background_clutter: 0.6
+        background_clutter_count: 5
+        observation_noise_std: 0.06
+  channel_mixing:
+    runtime_limited: false
+    primary_scenario: additive_single_channel
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    methods:
+    - final_frame_mlp
+    - sequence_erm
+    - core_only_oracle
+    - nuisance_only_oracle
+    - counterfactual_invariance
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+    scenarios:
+    - name: two_channel
+      data:
+        observation_layout: two_channel
+        ood_mode: reversed
+    - name: additive_single_channel
+      data:
+        observation_layout: additive
+        ood_mode: reversed
+  family_controls_8k:
+    runtime_limited: false
+    primary_scenario: famns_diffusion_translate
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    methods:
+    - sequence_erm
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 2048
+      n_ood_test: 2048
+    scenarios:
+    - name: famns_diffusion_translate
+      data:
+        core_process: diffusion
+        nuisance_motion: translate
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+    - name: famns_diffusion_rotate
+      data:
+        core_process: diffusion
+        nuisance_motion: rotate
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+    - name: famns_diffusion_diagonal
+      data:
+        core_process: diffusion
+        nuisance_motion: diagonal
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+    - name: famns_advection_translate
+      data:
+        core_process: advection
+        advection_shift: 1
+        nuisance_motion: translate
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  complexity_controls_8k:
+    runtime_limited: false
+    primary_scenario: cxns_grid32_clutter
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    methods:
+    - sequence_erm
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 2048
+      n_ood_test: 2048
+    scenarios:
+    - name: cxns_grid32
+      data:
+        grid_size: 32
+        observation_noise_std: 0.06
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+    - name: cxns_clutter
+      data:
+        background_clutter: 0.6
+        background_clutter_count: 4
+        observation_noise_std: 0.06
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+    - name: cxns_grid32_clutter
+      data:
+        grid_size: 32
+        length: 10
+        background_clutter: 0.6
+        background_clutter_count: 5
+        observation_noise_std: 0.06
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  real_video_4k:
+    runtime_limited: false
+    primary_scenario: rv_main
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    data:
+      n_train: 4096
+      n_val_iid: 1024
+      n_iid_test: 2048
+      n_ood_test: 2048
+      nuisance_motion: real_video
+      real_video_cache: data/real_video/cache_g16_L8_s5.npz
+    scenarios:
+    - name: rv_main
+      methods:
+      - sequence_erm
+      - core_only_oracle
+      - nuisance_only_oracle
+      - final_frame_mlp
+      - counterfactual_invariance
+      data: {}
+    - name: rv_no_spurious
+      methods:
+      - sequence_erm
+      data:
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  real_video_8k:
+    runtime_limited: false
+    primary_scenario: rv_main
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 2048
+      n_ood_test: 2048
+      nuisance_motion: real_video
+      real_video_cache: data/real_video/cache_g16_L8_s5.npz
+    scenarios:
+    - name: rv_main
+      methods:
+      - sequence_erm
+      - core_only_oracle
+      - nuisance_only_oracle
+      - final_frame_mlp
+      - counterfactual_invariance
+      data: {}
+    - name: rv_no_spurious
+      methods:
+      - sequence_erm
+      data:
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  seqlen_sweep:
+    runtime_limited: false
+    primary_scenario: L8
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    methods:
+    - sequence_erm
+    - core_only_oracle
+    - nuisance_only_oracle
+    - final_frame_mlp
+    data:
+      n_train: 4096
+      n_val_iid: 1024
+      n_iid_test: 2048
+      n_ood_test: 2048
+    scenarios:
+    - name: L4
+      data:
+        length: 4
+        ood_mode: reversed
+    - name: L8
+      data:
+        length: 8
+        ood_mode: reversed
+    - name: L16
+      data:
+        length: 16
+        ood_mode: reversed
+  robust_baselines:
+    runtime_limited: false
+    primary_scenario: main_spurious_arrow
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    methods:
+    - sequence_erm
+    - group_invariance_light
+    - nuisance_channel_dropout
+    - counterfactual_invariance
+    - core_only_oracle
+    - nuisance_only_oracle
+    - final_frame_mlp
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+    scenarios:
+    - name: main_spurious_arrow
+      data:
+        ood_mode: reversed
+  order_encoded:
+    runtime_limited: false
+    primary_scenario: oe_main
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    methods:
+    - final_frame_mlp
+    - sequence_erm
+    - sequence_erm_temporal_pool
+    - core_only_oracle
+    - nuisance_only_oracle
+    - counterfactual_invariance
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+      nuisance_trail_decay: 0.0
+    scenarios:
+    - name: oe_main
+      data:
+        ood_mode: reversed
+    - name: oe_no_spurious
+      methods:
+      - sequence_erm
+      - core_only_oracle
+      - nuisance_only_oracle
+      data:
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  main_canonical:
+    runtime_limited: false
+    primary_scenario: main_spurious_arrow
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+    - 18
+    - 19
+    - 20
+    - 21
+    - 22
+    - 23
+    - 24
+    - 25
+    - 26
+    - 27
+    - 28
+    - 29
+    methods:
+    - final_frame_mlp
+    - sequence_erm
+    - core_only_oracle
+    - nuisance_only_oracle
+    - counterfactual_invariance
+    - group_invariance_light
+    - nuisance_channel_dropout
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+    scenarios:
+    - name: main_spurious_arrow
+      data:
+        ood_mode: reversed
+    - name: no_spurious_correlation
+      methods:
+      - sequence_erm
+      - core_only_oracle
+      - nuisance_only_oracle
+      data:
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  scenario_audit:
+    runtime_limited: false
+    primary_scenario: main_spurious_arrow
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    methods:
+    - sequence_erm
+    - final_frame_mlp
+    - nuisance_only_oracle
+    - counterfactual_invariance
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+    scenarios:
+    - name: main_spurious_arrow
+      data:
+        ood_mode: reversed
+    - name: ood_randomized
+      data:
+        ood_mode: randomized
+    - name: ood_partial_shift
+      data:
+        ood_mode: partial_shift
+    - name: residue_visible_control
+      data:
+        benchmark_variant: residue_visible
+        ood_mode: reversed
+    - name: no_spurious_correlation
+      data:
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  nospur_rescue:
+    runtime_limited: false
+    primary_scenario: no_spurious_correlation
+    seeds:
+    - 8
+    - 9
+    - 10
+    - 18
+    - 22
+    - 23
+    - 25
+    - 26
+    - 29
+    methods:
+    - sequence_erm
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+    training:
+      epochs: 100
+      patience: 30
+    scenarios:
+    - name: no_spurious_correlation
+      data:
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  oe_nospur_rescue:
+    runtime_limited: false
+    primary_scenario: oe_no_spurious
+    seeds:
+    - 1
+    - 5
+    - 8
+    methods:
+    - sequence_erm
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+      nuisance_trail_decay: 0.0
+    training:
+      epochs: 100
+      patience: 30
+    scenarios:
+    - name: oe_no_spurious
+      data:
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  ext_budget_main:
+    runtime_limited: false
+    primary_scenario: main_spurious_arrow
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+    - 18
+    - 19
+    - 20
+    - 21
+    - 22
+    - 23
+    - 24
+    - 25
+    - 26
+    - 27
+    - 28
+    - 29
+    methods:
+    - sequence_erm
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+    training:
+      epochs: 100
+      patience: 30
+    scenarios:
+    - name: main_spurious_arrow
+      data:
+        ood_mode: reversed
+    - name: no_spurious_correlation
+      data:
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  oe_ext_budget:
+    runtime_limited: false
+    primary_scenario: oe_main
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    methods:
+    - sequence_erm
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+      nuisance_trail_decay: 0.0
+    training:
+      epochs: 100
+      patience: 30
+    scenarios:
+    - name: oe_main
+      data:
+        ood_mode: reversed
+    - name: oe_no_spurious
+      data:
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  hardcore_oe:
+    runtime_limited: false
+    primary_scenario: hc_main
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    methods:
+    - final_frame_mlp
+    - sequence_erm
+    - sequence_erm_temporal_pool
+    - core_only_oracle
+    - nuisance_only_oracle
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+      nuisance_trail_decay: 0.0
+      diffusion_start_step: 8
+      diffusion_steps_between_frames: 2
+      core_noise_std: 0.045
+      core_noise_growth_power: 0.0
+      observation_noise_std: 0.01
+    training:
+      epochs: 100
+      patience: 30
+    scenarios:
+    - name: hc_main
+      data:
+        ood_mode: reversed
+    - name: hc_no_spurious
+      methods:
+      - sequence_erm
+      - core_only_oracle
+      - nuisance_only_oracle
+      data:
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  rb_smoke:
+    runtime_limited: true
+    primary_scenario: main_spurious_arrow
+    seeds:
+    - 0
+    methods:
+    - sequence_erm
+    - group_invariance_light
+    - nuisance_channel_dropout
+    data:
+      n_train: 256
+      n_val_iid: 128
+      n_iid_test: 128
+      n_ood_test: 128
+    training:
+      epochs: 4
+      patience: 3
+      batch_size: 64
+    scenarios:
+    - name: main_spurious_arrow
+      data:
+        ood_mode: reversed
+  real_video_blur_8k:
+    runtime_limited: false
+    primary_scenario: rv_main
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 2048
+      n_ood_test: 2048
+      nuisance_motion: real_video
+      real_video_cache: data/real_video/cache_g16_L8_s5.npz
+      real_video_blur_sigma: 1.5
+      nuisance_scale: 1.2
+    scenarios:
+    - name: rv_main
+      methods:
+      - sequence_erm
+      - core_only_oracle
+      - nuisance_only_oracle
+      - final_frame_mlp
+      data: {}
+    - name: rv_no_spurious
+      methods:
+      - sequence_erm
+      data:
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  real_video_blur_4k:
+    runtime_limited: false
+    primary_scenario: rv_main
+    seeds:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    data:
+      n_train: 4096
+      n_val_iid: 1024
+      n_iid_test: 2048
+      n_ood_test: 2048
+      nuisance_motion: real_video
+      real_video_cache: data/real_video/cache_g16_L8_s5.npz
+      real_video_blur_sigma: 1.5
+      nuisance_scale: 1.2
+    scenarios:
+    - name: rv_main
+      methods:
+      - sequence_erm
+      - core_only_oracle
+      - nuisance_only_oracle
+      - final_frame_mlp
+      data: {}
+    - name: rv_no_spurious
+      methods:
+      - sequence_erm
+      data:
+        train_nuisance_mode: randomized
+        ood_mode: randomized
+  oe_corr_sweep:
+    runtime_limited: false
+    primary_scenario: oecorr_0p97
+    seeds: &id001
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    methods:
+    - sequence_erm
+    - nuisance_only_oracle
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+      nuisance_trail_decay: 0.0
+    scenarios:
+    - name: oecorr_0p55
+      data:
+        nuisance_correlation: 0.55
+        ood_mode: reversed
+    - name: oecorr_0p70
+      data:
+        nuisance_correlation: 0.7
+        ood_mode: reversed
+    - name: oecorr_0p85
+      data:
+        nuisance_correlation: 0.85
+        ood_mode: reversed
+    - name: oecorr_0p97
+      data:
+        nuisance_correlation: 0.97
+        ood_mode: reversed
+      methods:
+      - sequence_erm
+      - nuisance_only_oracle
+      - core_only_oracle
+      - final_frame_mlp
+  oe_scale_sweep:
+    runtime_limited: false
+    primary_scenario: oescale_2p8
+    seeds: *id001
+    methods:
+    - sequence_erm
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+      nuisance_trail_decay: 0.0
+    scenarios:
+    - name: oescale_1p0
+      data:
+        nuisance_scale: 1.0
+        ood_mode: reversed
+    - name: oescale_1p5
+      data:
+        nuisance_scale: 1.5
+        ood_mode: reversed
+    - name: oescale_2p0
+      data:
+        nuisance_scale: 2.0
+        ood_mode: reversed
+    - name: oescale_2p8
+      data:
+        nuisance_scale: 2.8
+        ood_mode: reversed
+  oe_model_family:
+    runtime_limited: false
+    primary_scenario: oe_family_main
+    seeds: *id001
+    methods:
+    - sequence_erm
+    - sequence_erm_lstm
+    - sequence_erm_tcn
+    - sequence_erm_transformer
+    - sequence_erm_temporal_pool
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+      nuisance_trail_decay: 0.0
+    scenarios:
+    - name: oe_family_main
+      data:
+        ood_mode: reversed
+  oe_channel_mixing:
+    runtime_limited: false
+    primary_scenario: oe_additive
+    seeds: *id001
+    methods:
+    - sequence_erm
+    - final_frame_mlp
+    - counterfactual_invariance
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+      nuisance_trail_decay: 0.0
+    scenarios:
+    - name: oe_additive
+      data:
+        observation_layout: additive
+        ood_mode: reversed
+  occ_benchmark:
+    runtime_limited: false
+    primary_scenario: occ_main
+    seeds: *id001
+    methods:
+    - final_frame_mlp
+    - sequence_erm
+    - sequence_erm_temporal_pool
+    - core_only_oracle
+    - nuisance_only_oracle
+    data:
+      n_train: 8192
+      n_val_iid: 2048
+      n_iid_test: 4096
+      n_ood_test: 4096
+      nuisance_trail_decay: 0.0
+      core_process: directional_pulse
+    training:
+      epochs: 100
+      patience: 30
+    scenarios:
+    - name: occ_main
+      data:
+        ood_mode: reversed
+    - name: occ_no_spurious
+      methods:
+      - sequence_erm
+      - core_only_oracle
+      - nuisance_only_oracle
+      data:
+        train_nuisance_mode: randomized
+        ood_mode: randomized

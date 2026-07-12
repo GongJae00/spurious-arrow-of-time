@@ -1,0 +1,56 @@
+{
+  "command": "python -m src.train.main_experiment --config configs\\irreversible_source_extended.yaml --out results\\extended\\family --profile family",
+  "profile": "family",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "methods": [
+    "sequence_erm",
+    "core_only_oracle",
+    "nuisance_only_oracle",
+    "final_frame_mlp"
+  ],
+  "primary_scenario": "fam_diffusion_translate",
+  "scenarios": [
+    {
+      "name": "fam_diffusion_translate",
+      "data": {
+        "core_process": "diffusion",
+        "nuisance_motion": "translate"
+      }
+    },
+    {
+      "name": "fam_diffusion_rotate",
+      "data": {
+        "core_process": "diffusion",
+        "nuisance_motion": "rotate"
+      }
+    },
+    {
+      "name": "fam_diffusion_diagonal",
+      "data": {
+        "core_process": "diffusion",
+        "nuisance_motion": "diagonal"
+      }
+    },
+    {
+      "name": "fam_advection_translate",
+      "data": {
+        "core_process": "advection",
+        "advection_shift": 1,
+        "nuisance_motion": "translate"
+      }
+    }
+  ],
+  "device": "cuda",
+  "runtime_limited": false,
+  "python": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "config_path": "configs\\irreversible_source_extended.yaml",
+  "config_hash": "082cfd96a4d9",
+  "results_count": 80
+}

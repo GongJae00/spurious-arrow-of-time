@@ -1,0 +1,61 @@
+{
+  "command": "python -m src.train.main_experiment --config configs\\irreversible_source_extended.yaml --out results\\extended\\corr_sweep --profile corr_sweep",
+  "profile": "corr_sweep",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "methods": [
+    "final_frame_mlp",
+    "sequence_erm",
+    "core_only_oracle",
+    "nuisance_only_oracle",
+    "counterfactual_invariance"
+  ],
+  "primary_scenario": "corr_0p97",
+  "scenarios": [
+    {
+      "name": "corr_0p55",
+      "data": {
+        "nuisance_correlation": 0.55,
+        "ood_mode": "reversed"
+      }
+    },
+    {
+      "name": "corr_0p70",
+      "data": {
+        "nuisance_correlation": 0.7,
+        "ood_mode": "reversed"
+      }
+    },
+    {
+      "name": "corr_0p85",
+      "data": {
+        "nuisance_correlation": 0.85,
+        "ood_mode": "reversed"
+      }
+    },
+    {
+      "name": "corr_0p97",
+      "data": {
+        "nuisance_correlation": 0.97,
+        "ood_mode": "reversed"
+      }
+    }
+  ],
+  "device": "cuda",
+  "runtime_limited": false,
+  "python": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "config_path": "configs\\irreversible_source_extended.yaml",
+  "config_hash": "310df544466e",
+  "results_count": 200
+}

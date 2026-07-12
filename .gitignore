@@ -13,14 +13,30 @@ htmlcov/
 # Local-only manuscript workspace
 paper/
 
-# Generated experiment artifacts
+# Generated experiment artifacts: per-run summaries and metrics under
+# results/extended are versioned (the paper's raw result artifacts);
+# per-epoch curves and other scratch outputs are not.
 results/**
-!results/.gitkeep
+!results/
+!results/extended/
+!results/extended/**
+results/extended/**/epoch_metrics.jsonl
+results/extended/_merged_fig/
+results/extended/_canon_fig/
+results/extended/_fig2/
+results/extended/tea_smoke.json
+results/extended/soa_smoke.json
+results/extended/rmb_smoke.json
 figures/**
 !figures/.gitkeep
 *.pt
 *.pth
 *.ckpt
+
+# Large binary sources: raw clips and preprocessed caches are rebuilt via
+# src/data/build_real_video_cache.py from data/real_video/urls.json.
+data/real_video/*.webm
+data/real_video/*.npz
 
 # Runtime/editor noise
 *.log

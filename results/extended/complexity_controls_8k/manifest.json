@@ -1,0 +1,55 @@
+{
+  "command": "python -m src.train.main_experiment --config configs\\irreversible_source_extended.yaml --out results\\extended\\complexity_controls_8k --profile complexity_controls_8k",
+  "profile": "complexity_controls_8k",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "methods": [
+    "sequence_erm"
+  ],
+  "primary_scenario": "cxns_grid32_clutter",
+  "scenarios": [
+    {
+      "name": "cxns_grid32",
+      "data": {
+        "grid_size": 32,
+        "observation_noise_std": 0.06,
+        "train_nuisance_mode": "randomized",
+        "ood_mode": "randomized"
+      }
+    },
+    {
+      "name": "cxns_clutter",
+      "data": {
+        "background_clutter": 0.6,
+        "background_clutter_count": 4,
+        "observation_noise_std": 0.06,
+        "train_nuisance_mode": "randomized",
+        "ood_mode": "randomized"
+      }
+    },
+    {
+      "name": "cxns_grid32_clutter",
+      "data": {
+        "grid_size": 32,
+        "length": 10,
+        "background_clutter": 0.6,
+        "background_clutter_count": 5,
+        "observation_noise_std": 0.06,
+        "train_nuisance_mode": "randomized",
+        "ood_mode": "randomized"
+      }
+    }
+  ],
+  "device": "cuda",
+  "runtime_limited": false,
+  "python": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "config_path": "configs\\irreversible_source_extended.yaml",
+  "config_hash": "0f8aa83e6ffd",
+  "results_count": 15
+}

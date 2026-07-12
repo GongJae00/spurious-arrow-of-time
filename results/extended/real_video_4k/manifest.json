@@ -1,0 +1,49 @@
+{
+  "command": "python -m src.train.main_experiment --config configs\\irreversible_source_extended.yaml --out results\\extended\\real_video_4k --profile real_video_4k",
+  "profile": "real_video_4k",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "methods": [
+    "final_frame_mlp",
+    "sequence_erm",
+    "core_only_oracle",
+    "nuisance_only_oracle",
+    "counterfactual_invariance"
+  ],
+  "primary_scenario": "rv_main",
+  "scenarios": [
+    {
+      "name": "rv_main",
+      "methods": [
+        "sequence_erm",
+        "core_only_oracle",
+        "nuisance_only_oracle",
+        "final_frame_mlp",
+        "counterfactual_invariance"
+      ],
+      "data": {}
+    },
+    {
+      "name": "rv_no_spurious",
+      "methods": [
+        "sequence_erm"
+      ],
+      "data": {
+        "train_nuisance_mode": "randomized",
+        "ood_mode": "randomized"
+      }
+    }
+  ],
+  "device": "cuda",
+  "runtime_limited": false,
+  "python": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "config_path": "configs\\irreversible_source_extended.yaml",
+  "config_hash": "fc3aaecc2429",
+  "results_count": 30
+}

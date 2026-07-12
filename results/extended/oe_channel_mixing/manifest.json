@@ -1,0 +1,38 @@
+{
+  "command": "python -m src.train.main_experiment --config configs\\irreversible_source_extended.yaml --out results\\extended\\oe_channel_mixing --profile oe_channel_mixing",
+  "profile": "oe_channel_mixing",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "methods": [
+    "sequence_erm",
+    "final_frame_mlp",
+    "counterfactual_invariance"
+  ],
+  "primary_scenario": "oe_additive",
+  "scenarios": [
+    {
+      "name": "oe_additive",
+      "data": {
+        "observation_layout": "additive",
+        "ood_mode": "reversed"
+      }
+    }
+  ],
+  "device": "cuda",
+  "runtime_limited": false,
+  "python": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "config_path": "configs\\irreversible_source_extended.yaml",
+  "config_hash": "73bff8ff17c1",
+  "results_count": 30
+}

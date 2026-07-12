@@ -1,0 +1,50 @@
+{
+  "params": {
+    "src": "data/real_video",
+    "out": "data/real_video/cache_g16_L8.npz",
+    "grid": 16,
+    "length": 8,
+    "t_stride": 3,
+    "short_side": 48,
+    "per_clip": 3000,
+    "min_motion": 4.0,
+    "seed": 1234
+  },
+  "clips": [
+    {
+      "clip": "clip00.webm",
+      "frames": 110,
+      "crops": 0
+    },
+    {
+      "clip": "clip01.webm",
+      "frames": 321,
+      "crops": 3000
+    },
+    {
+      "clip": "clip02.webm",
+      "frames": 254,
+      "crops": 3000
+    },
+    {
+      "clip": "clip03.webm",
+      "frames": 245,
+      "crops": 3000
+    },
+    {
+      "clip": "clip04.webm",
+      "frames": 55,
+      "crops": 2502
+    },
+    {
+      "clip": "clip05.webm",
+      "frames": 419,
+      "crops": 3000
+    },
+    {
+      "clip": "clip06.webm",
+      "frames": 315,
+      "crops": 3000
+    }
+  ]
+}

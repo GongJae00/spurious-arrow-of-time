@@ -150,7 +150,7 @@ def figure_benchmark(out_dir: Path, config_path: Path) -> None:
         bottom=0.02,
     )
     rows = [
-        ("A", "Core source", "causal trace", train.core_only[idx], "core"),
+        ("A", "Core source", "task-relevant trace", train.core_only[idx], "core"),
         ("B", "Nuisance arrow", "shortcut", train.nuisance_only[idx], "nuisance"),
         ("C", "Mixed input", "train/IID", train.mixed[idx], "mixed"),
         ("D", "Counterfactual", "core fixed", train.counterfactual[idx], "mixed"),

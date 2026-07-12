@@ -1,0 +1,133 @@
+{
+  "primary_scenario": "fam_diffusion_translate",
+  "methods": {
+    "counterfactual_invariance": {
+      "val_iid_accuracy": {
+        "mean": 0.8724609375,
+        "std": 0.2164266087840081,
+        "n": 5,
+        "values": [
+          0.999023,
+          1.0,
+          1.0,
+          0.863281,
+          0.5
+        ]
+      },
+      "iid_test_accuracy": {
+        "mean": 0.868359375,
+        "std": 0.2165753306541662,
+        "n": 5,
+        "values": [
+          1.0,
+          0.999512,
+          0.998047,
+          0.844238,
+          0.5
+        ]
+      },
+      "ood_test_accuracy": {
+        "mean": 0.72890625,
+        "std": 0.39004418489610204,
+        "n": 5,
+        "values": [
+          0.999512,
+          0.999512,
+          0.997559,
+          0.147949,
+          0.5
+        ]
+      },
+      "ood_gap": {
+        "mean": 0.139453125,
+        "std": 0.31128084788216537,
+        "n": 5,
+        "values": [
+          0.000488,
+          0.0,
+          0.000488,
+          0.696289,
+          0.0
+        ]
+      }
+    }
+  },
+  "scenarios": {
+    "fam_diffusion_translate": {
+      "counterfactual_invariance": {
+        "iid_test_accuracy": {
+          "mean": 0.868359375,
+          "std": 0.2165753306541662,
+          "n": 5
+        },
+        "ood_test_accuracy": {
+          "mean": 0.72890625,
+          "std": 0.39004418489610204,
+          "n": 5
+        },
+        "ood_gap": {
+          "mean": 0.139453125,
+          "std": 0.31128084788216537,
+          "n": 5
+        }
+      }
+    },
+    "fam_diffusion_rotate": {
+      "counterfactual_invariance": {
+        "iid_test_accuracy": {
+          "mean": 0.778515625,
+          "std": 0.2556087285391634,
+          "n": 5
+        },
+        "ood_test_accuracy": {
+          "mean": 0.41884765625,
+          "std": 0.39630098658671603,
+          "n": 5
+        },
+        "ood_gap": {
+          "mean": 0.35966796875,
+          "std": 0.49365446880724606,
+          "n": 5
+        }
+      }
+    },
+    "fam_diffusion_diagonal": {
+      "counterfactual_invariance": {
+        "iid_test_accuracy": {
+          "mean": 0.8064453125,
+          "std": 0.2264184428025904,
+          "n": 5
+        },
+        "ood_test_accuracy": {
+          "mean": 0.19462890625,
+          "std": 0.23075424873184958,
+          "n": 5
+        },
+        "ood_gap": {
+          "mean": 0.61181640625,
+          "std": 0.4571355716942219,
+          "n": 5
+        }
+      }
+    },
+    "fam_advection_translate": {
+      "counterfactual_invariance": {
+        "iid_test_accuracy": {
+          "mean": 0.9982421875,
+          "std": 0.0010697706201272777,
+          "n": 5
+        },
+        "ood_test_accuracy": {
+          "mean": 0.99765625,
+          "std": 0.0009392277373862961,
+          "n": 5
+        },
+        "ood_gap": {
+          "mean": 0.0005859375,
+          "std": 0.0006366408598830712,
+          "n": 5
+        }
+      }
+    }
+  }
+}

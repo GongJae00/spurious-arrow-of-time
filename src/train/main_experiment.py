@@ -56,6 +56,26 @@ METHODS: dict[str, dict[str, Any]] = {
         "input_key": "mixed_reversed",
         "uses_counterfactual": False,
     },
+    "sequence_erm_lstm": {
+        "model_type": "sequence_cnn_lstm",
+        "input_key": "mixed",
+        "uses_counterfactual": False,
+    },
+    "sequence_erm_tcn": {
+        "model_type": "sequence_cnn_tcn",
+        "input_key": "mixed",
+        "uses_counterfactual": False,
+    },
+    "sequence_erm_transformer": {
+        "model_type": "sequence_cnn_transformer",
+        "input_key": "mixed",
+        "uses_counterfactual": False,
+    },
+    "sequence_erm_temporal_pool": {
+        "model_type": "sequence_cnn_temporal_pool",
+        "input_key": "mixed",
+        "uses_counterfactual": False,
+    },
     "counterfactual_invariance": {
         "model_type": "sequence_cnn_gru",
         "input_key": "mixed",
@@ -66,6 +86,12 @@ METHODS: dict[str, dict[str, Any]] = {
         "input_key": "mixed",
         "uses_counterfactual": False,
         "uses_group_balancing": True,
+    },
+    "nuisance_channel_dropout": {
+        "model_type": "sequence_cnn_gru",
+        "input_key": "mixed",
+        "uses_counterfactual": False,
+        "channel_dropout_prob": 0.5,
     },
 }
 
@@ -231,6 +257,7 @@ def train_one_method(
     input_key = method_spec["input_key"]
     uses_cf = bool(method_spec["uses_counterfactual"])
     uses_group_balancing = bool(method_spec.get("uses_group_balancing", False))
+    channel_dropout_prob = float(method_spec.get("channel_dropout_prob", 0.0))
 
     raw = {name: split_tensor(split, input_key) for name, split in splits.items()}
     if uses_cf:
@@ -303,6 +330,13 @@ def train_one_method(
             for batch in train_loader:
                 x = batch[0].to(device)
                 y = batch[1].to(device)
+                if channel_dropout_prob > 0 and x.ndim == 5 and x.shape[2] >= 2:
+                    # Randomly zero the nuisance channel (index 1) per sample so the
+                    # model cannot always rely on the nuisance trajectory.
+                    drop = (torch.rand(x.shape[0], device=device) < channel_dropout_prob)
+                    if drop.any():
+                        x = x.clone()
+                        x[drop, :, 1] = 0.0
                 optimizer.zero_grad(set_to_none=True)
                 out = model(x)
                 if uses_group_balancing:

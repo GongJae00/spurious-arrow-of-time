@@ -1,0 +1,60 @@
+{
+  "command": "python -m src.train.main_experiment --config configs\\irreversible_source_extended.yaml --out results\\extended\\oe_corr_sweep --profile oe_corr_sweep",
+  "profile": "oe_corr_sweep",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "methods": [
+    "sequence_erm",
+    "core_only_oracle",
+    "nuisance_only_oracle",
+    "final_frame_mlp"
+  ],
+  "primary_scenario": "oecorr_0p97",
+  "scenarios": [
+    {
+      "name": "oecorr_0p55",
+      "data": {
+        "nuisance_correlation": 0.55,
+        "ood_mode": "reversed"
+      }
+    },
+    {
+      "name": "oecorr_0p70",
+      "data": {
+        "nuisance_correlation": 0.7,
+        "ood_mode": "reversed"
+      }
+    },
+    {
+      "name": "oecorr_0p85",
+      "data": {
+        "nuisance_correlation": 0.85,
+        "ood_mode": "reversed"
+      }
+    },
+    {
+      "name": "oecorr_0p97",
+      "data": {
+        "nuisance_correlation": 0.97,
+        "ood_mode": "reversed"
+      }
+    }
+  ],
+  "device": "cuda",
+  "runtime_limited": false,
+  "python": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "config_path": "configs\\irreversible_source_extended.yaml",
+  "config_hash": "73bff8ff17c1",
+  "results_count": 160
+}

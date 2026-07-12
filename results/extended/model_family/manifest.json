@@ -1,0 +1,63 @@
+{
+  "command": "python -m src.train.main_experiment --config configs\\irreversible_source_extended.yaml --out results\\extended\\model_family --profile model_family",
+  "profile": "model_family",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "methods": [
+    "final_frame_mlp",
+    "sequence_erm",
+    "core_only_oracle",
+    "nuisance_only_oracle",
+    "counterfactual_invariance"
+  ],
+  "primary_scenario": "model_family_main",
+  "scenarios": [
+    {
+      "name": "model_family_main",
+      "methods": [
+        "final_frame_mlp",
+        "sequence_erm",
+        "sequence_erm_lstm",
+        "sequence_erm_tcn",
+        "sequence_erm_transformer",
+        "sequence_erm_temporal_pool",
+        "core_only_oracle",
+        "nuisance_only_oracle"
+      ],
+      "data": {
+        "ood_mode": "reversed"
+      }
+    },
+    {
+      "name": "model_family_no_spurious",
+      "methods": [
+        "sequence_erm",
+        "sequence_erm_lstm",
+        "sequence_erm_tcn",
+        "sequence_erm_transformer",
+        "sequence_erm_temporal_pool"
+      ],
+      "data": {
+        "train_nuisance_mode": "randomized",
+        "ood_mode": "randomized"
+      }
+    }
+  ],
+  "device": "cuda",
+  "runtime_limited": false,
+  "python": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "config_path": "configs\\irreversible_source_extended.yaml",
+  "config_hash": "310df544466e",
+  "results_count": 130
+}

@@ -1,0 +1,39 @@
+{
+  "command": "python -m src.train.main_experiment --config configs\\irreversible_source_extended.yaml --out results\\extended\\oe_model_family --profile oe_model_family",
+  "profile": "oe_model_family",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "methods": [
+    "sequence_erm",
+    "sequence_erm_lstm",
+    "sequence_erm_tcn",
+    "sequence_erm_transformer",
+    "sequence_erm_temporal_pool"
+  ],
+  "primary_scenario": "oe_family_main",
+  "scenarios": [
+    {
+      "name": "oe_family_main",
+      "data": {
+        "ood_mode": "reversed"
+      }
+    }
+  ],
+  "device": "cuda",
+  "runtime_limited": false,
+  "python": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "config_path": "configs\\irreversible_source_extended.yaml",
+  "config_hash": "73bff8ff17c1",
+  "results_count": 50
+}

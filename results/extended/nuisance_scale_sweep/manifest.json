@@ -1,0 +1,61 @@
+{
+  "command": "python -m src.train.main_experiment --config configs\\irreversible_source_extended.yaml --out results\\extended\\nuisance_scale_sweep --profile nuisance_scale_sweep",
+  "profile": "nuisance_scale_sweep",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "methods": [
+    "final_frame_mlp",
+    "sequence_erm",
+    "core_only_oracle",
+    "nuisance_only_oracle",
+    "counterfactual_invariance"
+  ],
+  "primary_scenario": "scale_2p8",
+  "scenarios": [
+    {
+      "name": "scale_1p0",
+      "data": {
+        "nuisance_scale": 1.0,
+        "ood_mode": "reversed"
+      }
+    },
+    {
+      "name": "scale_1p5",
+      "data": {
+        "nuisance_scale": 1.5,
+        "ood_mode": "reversed"
+      }
+    },
+    {
+      "name": "scale_2p0",
+      "data": {
+        "nuisance_scale": 2.0,
+        "ood_mode": "reversed"
+      }
+    },
+    {
+      "name": "scale_2p8",
+      "data": {
+        "nuisance_scale": 2.8,
+        "ood_mode": "reversed"
+      }
+    }
+  ],
+  "device": "cuda",
+  "runtime_limited": false,
+  "python": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "config_path": "configs\\irreversible_source_extended.yaml",
+  "config_hash": "310df544466e",
+  "results_count": 200
+}

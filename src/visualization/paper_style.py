@@ -46,10 +46,10 @@ METHOD_LIGHT: Final = {
 }
 
 METHOD_LABELS: Final = {
-    "core_only_oracle": "Core-only\noracle",
+    "core_only_oracle": "Core-only\nreference",
     "sequence_erm": "Sequence\nERM",
     "final_frame_mlp": "Final-frame\nMLP",
-    "nuisance_only_oracle": "Nuisance-only\noracle",
+    "nuisance_only_oracle": "Nuisance-only\nreference",
     "counterfactual_invariance": "Counterfactual\nreplacement",
 }
 

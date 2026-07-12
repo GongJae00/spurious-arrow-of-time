@@ -1,0 +1,42 @@
+{
+  "command": "python -m src.train.main_experiment --config configs\\irreversible_source_extended.yaml --out results\\extended\\oe_ext_budget --profile oe_ext_budget",
+  "profile": "oe_ext_budget",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "methods": [
+    "sequence_erm"
+  ],
+  "primary_scenario": "oe_main",
+  "scenarios": [
+    {
+      "name": "oe_main",
+      "data": {
+        "ood_mode": "reversed"
+      }
+    },
+    {
+      "name": "oe_no_spurious",
+      "data": {
+        "train_nuisance_mode": "randomized",
+        "ood_mode": "randomized"
+      }
+    }
+  ],
+  "device": "cuda",
+  "runtime_limited": false,
+  "python": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "config_path": "configs\\irreversible_source_extended.yaml",
+  "config_hash": "670fb5a34114",
+  "results_count": 20
+}

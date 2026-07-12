@@ -1,0 +1,29 @@
+{
+  "command": "python -m src.train.main_experiment --config configs\\irreversible_source_extended.yaml --out results\\extended\\oe_nospur_rescue --profile oe_nospur_rescue",
+  "profile": "oe_nospur_rescue",
+  "seeds": [
+    1,
+    5,
+    8
+  ],
+  "methods": [
+    "sequence_erm"
+  ],
+  "primary_scenario": "oe_no_spurious",
+  "scenarios": [
+    {
+      "name": "oe_no_spurious",
+      "data": {
+        "train_nuisance_mode": "randomized",
+        "ood_mode": "randomized"
+      }
+    }
+  ],
+  "device": "cuda",
+  "runtime_limited": false,
+  "python": "3.14.3",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "config_path": "configs\\irreversible_source_extended.yaml",
+  "config_hash": "6a0ef6ba1fb4",
+  "results_count": 3
+}

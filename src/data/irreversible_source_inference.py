@@ -47,6 +47,15 @@ class IrreversibleSourceConfig:
     train_nuisance_mode: str = "correlated"
     random_labels: bool = False
     disable_nuisance: bool = False
+    # Generality / complexity extensions (defaults preserve original behavior).
+    nuisance_motion: str = "translate"  # translate | rotate | diagonal | real_video
+    real_video_cache: str = ""  # npz of [N, L, grid, grid] uint8 crops for real_video
+    real_video_standardize: bool = False  # zero-mean/unit-std per crop (removes static energy)
+    real_video_blur_sigma: float = 0.0  # spatial Gaussian blur (keeps motion, removes texture)
+    core_process: str = "diffusion"  # diffusion | advection | directional_pulse
+    advection_shift: int = 1  # cells shifted per diffusion step for advection core
+    background_clutter: float = 0.0  # amplitude of label-independent distractor blobs
+    background_clutter_count: int = 3  # number of clutter blobs per sequence
 
     def split_size(self, split: str) -> int:
         sizes = {
@@ -106,7 +115,15 @@ def generate_split(config: IrreversibleSourceConfig, split: str) -> Irreversible
         y = balanced_labels(n, rng)
     source_center = rng.integers(0, grid, size=(n, 2), endpoint=False)
 
-    core = build_core_sequences(config, source_center, source_orientation, rng)
+    if config.core_process == "directional_pulse":
+        # Order-encoded core: a second endpoint-matched moving pulse whose
+        # direction is the label itself, so the unordered multiset of core
+        # frames is label-independent by the same symmetry argument as the
+        # order-encoded nuisance, and the label exists only in frame order.
+        core_direction = (2 * source_orientation - 1).astype(np.int64)
+        core = build_nuisance_sequences(config, core_direction, rng)
+    else:
+        core = build_core_sequences(config, source_center, source_orientation, rng)
     nuisance_direction = sample_nuisance_direction(config, y, split, rng)
     nuisance = build_nuisance_sequences(config, nuisance_direction, rng)
 
@@ -191,7 +208,7 @@ def build_core_sequences(
             frames[:, frame_idx] = state
             frame_idx += 1
         if step < total_steps:
-            state = diffuse_once(state, config.diffusion_alpha)
+            state = evolve_core_once(state, config)
 
     if config.core_noise_std > 0:
         time_scale = np.linspace(0.0, 1.0, config.length, dtype=np.float32)
@@ -210,6 +227,24 @@ def diffuse_once(state: np.ndarray, alpha: float) -> np.ndarray:
         + np.roll(state, -1, axis=2)
     ) / 4.0
     return (1.0 - alpha) * state + alpha * neighbors
+
+
+def evolve_core_once(state: np.ndarray, config: IrreversibleSourceConfig) -> np.ndarray:
+    """One irreversible core step: isotropic diffusion or directional advection.
+
+    Advection adds a directional drift (roll along an axis) on top of a milder
+    diffusion, giving a different irreversible core mechanism while keeping the
+    label (source orientation) recoverable from early/intermediate frames.
+    """
+    if config.core_process == "diffusion":
+        return diffuse_once(state, config.diffusion_alpha)
+    if config.core_process == "advection":
+        drifted = np.roll(state, config.advection_shift, axis=2)
+        blended = (1.0 - config.diffusion_alpha) * drifted + config.diffusion_alpha * diffuse_once(
+            state, config.diffusion_alpha
+        )
+        return blended
+    raise ValueError(f"unknown core_process {config.core_process!r}")
 
 
 def compose_observation(
@@ -261,6 +296,10 @@ def compose_observation_pair(
         noise = rng.normal(0.0, config.observation_noise_std, size=core.shape).astype(np.float32)
         mixed = config.core_scale * core + config.nuisance_scale * nuisance + noise
         counterfactual = config.core_scale * core + config.nuisance_scale * nuisance_cf + noise
+        if config.background_clutter > 0:
+            clutter = config.background_clutter * build_clutter(config, core.shape[0], rng)
+            mixed = mixed + clutter
+            counterfactual = counterfactual + clutter
         return mixed.astype(np.float32), counterfactual.astype(np.float32)
 
     noise = rng.normal(
@@ -274,7 +313,30 @@ def compose_observation_pair(
     mixed[:, :, 1] = config.nuisance_scale * nuisance
     counterfactual[:, :, 0] = config.core_scale * core
     counterfactual[:, :, 1] = config.nuisance_scale * nuisance_cf
-    return (mixed + noise).astype(np.float32), (counterfactual + noise).astype(np.float32)
+    mixed = mixed + noise
+    counterfactual = counterfactual + noise
+    if config.background_clutter > 0:
+        clutter = config.background_clutter * build_clutter(config, core.shape[0], rng)
+        mixed = mixed + clutter[:, :, None, :, :]
+        counterfactual = counterfactual + clutter[:, :, None, :, :]
+    return mixed.astype(np.float32), counterfactual.astype(np.float32)
+
+
+def build_clutter(config: IrreversibleSourceConfig, n: int, rng: np.random.Generator) -> np.ndarray:
+    """Label-independent static distractor blobs, added to the mixed observation
+    to raise scene complexity/realism without carrying label information."""
+    grid = config.grid_size
+    rows = np.arange(grid, dtype=np.float32)[None, :, None]
+    cols = np.arange(grid, dtype=np.float32)[None, None, :]
+    field = np.zeros((n, grid, grid), dtype=np.float32)
+    for _ in range(config.background_clutter_count):
+        rc = rng.uniform(0.0, grid, size=n).astype(np.float32)
+        cc = rng.uniform(0.0, grid, size=n).astype(np.float32)
+        amp = rng.uniform(0.3, 1.0, size=n).astype(np.float32)
+        rd = circular_distance(rows, rc[:, None, None], grid)
+        cd = circular_distance(cols, cc[:, None, None], grid)
+        field += amp[:, None, None] * np.exp(-0.5 * ((rd / 1.4) ** 2 + (cd / 1.4) ** 2))
+    return np.repeat(field[:, None, :, :], config.length, axis=1).astype(np.float32)
 
 
 def sample_nuisance_direction(
@@ -332,37 +394,122 @@ def sample_counterfactual_direction(
     raise ValueError(f"unknown counterfactual_mode {config.counterfactual_mode!r}")
 
 
+_REAL_VIDEO_CACHE: dict[str, np.ndarray] = {}
+
+
+def _load_real_video_crops(path: str) -> np.ndarray:
+    if path not in _REAL_VIDEO_CACHE:
+        _REAL_VIDEO_CACHE[path] = np.load(path)["crops"]
+    return _REAL_VIDEO_CACHE[path]
+
+
+def build_real_video_nuisance(
+    config: IrreversibleSourceConfig,
+    direction: np.ndarray,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """Replay real-video crops forward (d=+1) or backward (d=-1).
+
+    The nuisance arrow is the physical arrow of time of real footage
+    (traffic, waterfalls, smoke, rivers). Endpoint matching cannot be
+    enforced for real clips; endpoint leakage is instead measured by the
+    final-frame audit.
+    """
+    crops = _load_real_video_crops(config.real_video_cache)
+    if crops.shape[1] != config.length or crops.shape[2] != config.grid_size:
+        raise ValueError(
+            f"real_video cache shape {crops.shape[1:]} does not match "
+            f"length={config.length}, grid={config.grid_size}"
+        )
+    idx = rng.integers(0, len(crops), size=len(direction))
+    seq = crops[idx].astype(np.float32) / 255.0
+    reverse = direction < 0
+    seq[reverse] = seq[reverse, ::-1]
+    if config.real_video_blur_sigma > 0:
+        import cv2  # local import; only needed for the real-video extension
+
+        k = int(2 * round(2 * config.real_video_blur_sigma) + 1)
+        flat = seq.reshape(-1, seq.shape[2], seq.shape[3])
+        for i in range(len(flat)):
+            flat[i] = cv2.GaussianBlur(flat[i], (k, k), config.real_video_blur_sigma)
+        seq = flat.reshape(seq.shape)
+    if config.real_video_standardize:
+        # Remove per-crop static energy so the mixture does not drown the core
+        # channel; the directional motion structure is preserved.
+        mean = seq.reshape(len(seq), -1).mean(axis=1)[:, None, None, None]
+        std = seq.reshape(len(seq), -1).std(axis=1)[:, None, None, None]
+        seq = (seq - mean) / np.clip(std, 1e-6, None)
+    return seq.astype(np.float32)
+
+
 def build_nuisance_sequences(
     config: IrreversibleSourceConfig,
     direction: np.ndarray,
     rng: np.random.Generator,
 ) -> np.ndarray:
+    if config.nuisance_motion == "real_video":
+        return build_real_video_nuisance(config, direction, rng)
     n = len(direction)
     grid = config.grid_size
     rows = np.arange(grid, dtype=np.float32)[None, :, None]
     cols = np.arange(grid, dtype=np.float32)[None, None, :]
-    phases = rng.uniform(0.0, grid, size=n).astype(np.float32)
-    if config.benchmark_variant == "endpoint_matched":
-        final_cols = rng.uniform(0.0, grid, size=n).astype(np.float32)
-        phases = (final_cols - direction * config.nuisance_speed * (config.length - 1)) % grid
-    row_centers = rng.uniform(0.0, grid, size=n).astype(np.float32)
-    sequences = np.zeros((n, config.length, grid, grid), dtype=np.float32)
+    speed = config.nuisance_speed
+    L = config.length
+    ep = config.benchmark_variant == "endpoint_matched"
+    motion = config.nuisance_motion
+    center = (grid - 1) / 2.0
+
+    row_phases = None
+    if motion == "rotate":
+        # Orbiting pulse; direction is clockwise vs counter-clockwise.
+        radius = grid * 0.32
+        omega = 2.0 * np.pi * speed / grid
+        if ep:
+            final_angle = rng.uniform(0.0, 2.0 * np.pi, size=n).astype(np.float32)
+            angle0 = (final_angle - direction * omega * (L - 1)).astype(np.float32)
+        else:
+            angle0 = rng.uniform(0.0, 2.0 * np.pi, size=n).astype(np.float32)
+    else:
+        # translate keeps the exact original RNG draw order for reproducibility.
+        phases = rng.uniform(0.0, grid, size=n).astype(np.float32)
+        if ep:
+            final_cols = rng.uniform(0.0, grid, size=n).astype(np.float32)
+            phases = (final_cols - direction * speed * (L - 1)) % grid
+        row_centers = rng.uniform(0.0, grid, size=n).astype(np.float32)
+        if motion == "diagonal":
+            row_phases = row_centers
+            if ep:
+                final_rows = rng.uniform(0.0, grid, size=n).astype(np.float32)
+                row_phases = (final_rows - direction * speed * (L - 1)) % grid
+
+    row_sigma = config.nuisance_sigma * 2.0 if motion == "translate" else config.nuisance_sigma
+    sequences = np.zeros((n, L, grid, grid), dtype=np.float32)
     trail = np.zeros((n, grid, grid), dtype=np.float32)
-    for t in range(config.length):
-        col_center = (phases + direction * config.nuisance_speed * t) % grid
-        row_center = row_centers
+    for t in range(L):
+        if motion == "translate":
+            col_center = (phases + direction * speed * t) % grid
+            row_center = row_centers
+        elif motion == "diagonal":
+            col_center = (phases + direction * speed * t) % grid
+            row_center = (row_phases + direction * speed * t) % grid
+        elif motion == "rotate":
+            angle = angle0 + direction * omega * t
+            col_center = (center + radius * np.cos(angle)) % grid
+            row_center = (center + radius * np.sin(angle)) % grid
+        else:
+            raise ValueError(f"unknown nuisance_motion {motion!r}")
         col_dist = circular_distance(cols, col_center[:, None, None], grid)
         row_dist = circular_distance(rows, row_center[:, None, None], grid)
         pulse = np.exp(
             -0.5
             * (
                 (col_dist / config.nuisance_sigma) ** 2
-                + (row_dist / (config.nuisance_sigma * 2.0)) ** 2
+                + (row_dist / row_sigma) ** 2
             )
         )
         pulse = pulse.astype(np.float32)
         trail = config.nuisance_trail_decay * trail + pulse
-        if config.benchmark_variant == "endpoint_matched" and t == config.length - 1:
+        if ep and t == L - 1:
             sequences[:, t] = pulse
         else:
             sequences[:, t] = trail
