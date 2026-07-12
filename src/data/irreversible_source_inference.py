@@ -53,6 +53,7 @@ class IrreversibleSourceConfig:
     real_video_standardize: bool = False  # zero-mean/unit-std per crop (removes static energy)
     real_video_blur_sigma: float = 0.0  # spatial Gaussian blur (keeps motion, removes texture)
     core_process: str = "diffusion"  # diffusion | advection | directional_pulse
+    core_direction_flip_prob: float = 0.0  # directional_pulse: P(core pulse direction disagrees with label); caps the core predictive ceiling
     advection_shift: int = 1  # cells shifted per diffusion step for advection core
     background_clutter: float = 0.0  # amplitude of label-independent distractor blobs
     background_clutter_count: int = 3  # number of clutter blobs per sequence
@@ -121,6 +122,9 @@ def generate_split(config: IrreversibleSourceConfig, split: str) -> Irreversible
         # frames is label-independent by the same symmetry argument as the
         # order-encoded nuisance, and the label exists only in frame order.
         core_direction = (2 * source_orientation - 1).astype(np.int64)
+        if config.core_direction_flip_prob > 0:
+            flip = rng.random(n) < config.core_direction_flip_prob
+            core_direction = np.where(flip, -core_direction, core_direction)
         core = build_nuisance_sequences(config, core_direction, rng)
     else:
         core = build_core_sequences(config, source_center, source_orientation, rng)
