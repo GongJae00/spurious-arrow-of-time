@@ -144,8 +144,8 @@ def figure_conceptual(out_dir: Path) -> None:
 
     # Train nuisance path.
     draw_nuisance_trajectory(ax, [(0.145, 0.515), (0.225, 0.575), (0.325, 0.555), (0.43, 0.595)])
-    ax.plot([0.46, 0.565], [0.585, 0.715], color=NUISANCE, linewidth=1.55, linestyle=(0, (4, 2)))
-    draw_arrow(ax, (0.50, 0.635), (0.565, 0.705), color=NUISANCE, lw=1.6, rad=0.0)
+    ax.plot([0.46, 0.552], [0.585, 0.662], color=NUISANCE, linewidth=1.55, linestyle=(0, (4, 2)))
+    draw_arrow(ax, (0.50, 0.615), (0.565, 0.668), color=NUISANCE, lw=1.6, rad=0.0)
     ax.text(0.29, 0.475, "environment-dependent nuisance relation is predictive", fontsize=7.0, color=NUISANCE, ha="center")
 
     # OOD row.
@@ -155,8 +155,8 @@ def figure_conceptual(out_dir: Path) -> None:
     draw_arrow(ax, (0.265, 0.285), (0.325, 0.285), color=CORE, lw=2.0)
     draw_arrow(ax, (0.455, 0.285), (0.565, 0.285), color=CORE, lw=2.0)
     draw_nuisance_trajectory(ax, [(0.145, 0.095), (0.225, 0.155), (0.325, 0.135), (0.43, 0.175)], reverse=True)
-    ax.plot([0.46, 0.555], [0.165, 0.275], color=NUISANCE, linewidth=1.55, linestyle=(0, (4, 2)), alpha=0.8)
-    ax.text(0.507, 0.235, "X", fontsize=13, color=NUISANCE, fontweight="bold", ha="center", va="center")
+    ax.plot([0.46, 0.545], [0.165, 0.258], color=NUISANCE, linewidth=1.55, linestyle=(0, (4, 2)), alpha=0.8)
+    ax.text(0.50, 0.205, "X", fontsize=13, color=NUISANCE, fontweight="bold", ha="center", va="center")
     ax.text(0.31, 0.055, "reversed nuisance arrow gives wrong evidence", fontsize=7.0, color=NUISANCE, ha="center")
 
     # Model ambiguity module.
@@ -167,8 +167,8 @@ def figure_conceptual(out_dir: Path) -> None:
     draw_arrow(ax, (0.865, 0.57), (0.895, 0.715), color=CORE, lw=1.9, rad=0.25)
     draw_arrow(ax, (0.865, 0.53), (0.895, 0.315), color=NUISANCE, lw=1.9, rad=-0.25)
     ax.text(0.86, 0.835, "model choice", fontsize=8.1, fontweight="bold", color=TEXT, ha="center")
-    ax.text(0.775, 0.435, "core path", fontsize=6.7, color=CORE, ha="left", fontweight="bold")
-    ax.text(0.775, 0.39, "shortcut path", fontsize=6.7, color=NUISANCE, ha="left", fontweight="bold")
+    ax.text(0.775, 0.41, "core path", fontsize=6.7, color=CORE, ha="left", fontweight="bold")
+    ax.text(0.775, 0.362, "shortcut path", fontsize=6.7, color=NUISANCE, ha="left", fontweight="bold")
 
     fig.subplots_adjust(left=0.01, right=0.995, top=0.96, bottom=0.04)
     save_figure(fig, out_dir, "fig01_conceptual_problem")
