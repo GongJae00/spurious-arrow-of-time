@@ -135,7 +135,7 @@ def figure_conceptual(out_dir: Path) -> None:
     ax.plot([0.105, 0.105], [0.12, 0.89], color=PANEL_BORDER, linewidth=0.8)
 
     # Stable causal path.
-    draw_node(ax, (0.145, 0.655), (0.12, 0.12), "hidden\nsource", edge=CORE, face=CORE_LIGHT)
+    draw_node(ax, (0.145, 0.655), (0.12, 0.12), "latent\nsource", edge=CORE, face=CORE_LIGHT)
     draw_node(ax, (0.325, 0.655), (0.13, 0.12), "diffusive\ncore", edge=CORE, face=CORE_LIGHT)
     draw_node(ax, (0.565, 0.655), (0.12, 0.12), "label", edge=CORE, face=CORE_LIGHT)
     draw_arrow(ax, (0.265, 0.715), (0.325, 0.715), color=CORE, lw=2.0)
