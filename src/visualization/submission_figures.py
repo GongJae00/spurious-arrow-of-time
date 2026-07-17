@@ -173,8 +173,8 @@ def figure_conceptual(out_dir: Path) -> None:
                 va="center", fontsize=7.2, color=TEXT, zorder=4)
         order = ("$s_0 \\rightarrow s_1 \\rightarrow \\cdots "
                  "\\rightarrow s_{L-1}$" if valid else
-                 "$s_{L-1} \\rightarrow \\cdots \\rightarrow s_1 "
-                 "\\rightarrow s_0$")
+                 "$s_0 \\leftarrow s_1 \\leftarrow \\cdots "
+                 "\\leftarrow s_{L-1}$")
         ax.text(nx + nw2 / 2, ymid - 0.028, order, ha="center",
                 va="center", fontsize=7.0, color=C_NUI, zorder=4)
         xr = X2 + 0.065
