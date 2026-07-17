@@ -125,79 +125,96 @@ def draw_nuisance_trajectory(
 
 
 def figure_conceptual(out_dir: Path) -> None:
-    fig, ax = plt.subplots(figsize=(7.35, 2.65))
+    fig, ax = plt.subplots(figsize=(7.35, 2.7))
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.set_axis_off()
 
-    NW, NH = 0.135, 0.115             # chain-node size
-    X0, X1, X2 = 0.135, 0.325, 0.555  # column anchors (lower-left x)
+    def card(x, y, w, h):
+        ax.add_patch(FancyBboxPatch(
+            (x, y), w, h, boxstyle="round,pad=0.008,rounding_size=0.02",
+            linewidth=0.8, edgecolor=PANEL_BORDER, facecolor="#FBFCFD",
+            zorder=1))
 
-    def row(yc, names, nuis_label, annotation, valid):
-        """One environment row: source-core-label chain over a nuisance node."""
+    def node(x, y, w, h, label, edge, face, fs=7.5):
+        ax.add_patch(FancyBboxPatch(
+            (x + 0.004, y - 0.010), w, h,
+            boxstyle="round,pad=0.010,rounding_size=0.035",
+            linewidth=0, facecolor="#8A94A0", alpha=0.13, zorder=2))
+        ax.add_patch(FancyBboxPatch(
+            (x, y), w, h, boxstyle="round,pad=0.010,rounding_size=0.035",
+            linewidth=1.1, edgecolor=edge, facecolor=face, zorder=3))
+        ax.text(x + w / 2, y + h / 2, label, ha="center", va="center",
+                fontsize=fs, color=TEXT, zorder=4)
+
+    def arrow(p, q, color, lw=1.8, rad=0.0):
+        ax.add_patch(FancyArrowPatch(
+            p, q, arrowstyle="-|>", mutation_scale=11, linewidth=lw,
+            color=color, connectionstyle=f"arc3,rad={rad}", shrinkA=4,
+            shrinkB=4, zorder=4))
+
+    def chip(x, y, label, color, face):
+        ax.text(x, y, label, fontsize=6.7, color=color, ha="center",
+                va="center", fontweight="bold", zorder=5,
+                bbox=dict(boxstyle="round,pad=0.32", fc=face, ec=color,
+                          lw=0.9))
+
+    NW, NH = 0.13, 0.115
+    X0, X1, X2 = 0.115, 0.30, 0.525
+
+    def env_panel(pb, header, names, nuis_label, chip_label, valid):
+        card(0.006, pb, 0.70, 0.465)
+        ax.text(0.024, pb + 0.415, header, fontsize=8.8, fontweight="bold",
+                color=TEXT, ha="left", va="center", zorder=4)
+        yc = pb + 0.225
         for x, name in zip((X0, X1, X2), names):
-            draw_node(ax, (x, yc), (NW, NH), name, edge=CORE,
-                      face=CORE_LIGHT)
+            node(x, yc, NW, NH, name, CORE, CORE_LIGHT)
         ym = yc + NH / 2
-        draw_arrow(ax, (X0 + NW, ym), (X1, ym), color=CORE, lw=1.9)
-        draw_arrow(ax, (X1 + NW, ym), (X2, ym), color=CORE, lw=1.9)
-        # nuisance node below the chain, dashed relation to the label node
-        nx, nw = 0.155, 0.235
-        ny = yc - 0.175
-        draw_node(ax, (nx, ny), (nw, NH), nuis_label, edge=NUISANCE,
-                  face=NUISANCE_LIGHT)
-        x_start, y_start = nx + nw, ny + NH * 0.72
-        x_end, y_end = X2 + 0.055, yc - 0.004
-        ax.plot([x_start, x_start + 0.80 * (x_end - x_start)],
-                [y_start, y_start + 0.80 * (y_end - y_start)],
+        arrow((X0 + NW, ym), (X1, ym), CORE, lw=2.0)
+        arrow((X1 + NW, ym), (X2, ym), CORE, lw=2.0)
+        nx, nw = 0.135, 0.225
+        ny = pb + 0.045
+        node(nx, ny, nw, NH, nuis_label, NUISANCE, NUISANCE_LIGHT, fs=7.2)
+        xs, ys = nx + nw + 0.012, ny + NH * 0.70
+        xe, ye = X2 + 0.052, yc - 0.008
+        ax.plot([xs, xs + 0.70 * (xe - xs)], [ys, ys + 0.70 * (ye - ys)],
                 color=NUISANCE, linewidth=1.5, linestyle=(0, (4, 2)),
-                zorder=2)
-        draw_arrow(ax, (x_start + 0.68 * (x_end - x_start),
-                        y_start + 0.68 * (y_end - y_start)),
-                   (x_end, y_end), color=NUISANCE, lw=1.5)
-        if not valid:
-            xm = x_start + 0.46 * (x_end - x_start)
-            ym2 = y_start + 0.46 * (y_end - y_start)
-            ax.scatter([xm], [ym2], marker="x", s=95, color=NUISANCE,
-                       linewidths=2.6, zorder=4)
-        ax.text(nx + nw / 2, ny - 0.052, annotation, fontsize=7.3,
-                color=NUISANCE, ha="center", va="center")
+                zorder=3)
+        arrow((xs + 0.62 * (xe - xs), ys + 0.62 * (ye - ys)), (xe, ye),
+              NUISANCE, lw=1.5)
+        chipcolor = CORE if valid else NUISANCE
+        chip(0.475, pb + 0.075, chip_label, chipcolor,
+             CORE_LIGHT if valid else NUISANCE_LIGHT)
 
-    ax.text(0.012, 0.80, "Train / IID", fontsize=9.0, fontweight="bold",
-            color=TEXT, va="center")
-    ax.text(0.012, 0.335, "OOD", fontsize=9.0, fontweight="bold",
-            color=TEXT, va="center")
-    ax.plot([0.10, 0.10], [0.02, 0.98], color=PANEL_BORDER, linewidth=0.8)
-
-    ax.text(0.41, 0.965, "stable task-relevant relation", fontsize=7.7,
-            color=CORE, ha="center", va="center", fontweight="bold")
-    row(0.775, ("latent\nsource", "diffusive\ncore", "label"),
-        "directional nuisance  $\\rightarrow$",
-        "correlated with the label in training", True)
-    row(0.315, ("same\nsource", "same\ncore", "same\nlabel"),
-        "$\\leftarrow$  reversed nuisance",
-        "the trained relation is now invalid", False)
+    env_panel(0.525, "Train / IID",
+              ("latent\nsource", "diffusive\ncore", "label"),
+              "directional nuisance  $\\rightarrow$",
+              "predictive ✓", True)
+    ax.text(0.41, 0.925, "stable task-relevant relation", fontsize=7.4,
+            color=CORE, ha="center", va="center", fontweight="bold",
+            zorder=4)
+    env_panel(0.02, "OOD",
+              ("same\nsource", "same\ncore", "same\nlabel"),
+              "$\\leftarrow$  reversed nuisance",
+              "invalid ✗", False)
 
     # Model-choice panel.
-    ax.plot([0.72, 0.72], [0.02, 0.98], color=PANEL_BORDER, linewidth=0.8)
-    ax.text(0.865, 0.945, "model choice", fontsize=9.0, fontweight="bold",
-            color=TEXT, ha="center", va="center")
-    draw_node(ax, (0.74, 0.44), (0.115, 0.13), "mixed\nsequence",
-              edge=SEQUENCE, face=SEQUENCE_LIGHT)
-    draw_node(ax, (0.878, 0.645), (0.098, 0.125), "robust\nOOD",
-              edge=CORE, face=CORE_LIGHT)
-    draw_node(ax, (0.878, 0.235), (0.098, 0.125), "OOD\ncollapse",
-              edge=NUISANCE, face=NUISANCE_LIGHT)
-    draw_arrow(ax, (0.857, 0.545), (0.895, 0.685), color=CORE, lw=1.9,
-               rad=0.22)
-    draw_arrow(ax, (0.857, 0.465), (0.895, 0.325), color=NUISANCE, lw=1.9,
-               rad=-0.22)
-    ax.text(0.802, 0.775, "core\npath", fontsize=7.2, color=CORE,
-            ha="center", va="center", fontweight="bold")
-    ax.text(0.802, 0.225, "shortcut\npath", fontsize=7.2, color=NUISANCE,
-            ha="center", va="center", fontweight="bold")
+    card(0.722, 0.02, 0.272, 0.97)
+    ax.text(0.858, 0.925, "model choice", fontsize=8.8, fontweight="bold",
+            color=TEXT, ha="center", va="center", zorder=4)
+    node(0.738, 0.44, 0.115, 0.13, "mixed\nsequence", SEQUENCE,
+         SEQUENCE_LIGHT)
+    node(0.876, 0.655, 0.098, 0.125, "robust\nOOD", CORE, CORE_LIGHT)
+    node(0.876, 0.20, 0.098, 0.125, "OOD\ncollapse", NUISANCE,
+         NUISANCE_LIGHT)
+    arrow((0.855, 0.55), (0.895, 0.695), CORE, lw=1.9, rad=0.22)
+    arrow((0.855, 0.46), (0.895, 0.29), NUISANCE, lw=1.9, rad=-0.22)
+    ax.text(0.80, 0.77, "core\npath", fontsize=7.1, color=CORE,
+            ha="center", va="center", fontweight="bold", zorder=4)
+    ax.text(0.80, 0.185, "shortcut\npath", fontsize=7.1, color=NUISANCE,
+            ha="center", va="center", fontweight="bold", zorder=4)
 
-    fig.subplots_adjust(left=0.01, right=0.995, top=0.98, bottom=0.02)
+    fig.subplots_adjust(left=0.005, right=0.998, top=0.995, bottom=0.005)
     save_figure(fig, out_dir, "fig01_conceptual_problem")
 
 
