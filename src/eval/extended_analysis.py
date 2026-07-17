@@ -156,7 +156,7 @@ def fig_model_family(summary: dict[str, Any], out: Path) -> str:
     main = summary["scenarios"]["model_family_main"]
     nospur = summary["scenarios"].get("model_family_no_spurious", {})
     ps.apply_style()
-    fig, ax = plt.subplots(figsize=(5.2, 3.0))
+    fig, ax = plt.subplots(figsize=(5.6, 3.0))
     labels = [lab for _, lab in ARCH_ORDER]
     x = np.arange(len(labels))
     w = 0.38
@@ -251,7 +251,7 @@ def fig_signature_across(summary: dict[str, Any], order: list[tuple[str, str]], 
     x = np.arange(len(labels))
     w = 0.38
     ps.apply_style()
-    fig, ax = plt.subplots(figsize=(max(4.6, 1.2 * len(labels) + 1.6), 3.0))
+    fig, ax = plt.subplots(figsize=(5.6, 3.0))
     iid = [get(scen[k], "sequence_erm", "iid_test_accuracy")[0] for k, _ in order]
     iid_s = [get(scen[k], "sequence_erm", "iid_test_accuracy")[1] for k, _ in order]
     ood = [get(scen[k], "sequence_erm", "ood_test_accuracy")[0] for k, _ in order]
@@ -262,17 +262,20 @@ def fig_signature_across(summary: dict[str, Any], order: list[tuple[str, str]], 
            lw=0.8, capsize=2.5, label="Sequence ERM (OOD)")
     core = [get(scen[k], "core_only_oracle", "ood_test_accuracy")[0] for k, _ in order]
     fin = [get(scen[k], "final_frame_mlp", "ood_test_accuracy")[0] for k, _ in order]
-    ax.scatter(x, core, marker="D", s=24, color=ps.CORE, zorder=5, label="Core-only reference (OOD)")
-    ax.scatter(x, fin, marker="_", s=180, color=ps.FINAL, zorder=5, linewidths=2.0,
+    ax.scatter(x, core, marker="D", s=30, color=ps.CORE, zorder=5, label="Core-only reference (OOD)")
+    ax.scatter(x, fin, marker="_", s=200, color=ps.FINAL, zorder=5, linewidths=2.2,
                label="Final-frame (OOD)")
     ax.axhline(0.5, color=ps.LIGHT_TEXT, lw=0.7, ls=":")
     ax.set_xticks(x)
-    ax.set_xticklabels(labels, fontsize=7.4)
-    ax.set_ylabel("Accuracy")
+    ax.set_xticklabels(labels, fontsize=8.4)
+    ax.set_ylabel("Accuracy", fontsize=9.5)
+    ax.tick_params(axis="y", labelsize=8.5)
+    ax.set_xlim(-0.6, len(labels) - 0.4)
     ax.set_ylim(0, 1.08)
     ps.style_axis(ax)
-    ax.legend(loc="center right", fontsize=7.0)
-    ps.panel_title(ax, "", title, subtitle)
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.01), ncol=2,
+              fontsize=8.2, frameon=False, columnspacing=1.4,
+              handletextpad=0.6)
     ps.save_figure(fig, out, fname)
     rows = []
     for k, lab in order:

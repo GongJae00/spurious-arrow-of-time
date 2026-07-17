@@ -130,45 +130,68 @@ def figure_conceptual(out_dir: Path) -> None:
     ax.set_ylim(0, 1)
     ax.set_axis_off()
 
-    ax.text(0.015, 0.74, "Train / IID", fontsize=8.6, fontweight="bold", color=TEXT, va="center")
-    ax.text(0.015, 0.31, "OOD", fontsize=8.6, fontweight="bold", color=TEXT, va="center")
-    ax.plot([0.105, 0.105], [0.12, 0.89], color=PANEL_BORDER, linewidth=0.8)
+    NW, NH = 0.125, 0.125             # node size
+    X0, X1, X2 = 0.145, 0.335, 0.575  # column anchors (lower-left x)
 
-    # Stable causal path.
-    draw_node(ax, (0.145, 0.655), (0.12, 0.12), "latent\nsource", edge=CORE, face=CORE_LIGHT)
-    draw_node(ax, (0.325, 0.655), (0.13, 0.12), "diffusive\ncore", edge=CORE, face=CORE_LIGHT)
-    draw_node(ax, (0.565, 0.655), (0.12, 0.12), "label", edge=CORE, face=CORE_LIGHT)
-    draw_arrow(ax, (0.265, 0.715), (0.325, 0.715), color=CORE, lw=2.0)
-    draw_arrow(ax, (0.455, 0.715), (0.565, 0.715), color=CORE, lw=2.0)
-    ax.text(0.395, 0.82, "stable task-relevant relation", fontsize=7.2, color=CORE, ha="center", fontweight="bold")
+    def row(y, names, traj_reverse):
+        """One generative row: three nodes, core arrows, nuisance path."""
+        for x, name in zip((X0, X1, X2), names):
+            draw_node(ax, (x, y), (NW, NH), name, edge=CORE, face=CORE_LIGHT)
+        ym = y + NH / 2
+        draw_arrow(ax, (X0 + NW, ym), (X1, ym), color=CORE, lw=2.0)
+        draw_arrow(ax, (X1 + NW, ym), (X2, ym), color=CORE, lw=2.0)
+        yb = y - 0.135
+        pts = [(X0 + 0.02 + 0.095 * k, yb + 0.022 * k) for k in range(4)]
+        draw_nuisance_trajectory(ax, pts, reverse=traj_reverse)
+        xe, ye = pts[-1][0] + 0.03, pts[-1][1] + 0.012
+        xt, yt = X2 + 0.055, y - 0.006
+        ax.plot([xe, xe + 0.72 * (xt - xe)], [ye, ye + 0.72 * (yt - ye)],
+                color=NUISANCE, linewidth=1.55, linestyle=(0, (4, 2)))
+        return (xe, ye), (xt, yt)
 
-    # Train nuisance path.
-    draw_nuisance_trajectory(ax, [(0.145, 0.515), (0.225, 0.575), (0.325, 0.555), (0.43, 0.595)])
-    ax.plot([0.46, 0.575], [0.585, 0.628], color=NUISANCE, linewidth=1.55, linestyle=(0, (4, 2)))
-    draw_arrow(ax, (0.545, 0.617), (0.618, 0.648), color=NUISANCE, lw=1.6, rad=0.0)
-    ax.text(0.29, 0.475, "environment-dependent nuisance relation is predictive", fontsize=7.0, color=NUISANCE, ha="center")
+    ax.text(0.015, 0.75, "Train / IID", fontsize=9.0, fontweight="bold",
+            color=TEXT, va="center")
+    ax.text(0.015, 0.32, "OOD", fontsize=9.0, fontweight="bold",
+            color=TEXT, va="center")
+    ax.plot([0.105, 0.105], [0.10, 0.91], color=PANEL_BORDER, linewidth=0.8)
 
-    # OOD row.
-    draw_node(ax, (0.145, 0.225), (0.12, 0.12), "same\nsource", edge=CORE, face=CORE_LIGHT)
-    draw_node(ax, (0.325, 0.225), (0.13, 0.12), "same\ncore", edge=CORE, face=CORE_LIGHT)
-    draw_node(ax, (0.565, 0.225), (0.12, 0.12), "same\nlabel", edge=CORE, face=CORE_LIGHT)
-    draw_arrow(ax, (0.265, 0.285), (0.325, 0.285), color=CORE, lw=2.0)
-    draw_arrow(ax, (0.455, 0.285), (0.565, 0.285), color=CORE, lw=2.0)
-    draw_nuisance_trajectory(ax, [(0.145, 0.095), (0.225, 0.155), (0.325, 0.135), (0.43, 0.175)], reverse=True)
-    ax.plot([0.46, 0.60], [0.165, 0.213], color=NUISANCE, linewidth=1.55, linestyle=(0, (4, 2)), alpha=0.8)
-    ax.text(0.53, 0.192, "X", fontsize=13, color=NUISANCE, fontweight="bold", ha="center", va="center")
-    ax.text(0.31, 0.055, "reversed nuisance arrow gives wrong evidence", fontsize=7.0, color=NUISANCE, ha="center")
+    # Train row: the nuisance relation predicts the label.
+    (xe, ye), (xt, yt) = row(0.66, ("latent\nsource", "diffusive\ncore",
+                                    "label"), False)
+    draw_arrow(ax, (xe + 0.6 * (xt - xe), ye + 0.6 * (yt - ye)), (xt, yt),
+               color=NUISANCE, lw=1.6)
+    ax.text(0.395, 0.845, "stable task-relevant relation", fontsize=7.6,
+            color=CORE, ha="center", fontweight="bold")
+    ax.text(0.30, 0.455,
+            "environment-dependent nuisance relation is predictive",
+            fontsize=7.3, color=NUISANCE, ha="center")
 
-    # Model ambiguity module.
-    ax.plot([0.72, 0.72], [0.12, 0.89], color=PANEL_BORDER, linewidth=0.8)
-    draw_node(ax, (0.755, 0.485), (0.11, 0.13), "mixed\nsequence", edge=SEQUENCE, face=SEQUENCE_LIGHT)
-    draw_node(ax, (0.895, 0.67), (0.09, 0.115), "robust\nOOD", edge=CORE, face=CORE_LIGHT)
-    draw_node(ax, (0.895, 0.255), (0.09, 0.115), "OOD\ncollapse", edge=NUISANCE, face=NUISANCE_LIGHT)
-    draw_arrow(ax, (0.865, 0.57), (0.895, 0.715), color=CORE, lw=1.9, rad=0.25)
-    draw_arrow(ax, (0.865, 0.53), (0.895, 0.315), color=NUISANCE, lw=1.9, rad=-0.25)
-    ax.text(0.86, 0.835, "model choice", fontsize=8.1, fontweight="bold", color=TEXT, ha="center")
-    ax.text(0.775, 0.41, "core path", fontsize=6.7, color=CORE, ha="left", fontweight="bold")
-    ax.text(0.775, 0.362, "shortcut path", fontsize=6.7, color=NUISANCE, ha="left", fontweight="bold")
+    # OOD row: the same nuisance relation is now invalid.
+    (xe, ye), (xt, yt) = row(0.23, ("same\nsource", "same\ncore",
+                                    "same\nlabel"), True)
+    ax.text((xe + xt) / 2 - 0.01, (ye + yt) / 2 - 0.005, "X", fontsize=13,
+            color=NUISANCE, fontweight="bold", ha="center", va="center")
+    ax.text(0.30, 0.025, "reversed nuisance arrow gives wrong evidence",
+            fontsize=7.3, color=NUISANCE, ha="center")
+
+    # Model-choice panel.
+    ax.plot([0.72, 0.72], [0.10, 0.91], color=PANEL_BORDER, linewidth=0.8)
+    ax.text(0.86, 0.845, "model choice", fontsize=9.0, fontweight="bold",
+            color=TEXT, ha="center")
+    draw_node(ax, (0.75, 0.45), (0.115, 0.13), "mixed\nsequence",
+              edge=SEQUENCE, face=SEQUENCE_LIGHT)
+    draw_node(ax, (0.895, 0.63), (0.095, 0.12), "robust\nOOD",
+              edge=CORE, face=CORE_LIGHT)
+    draw_node(ax, (0.895, 0.28), (0.095, 0.12), "OOD\ncollapse",
+              edge=NUISANCE, face=NUISANCE_LIGHT)
+    draw_arrow(ax, (0.865, 0.545), (0.90, 0.665), color=CORE, lw=1.9,
+               rad=0.22)
+    draw_arrow(ax, (0.865, 0.485), (0.90, 0.365), color=NUISANCE, lw=1.9,
+               rad=-0.22)
+    ax.text(0.765, 0.375, "core path", fontsize=7.3, color=CORE,
+            ha="left", fontweight="bold")
+    ax.text(0.765, 0.325, "shortcut path", fontsize=7.3, color=NUISANCE,
+            ha="left", fontweight="bold")
 
     fig.subplots_adjust(left=0.01, right=0.995, top=0.96, bottom=0.04)
     save_figure(fig, out_dir, "fig01_conceptual_problem")

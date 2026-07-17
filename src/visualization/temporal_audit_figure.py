@@ -1,9 +1,11 @@
-"""Figure: frame-local vs order-encoded directional cue audit.
+"""Figures: frame-local vs order-encoded directional cue audit.
 
-Panel A: per-frame direction decodability (single-frame probe accuracy vs t)
-         for the trail variant and the order-encoded variant.
-Panel B: nuisance-only sequence model OOD accuracy under order interventions
-         (ordered / frame-shuffled / order-reversed) in both variants.
+ext_fig7a_perframe_probe:      per-frame direction decodability
+                               (single-frame probe accuracy vs t) for the
+                               trail variant and the order-encoded variant.
+ext_fig7b_order_interventions: nuisance-only sequence model OOD accuracy
+                               under order interventions (ordered /
+                               frame-shuffled / order-reversed).
 
 Inputs:
   results/extended/temporal_evidence_audit.json      (trail variant)
@@ -23,14 +25,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from src.visualization.paper_style import (
-    CORE,
-    GRID,
     MUTED_TEXT,
     NUISANCE,
     SEQUENCE,
     TEXT,
     apply_style,
-    panel_title,
     save_figure,
     style_axis,
 )
@@ -44,10 +43,8 @@ def main() -> None:
     oe = json.load(open(RES / "temporal_evidence_audit_oe.json"))
     probe = json.load(open(RES / "nuisance_order_probe.json"))
 
-    fig, axes = plt.subplots(1, 2, figsize=(7.3, 2.6))
-
-    # Panel A: per-frame direction decodability.
-    ax = axes[0]
+    # Figure A: per-frame direction decodability.
+    fig, ax = plt.subplots(figsize=(3.6, 2.55))
     L = len(trail["per_frame"]["dir_iid"])
     ts = np.arange(L)
     for data, color, label in [
@@ -56,21 +53,25 @@ def main() -> None:
     ]:
         means = np.array([d["mean"] for d in data["per_frame"]["dir_iid"]])
         stds = np.array([d["std"] for d in data["per_frame"]["dir_iid"]])
-        ax.errorbar(ts, means, yerr=stds, color=color, linewidth=1.6, marker="o",
-                    markersize=4.0, capsize=2.0, label=label, zorder=3)
+        ax.errorbar(ts, means, yerr=stds, color=color, linewidth=1.7,
+                    marker="o", markersize=4.2, capsize=2.0, label=label,
+                    zorder=3)
     ax.axhline(0.5, color=MUTED_TEXT, linewidth=0.9, linestyle=(0, (4, 2)))
-    ax.text(L - 1.0, 0.53, "chance", fontsize=6.6, color=MUTED_TEXT, ha="right")
+    ax.text(L - 1.0, 0.525, "chance", fontsize=7.6, color=MUTED_TEXT,
+            ha="right")
     style_axis(ax)
-    ax.set_xlabel("frame index $t$", fontsize=7.5)
-    ax.set_ylabel("single-frame direction accuracy", fontsize=7.5)
+    ax.set_xlabel("frame index $t$", fontsize=9.0)
+    ax.set_ylabel("single-frame direction acc.", fontsize=9.0)
+    ax.tick_params(labelsize=8.2)
     ax.set_ylim(0.4, 1.05)
     ax.set_xticks(ts)
-    ax.legend(fontsize=6.4, loc="center left", frameon=False)
-    panel_title(ax, "A", "Where does the directional cue live?",
-                "per-frame probes (10 seeds)")
+    ax.legend(fontsize=7.8, loc="center left", frameon=False)
+    fig.subplots_adjust(left=0.16, right=0.985, top=0.97, bottom=0.19)
+    save_figure(fig, RES / "figures", "ext_fig7a_perframe_probe")
+    print("saved ext_fig7a_perframe_probe")
 
-    # Panel B: order interventions on the nuisance-only model (OOD accuracy).
-    ax = axes[1]
+    # Figure B: order interventions on the nuisance-only model.
+    fig, ax = plt.subplots(figsize=(3.6, 2.55))
     conditions = ["ood", "ood_shuffled", "ood_reversed_order"]
     cond_labels = ["ordered", "frame-\nshuffled", "order-\nreversed"]
     width = 0.36
@@ -82,22 +83,22 @@ def main() -> None:
         means = [probe[variant][c]["mean"] for c in conditions]
         stds = [probe[variant][c]["std"] for c in conditions]
         ax.bar(xs + (k - 0.5) * width, means, width, yerr=stds, capsize=2.0,
-               color=color, edgecolor="white", linewidth=0.6, label=label, zorder=3)
-        for x, m in zip(xs + (k - 0.5) * width, means, strict=True):
-            ax.text(x, m + 0.05, f"{m:.2f}", fontsize=6.2, ha="center", color=TEXT)
+               color=color, edgecolor="white", linewidth=0.6, label=label,
+               zorder=3)
+        for xpos, m in zip(xs + (k - 0.5) * width, means, strict=True):
+            ax.text(xpos, m + 0.05, f"{m:.2f}", fontsize=7.4, ha="center",
+                    color=TEXT)
     ax.axhline(0.5, color=MUTED_TEXT, linewidth=0.9, linestyle=(0, (4, 2)))
     style_axis(ax)
     ax.set_xticks(xs)
-    ax.set_xticklabels(cond_labels, fontsize=7.0)
-    ax.set_ylabel("OOD accuracy (nuisance-only)", fontsize=7.5)
-    ax.set_ylim(0.0, 1.13)
-    ax.legend(fontsize=6.4, loc="upper left", frameon=False)
-    panel_title(ax, "B", "Does the cue need temporal order?",
-                "test-time order interventions (10 seeds)")
-
-    fig.subplots_adjust(left=0.075, right=0.99, top=0.82, bottom=0.17, wspace=0.26)
-    save_figure(fig, RES / "figures", "ext_fig7_temporal_audit")
-    print("saved ext_fig7_temporal_audit")
+    ax.set_xticklabels(cond_labels, fontsize=8.6)
+    ax.set_ylabel("OOD accuracy (nuisance-only)", fontsize=9.0)
+    ax.tick_params(axis="y", labelsize=8.2)
+    ax.set_ylim(0.0, 1.16)
+    ax.legend(fontsize=7.8, loc="upper left", frameon=False)
+    fig.subplots_adjust(left=0.15, right=0.985, top=0.97, bottom=0.15)
+    save_figure(fig, RES / "figures", "ext_fig7b_order_interventions")
+    print("saved ext_fig7b_order_interventions")
 
 
 if __name__ == "__main__":
