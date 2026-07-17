@@ -168,23 +168,15 @@ def figure_conceptual(out_dir: Path) -> None:
             (nx, ny), nw2, NH,
             boxstyle="round,pad=0.010,rounding_size=0.028",
             linewidth=1.0, edgecolor=C_NUI, facecolor=C_NUI_L, zorder=3))
-        ax.text(nx + 0.088, ny + NH / 2, nuis, ha="center", va="center",
-                fontsize=7.2, color=TEXT, zorder=4)
-        # moving-pulse glyph: trail fades opposite to the travel direction
-        gx0, ymid = nx + 0.186, ny + NH / 2
-        ks = range(4)
-        for k in ks:
-            alpha = 0.22 + 0.26 * (k if valid else 3 - k)
-            ax.add_patch(FancyBboxPatch(
-                (gx0 + 0.0155 * k, ymid - 0.026), 0.0055, 0.052,
-                boxstyle="round,pad=0.001,rounding_size=0.002",
-                linewidth=0, facecolor=C_NUI, alpha=alpha, zorder=4))
-        tip = (gx0 + 0.0155 * 3 + 0.0125, ymid) if valid \
-            else (gx0 - 0.007, ymid)
-        tail = (tip[0] - 0.012, ymid) if valid else (tip[0] + 0.012, ymid)
-        ax.add_patch(FancyArrowPatch(
-            tail, tip, arrowstyle="-|>", mutation_scale=8, linewidth=1.3,
-            color=C_NUI, shrinkA=0, shrinkB=0, zorder=4))
+        ymid = ny + NH / 2
+        ax.text(nx + nw2 / 2, ymid + 0.024, nuis, ha="center",
+                va="center", fontsize=7.2, color=TEXT, zorder=4)
+        order = ("$s_0 \\rightarrow s_1 \\rightarrow \\cdots "
+                 "\\rightarrow s_{L-1}$" if valid else
+                 "$s_{L-1} \\rightarrow \\cdots \\rightarrow s_1 "
+                 "\\rightarrow s_0$")
+        ax.text(nx + nw2 / 2, ymid - 0.028, order, ha="center",
+                va="center", fontsize=7.0, color=C_NUI, zorder=4)
         xr = X2 + 0.065
         color = C_NUI if valid else C_BAD
         ax.plot([nx + nw2 + PAD, xr], [ymid, ymid], color=color,
@@ -203,10 +195,10 @@ def figure_conceptual(out_dir: Path) -> None:
 
     panel(0.545, "Train / IID",
           ("latent\nsource", "diffusive\ncore", "label"),
-          "directional\nnuisance", True)
+          "directional nuisance", True)
     panel(0.045, "OOD",
           ("same\nsource", "same\ncore", "same\nlabel"),
-          "reversed\nnuisance", False)
+          "reversed nuisance", False)
 
     ax.plot([0.735, 0.735], [0.03, 0.97], color=PANEL_BORDER, lw=0.8)
     ax.text(0.868, 0.925, "model choice", fontsize=8.8, fontweight="bold",
