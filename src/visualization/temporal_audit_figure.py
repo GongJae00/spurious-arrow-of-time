@@ -57,15 +57,16 @@ def main() -> None:
                     marker="o", markersize=4.2, capsize=2.0, label=label,
                     zorder=3)
     ax.axhline(0.5, color=MUTED_TEXT, linewidth=0.9, linestyle=(0, (4, 2)))
-    ax.text(L - 1.0, 0.525, "chance", fontsize=7.6, color=MUTED_TEXT,
-            ha="right")
+    ax.text(0.15, 0.472, "chance", fontsize=7.6, color=MUTED_TEXT,
+            ha="left", va="top")
     style_axis(ax)
     ax.set_xlabel("frame index $t$", fontsize=9.0)
     ax.set_ylabel("single-frame direction acc.", fontsize=9.0)
     ax.tick_params(labelsize=8.2)
-    ax.set_ylim(0.4, 1.05)
+    ax.set_ylim(0.38, 1.05)
     ax.set_xticks(ts)
-    ax.legend(fontsize=7.8, loc="center left", frameon=False)
+    ax.legend(fontsize=7.8, loc="center right", bbox_to_anchor=(1.0, 0.62),
+              frameon=False)
     fig.subplots_adjust(left=0.16, right=0.985, top=0.97, bottom=0.19)
     save_figure(fig, RES / "figures", "ext_fig7a_perframe_probe")
     print("saved ext_fig7a_perframe_probe")
