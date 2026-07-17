@@ -96,8 +96,9 @@ def main() -> None:
     ax.set_ylabel("OOD accuracy (nuisance-only)", fontsize=9.0)
     ax.tick_params(axis="y", labelsize=8.2)
     ax.set_ylim(0.0, 1.16)
-    ax.legend(fontsize=7.8, loc="upper left", frameon=False)
-    fig.subplots_adjust(left=0.15, right=0.985, top=0.97, bottom=0.15)
+    ax.legend(fontsize=7.8, loc="lower center", bbox_to_anchor=(0.5, 1.0),
+              ncol=2, frameon=False, columnspacing=1.2, handletextpad=0.5)
+    fig.subplots_adjust(left=0.16, right=0.985, top=0.90, bottom=0.19)
     save_figure(fig, RES / "figures", "ext_fig7b_order_interventions")
     print("saved ext_fig7b_order_interventions")
 
