@@ -162,32 +162,51 @@ def figure_conceptual(out_dir: Path) -> None:
         ym = yc + NH / 2
         flat_arrow((X0 + NW + PAD, ym), (X1 - PAD, ym), C_CORE, lw=1.9)
         flat_arrow((X1 + NW + PAD, ym), (X2 - PAD, ym), C_CORE, lw=1.9)
-        nx, nw2 = 0.10, 0.225
+        nx, nw2 = 0.10, 0.265
         ny = pb - 0.005
-        flat_node(nx, ny, nw2, NH, nuis, C_NUI, C_NUI_L, fs=7.2)
+        ax.add_patch(FancyBboxPatch(
+            (nx, ny), nw2, NH,
+            boxstyle="round,pad=0.010,rounding_size=0.028",
+            linewidth=1.0, edgecolor=C_NUI, facecolor=C_NUI_L, zorder=3))
+        ax.text(nx + 0.088, ny + NH / 2, nuis, ha="center", va="center",
+                fontsize=7.2, color=TEXT, zorder=4)
+        # moving-pulse glyph: trail fades opposite to the travel direction
+        gx0, ymid = nx + 0.186, ny + NH / 2
+        ks = range(4)
+        for k in ks:
+            alpha = 0.22 + 0.26 * (k if valid else 3 - k)
+            ax.add_patch(FancyBboxPatch(
+                (gx0 + 0.0155 * k, ymid - 0.026), 0.0055, 0.052,
+                boxstyle="round,pad=0.001,rounding_size=0.002",
+                linewidth=0, facecolor=C_NUI, alpha=alpha, zorder=4))
+        tip = (gx0 + 0.0155 * 3 + 0.0125, ymid) if valid \
+            else (gx0 - 0.007, ymid)
+        tail = (tip[0] - 0.012, ymid) if valid else (tip[0] + 0.012, ymid)
+        ax.add_patch(FancyArrowPatch(
+            tail, tip, arrowstyle="-|>", mutation_scale=8, linewidth=1.3,
+            color=C_NUI, shrinkA=0, shrinkB=0, zorder=4))
         xr = X2 + 0.065
-        ymid = ny + NH / 2
         color = C_NUI if valid else C_BAD
         ax.plot([nx + nw2 + PAD, xr], [ymid, ymid], color=color,
                 lw=1.5, ls=(0, (4, 2)), zorder=3)
         flat_arrow((xr, ymid), (xr, yc - PAD - 0.002), color, lw=1.5)
         if valid:
-            ax.text((nx + nw2 + xr) / 2 + 0.02, ymid + 0.042,
+            ax.text((nx + nw2 + xr) / 2 + 0.012, ymid + 0.048,
                     "correlated with the label", fontsize=6.6,
                     color=C_NUI, ha="center")
         else:
-            ax.scatter([(nx + nw2 + xr) / 2 + 0.02], [ymid], marker="x",
+            ax.scatter([(nx + nw2 + xr) / 2 - 0.014], [ymid], marker="x",
                        s=110, color=C_BAD, linewidths=2.8, zorder=5)
-            ax.text((nx + nw2 + xr) / 2 + 0.02, ymid + 0.042,
+            ax.text((nx + nw2 + xr) / 2 + 0.005, ymid + 0.048,
                     "relation now invalid", fontsize=6.6, color=C_BAD,
                     ha="center")
 
     panel(0.545, "Train / IID",
           ("latent\nsource", "diffusive\ncore", "label"),
-          "directional nuisance  $\\rightarrow$", True)
+          "directional\nnuisance", True)
     panel(0.045, "OOD",
           ("same\nsource", "same\ncore", "same\nlabel"),
-          "$\\leftarrow$  reversed nuisance", False)
+          "reversed\nnuisance", False)
 
     ax.plot([0.735, 0.735], [0.03, 0.97], color=PANEL_BORDER, lw=0.8)
     ax.text(0.868, 0.925, "model choice", fontsize=8.8, fontweight="bold",
