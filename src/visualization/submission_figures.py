@@ -125,96 +125,85 @@ def draw_nuisance_trajectory(
 
 
 def figure_conceptual(out_dir: Path) -> None:
+    """Conceptual overview (flat orthogonal design)."""
+    C_CORE, C_CORE_L = "#2F6F8F", "#E3EEF4"
+    C_NUI, C_NUI_L = "#B85C38", "#F8ECE5"
+    C_BAD = "#C0392B"
     fig, ax = plt.subplots(figsize=(7.35, 2.7))
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.set_axis_off()
 
-    def card(x, y, w, h):
+    def flat_node(x, y, w, h, label, edge, face, fs=7.5):
         ax.add_patch(FancyBboxPatch(
-            (x, y), w, h, boxstyle="round,pad=0.008,rounding_size=0.02",
-            linewidth=0.8, edgecolor=PANEL_BORDER, facecolor="#FBFCFD",
-            zorder=1))
-
-    def node(x, y, w, h, label, edge, face, fs=7.5):
-        ax.add_patch(FancyBboxPatch(
-            (x + 0.004, y - 0.010), w, h,
-            boxstyle="round,pad=0.010,rounding_size=0.035",
-            linewidth=0, facecolor="#8A94A0", alpha=0.13, zorder=2))
-        ax.add_patch(FancyBboxPatch(
-            (x, y), w, h, boxstyle="round,pad=0.010,rounding_size=0.035",
-            linewidth=1.1, edgecolor=edge, facecolor=face, zorder=3))
+            (x, y), w, h, boxstyle="round,pad=0.010,rounding_size=0.028",
+            linewidth=1.0, edgecolor=edge, facecolor=face, zorder=3))
         ax.text(x + w / 2, y + h / 2, label, ha="center", va="center",
                 fontsize=fs, color=TEXT, zorder=4)
 
-    def arrow(p, q, color, lw=1.8, rad=0.0):
+    def flat_arrow(p, q, color, lw=1.8, rad=0.0, ls="-"):
         ax.add_patch(FancyArrowPatch(
-            p, q, arrowstyle="-|>", mutation_scale=11, linewidth=lw,
-            color=color, connectionstyle=f"arc3,rad={rad}", shrinkA=4,
-            shrinkB=4, zorder=4))
-
-    def chip(x, y, label, color, face):
-        ax.text(x, y, label, fontsize=6.7, color=color, ha="center",
-                va="center", fontweight="bold", zorder=5,
-                bbox=dict(boxstyle="round,pad=0.32", fc=face, ec=color,
-                          lw=0.9))
+            p, q, arrowstyle="-|>", mutation_scale=9, linewidth=lw,
+            color=color, connectionstyle=f"arc3,rad={rad}", linestyle=ls,
+            shrinkA=4, shrinkB=4, zorder=4))
 
     NW, NH = 0.13, 0.115
-    X0, X1, X2 = 0.115, 0.30, 0.525
+    X0, X1, X2 = 0.10, 0.295, 0.49
+    PAD = 0.012
 
-    def env_panel(pb, header, names, nuis_label, chip_label, valid):
-        card(0.006, pb, 0.70, 0.465)
-        ax.text(0.024, pb + 0.415, header, fontsize=8.8, fontweight="bold",
-                color=TEXT, ha="left", va="center", zorder=4)
-        yc = pb + 0.225
+    def panel(pb, header, names, nuis, valid):
+        ax.plot([0.012, 0.70], [pb + 0.44, pb + 0.44], color=PANEL_BORDER,
+                lw=0.8)
+        ax.text(0.012, pb + 0.385, header, fontsize=8.8,
+                fontweight="bold", color=TEXT)
+        yc = pb + 0.185
         for x, name in zip((X0, X1, X2), names):
-            node(x, yc, NW, NH, name, CORE, CORE_LIGHT)
+            flat_node(x, yc, NW, NH, name, C_CORE, C_CORE_L)
         ym = yc + NH / 2
-        arrow((X0 + NW, ym), (X1, ym), CORE, lw=2.0)
-        arrow((X1 + NW, ym), (X2, ym), CORE, lw=2.0)
-        nx, nw = 0.135, 0.225
-        ny = pb + 0.045
-        node(nx, ny, nw, NH, nuis_label, NUISANCE, NUISANCE_LIGHT, fs=7.2)
-        xs, ys = nx + nw + 0.012, ny + NH * 0.70
-        xe, ye = X2 + 0.052, yc - 0.008
-        ax.plot([xs, xs + 0.70 * (xe - xs)], [ys, ys + 0.70 * (ye - ys)],
-                color=NUISANCE, linewidth=1.5, linestyle=(0, (4, 2)),
-                zorder=3)
-        arrow((xs + 0.62 * (xe - xs), ys + 0.62 * (ye - ys)), (xe, ye),
-              NUISANCE, lw=1.5)
-        chipcolor = CORE if valid else NUISANCE
-        chip(0.475, pb + 0.075, chip_label, chipcolor,
-             CORE_LIGHT if valid else NUISANCE_LIGHT)
+        flat_arrow((X0 + NW + PAD, ym), (X1 - PAD, ym), C_CORE, lw=1.9)
+        flat_arrow((X1 + NW + PAD, ym), (X2 - PAD, ym), C_CORE, lw=1.9)
+        nx, nw2 = 0.10, 0.225
+        ny = pb - 0.005
+        flat_node(nx, ny, nw2, NH, nuis, C_NUI, C_NUI_L, fs=7.2)
+        xr = X2 + 0.065
+        ymid = ny + NH / 2
+        color = C_NUI if valid else C_BAD
+        ax.plot([nx + nw2 + PAD, xr], [ymid, ymid], color=color,
+                lw=1.5, ls=(0, (4, 2)), zorder=3)
+        flat_arrow((xr, ymid), (xr, yc - PAD - 0.002), color, lw=1.5)
+        if valid:
+            ax.text((nx + nw2 + xr) / 2 + 0.02, ymid + 0.042,
+                    "correlated with the label", fontsize=6.6,
+                    color=C_NUI, ha="center")
+        else:
+            ax.scatter([(nx + nw2 + xr) / 2 + 0.02], [ymid], marker="x",
+                       s=110, color=C_BAD, linewidths=2.8, zorder=5)
+            ax.text((nx + nw2 + xr) / 2 + 0.02, ymid + 0.042,
+                    "relation now invalid", fontsize=6.6, color=C_BAD,
+                    ha="center")
 
-    env_panel(0.525, "Train / IID",
-              ("latent\nsource", "diffusive\ncore", "label"),
-              "directional nuisance  $\\rightarrow$",
-              "predictive ✓", True)
-    ax.text(0.41, 0.925, "stable task-relevant relation", fontsize=7.4,
-            color=CORE, ha="center", va="center", fontweight="bold",
-            zorder=4)
-    env_panel(0.02, "OOD",
-              ("same\nsource", "same\ncore", "same\nlabel"),
-              "$\\leftarrow$  reversed nuisance",
-              "invalid ✗", False)
+    panel(0.545, "Train / IID",
+          ("latent\nsource", "diffusive\ncore", "label"),
+          "directional nuisance  $\\rightarrow$", True)
+    panel(0.045, "OOD",
+          ("same\nsource", "same\ncore", "same\nlabel"),
+          "$\\leftarrow$  reversed nuisance", False)
 
-    # Model-choice panel.
-    card(0.722, 0.02, 0.272, 0.97)
-    ax.text(0.858, 0.925, "model choice", fontsize=8.8, fontweight="bold",
-            color=TEXT, ha="center", va="center", zorder=4)
-    node(0.738, 0.44, 0.115, 0.13, "mixed\nsequence", SEQUENCE,
-         SEQUENCE_LIGHT)
-    node(0.876, 0.655, 0.098, 0.125, "robust\nOOD", CORE, CORE_LIGHT)
-    node(0.876, 0.20, 0.098, 0.125, "OOD\ncollapse", NUISANCE,
-         NUISANCE_LIGHT)
-    arrow((0.855, 0.55), (0.895, 0.695), CORE, lw=1.9, rad=0.22)
-    arrow((0.855, 0.46), (0.895, 0.29), NUISANCE, lw=1.9, rad=-0.22)
-    ax.text(0.80, 0.77, "core\npath", fontsize=7.1, color=CORE,
-            ha="center", va="center", fontweight="bold", zorder=4)
-    ax.text(0.80, 0.185, "shortcut\npath", fontsize=7.1, color=NUISANCE,
-            ha="center", va="center", fontweight="bold", zorder=4)
+    ax.plot([0.735, 0.735], [0.03, 0.97], color=PANEL_BORDER, lw=0.8)
+    ax.text(0.868, 0.925, "model choice", fontsize=8.8, fontweight="bold",
+            color=TEXT, ha="center")
+    flat_node(0.748, 0.44, 0.105, 0.13, "mixed\nsequence", "#43505E",
+              "#EDF0F3")
+    flat_node(0.885, 0.645, 0.098, 0.12, "robust\nOOD", C_CORE, C_CORE_L)
+    flat_node(0.885, 0.21, 0.098, 0.12, "OOD\ncollapse", C_NUI, C_NUI_L)
+    flat_arrow((0.867, 0.55), (0.926, 0.628), C_CORE, lw=1.8, rad=0.22)
+    flat_arrow((0.867, 0.46), (0.926, 0.352), C_NUI, lw=1.8, rad=-0.22)
+    ax.text(0.815, 0.755, "core\npath", fontsize=6.9, color=C_CORE,
+            ha="center", va="center", fontweight="bold")
+    ax.text(0.815, 0.195, "shortcut\npath", fontsize=6.9, color=C_NUI,
+            ha="center", va="center", fontweight="bold")
 
-    fig.subplots_adjust(left=0.005, right=0.998, top=0.995, bottom=0.005)
+    fig.subplots_adjust(left=0.004, right=0.998, top=0.995, bottom=0.005)
     save_figure(fig, out_dir, "fig01_conceptual_problem")
 
 
