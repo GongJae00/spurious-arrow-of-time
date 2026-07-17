@@ -48,7 +48,7 @@ def main() -> None:
     L = len(trail["per_frame"]["dir_iid"])
     ts = np.arange(L)
     for data, color, label in [
-        (trail, NUISANCE, "trail variant (frame-local residue)"),
+        (trail, NUISANCE, "trail variant"),
         (oe, SEQUENCE, "order-encoded variant"),
     ]:
         means = np.array([d["mean"] for d in data["per_frame"]["dir_iid"]])
@@ -57,7 +57,7 @@ def main() -> None:
                     marker="o", markersize=4.2, capsize=2.0, label=label,
                     zorder=3)
     ax.axhline(0.5, color=MUTED_TEXT, linewidth=0.9, linestyle=(0, (4, 2)))
-    ax.text(3.5, 0.462, "chance", fontsize=7.6, color=MUTED_TEXT,
+    ax.text(3.5, 0.458, "chance", fontsize=7.6, color=MUTED_TEXT,
             ha="center", va="top")
     style_axis(ax)
     ax.set_xlabel("frame index $t$", fontsize=9.0)
@@ -65,9 +65,9 @@ def main() -> None:
     ax.tick_params(labelsize=8.2)
     ax.set_ylim(0.38, 1.05)
     ax.set_xticks(ts)
-    ax.legend(fontsize=7.8, loc="center", bbox_to_anchor=(0.60, 0.55),
-              frameon=False)
-    fig.subplots_adjust(left=0.16, right=0.985, top=0.97, bottom=0.19)
+    ax.legend(fontsize=7.8, loc="lower center", bbox_to_anchor=(0.5, 1.0),
+              ncol=2, frameon=False, columnspacing=1.2, handletextpad=0.5)
+    fig.subplots_adjust(left=0.16, right=0.985, top=0.90, bottom=0.19)
     save_figure(fig, RES / "figures", "ext_fig7a_perframe_probe")
     print("saved ext_fig7a_perframe_probe")
 
