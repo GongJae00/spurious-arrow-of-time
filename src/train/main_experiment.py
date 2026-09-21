@@ -1,4 +1,4 @@
-"""Run raw neural baselines for irreversible source inference."""
+"""Train sequence models on cue-locality benchmark profiles."""
 
 from __future__ import annotations
 
@@ -26,7 +26,6 @@ from src.data.irreversible_source_inference import (
     IrreversibleSourceSplit,
     generate_irreversible_source_splits,
 )
-from src.eval.benchmark_diagnostics import run_diagnostics
 from src.models.minimal_sequence import build_model, parameter_count
 
 
@@ -49,11 +48,6 @@ METHODS: dict[str, dict[str, Any]] = {
     "nuisance_only_oracle": {
         "model_type": "sequence_cnn_gru",
         "input_key": "nuisance_only",
-        "uses_counterfactual": False,
-    },
-    "time_reversed_sequence": {
-        "model_type": "sequence_cnn_gru",
-        "input_key": "mixed_reversed",
         "uses_counterfactual": False,
     },
     "sequence_erm_lstm": {
@@ -138,10 +132,7 @@ def build_dataset_config(config: dict[str, Any], profile: dict[str, Any], seed: 
 
 
 def split_tensor(split: IrreversibleSourceSplit, input_key: str) -> np.ndarray:
-    if input_key == "mixed_reversed":
-        return split.mixed[:, ::-1].copy()
-    value = getattr(split, input_key)
-    return np.asarray(value)
+    return np.asarray(getattr(split, input_key))
 
 
 def infer_input_channels(x: np.ndarray) -> int:
@@ -501,111 +492,6 @@ def summarize_results(results: list[dict[str, Any]], primary_scenario: str) -> d
     }
 
 
-def markdown_summary(
-    *,
-    config_path: Path,
-    profile_name: str,
-    manifest: dict[str, Any],
-    summary: dict[str, Any],
-) -> str:
-    lines = [
-        "# Latest Main Result Summary",
-        "",
-        f"Profile: `{profile_name}`",
-        f"Primary scenario: `{summary['primary_scenario']}`",
-        f"Config: `{config_path}`",
-        f"Command: `{manifest['command']}`",
-        f"Device: `{manifest['device']}`",
-        f"Runtime-limited: `{manifest['runtime_limited']}`",
-        "",
-        "## Method Table",
-        "",
-        "| Method | Val IID | IID Test | OOD Test | OOD Gap | Seeds |",
-        "|---|---:|---:|---:|---:|---:|",
-    ]
-    for method, stats in summary["methods"].items():
-        if method == "main_gap_reduction":
-            continue
-        lines.append(
-            "| {method} | {val:.3f} | {iid:.3f} | {ood:.3f} | {gap:.3f} | {n} |".format(
-                method=method,
-                val=stats["val_iid_accuracy"]["mean"],
-                iid=stats["iid_test_accuracy"]["mean"],
-                ood=stats["ood_test_accuracy"]["mean"],
-                gap=stats["ood_gap"]["mean"],
-                n=stats["ood_gap"]["n"],
-            )
-        )
-    if "main_gap_reduction" in summary["methods"]:
-        reduction = summary["methods"]["main_gap_reduction"]
-        lines.extend(
-            [
-                "",
-                "## Main Gap Reduction",
-                "",
-                f"Mean ERM-minus-counterfactual OOD-gap reduction: `{reduction['mean']}`",
-                f"Consistent positive across common seeds: `{reduction['consistent_positive']}`",
-            ]
-        )
-    lines.extend(
-        [
-            "",
-            "## Claim Status",
-            "",
-            claim_status_text(summary, manifest),
-            "",
-            "This summary separates neural model evidence from diagnostic feature probes.",
-        ]
-    )
-    return "\n".join(lines) + "\n"
-
-
-def claim_status_text(summary: dict[str, Any], manifest: dict[str, Any]) -> str:
-    if manifest.get("runtime_limited") or manifest.get("profile") in {"smoke", "pilot"}:
-        return (
-            "Diagnostic only: this run is runtime-limited and cannot support a "
-            "paper-level main claim."
-        )
-    methods = summary["methods"]
-    if "sequence_erm" not in methods:
-        return "Not supported: `sequence_erm` result is missing."
-    erm_gap = methods["sequence_erm"]["ood_gap"]["mean"]
-    if erm_gap < 0.20:
-        return "Partially supported: neural ERM did not show the target OOD gap."
-    if "counterfactual_invariance" not in methods:
-        return "Partially supported: ERM gap exists, but counterfactual result is missing."
-    cf_gap = methods["counterfactual_invariance"]["ood_gap"]["mean"]
-    cf_ood = methods["counterfactual_invariance"]["ood_test_accuracy"]["mean"]
-    cf_iid = methods["counterfactual_invariance"]["iid_test_accuracy"]["mean"]
-    cf_ood_values = methods["counterfactual_invariance"]["ood_test_accuracy"].get("values", [])
-    cf_seed_success = (
-        sum(float(value) >= 0.80 for value in cf_ood_values) / len(cf_ood_values)
-        if cf_ood_values
-        else None
-    )
-    erm_ood = methods["sequence_erm"]["ood_test_accuracy"]["mean"]
-    erm_iid = methods["sequence_erm"]["iid_test_accuracy"]["mean"]
-    iid_preserved = cf_iid >= max(0.75, erm_iid - 0.15)
-    stable = cf_seed_success is not None and cf_seed_success >= 0.80
-    if cf_gap < erm_gap and cf_ood > erm_ood and iid_preserved and stable:
-        return (
-            "Supported in this controlled benchmark: ERM shows an OOD gap and "
-            "counterfactual invariance reduces it with seed-level stability."
-        )
-    if cf_gap < erm_gap and cf_ood > erm_ood and iid_preserved and not stable:
-        return (
-            "Phenomenon supported: ERM shows an OOD gap. Counterfactual "
-            "invariance improves mean OOD but is not seed-stable enough for a "
-            "primary method-success claim."
-        )
-    if cf_gap < erm_gap and cf_ood > erm_ood and not iid_preserved:
-        return (
-            "Partially supported: ERM shows an OOD gap, but counterfactual "
-            "training reduces the gap by sacrificing IID accuracy."
-        )
-    return "Partially supported: ERM shows an OOD gap, but counterfactual improvement is not established."
-
-
 def run_experiment(
     config_path: Path,
     out_dir: Path,
@@ -643,12 +529,9 @@ def run_experiment(
         for seed in seeds:
             set_seed(seed)
             dataset_config = build_dataset_config(config, scenario_profile, seed)
-            diagnostics = run_diagnostics(dataset_config)
             splits = generate_irreversible_source_splits(dataset_config)
             seed_dir = out_dir / scenario_name / f"seed_{seed}"
             seed_dir.mkdir(parents=True, exist_ok=True)
-            with (seed_dir / "diagnostics.json").open("w", encoding="utf-8") as f:
-                json.dump(diagnostics, f, indent=2)
             for method in scenario_methods:
                 run_seed = stable_run_seed(seed, scenario_name, method)
                 set_seed(run_seed)
@@ -671,7 +554,6 @@ def run_experiment(
                         "scenario": scenario_name,
                         "config_hash": stable_hash(asdict(dataset_config)),
                         "dataset_config": asdict(dataset_config),
-                        "benchmark_gate_passed": bool(diagnostics["gate"]["passed"]),
                     }
                 )
                 all_results.append(result)
@@ -698,13 +580,6 @@ def run_experiment(
         json.dump(summary, f, indent=2)
     with (out_dir / "manifest.json").open("w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
-    summary_md = markdown_summary(
-        config_path=config_path,
-        profile_name=profile_name,
-        manifest=manifest,
-        summary=summary,
-    )
-    (out_dir / "summary.md").write_text(summary_md, encoding="utf-8")
     return {"manifest": manifest, "summary": summary}
 
 
@@ -712,7 +587,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", required=True)
     parser.add_argument("--out", required=True)
-    parser.add_argument("--profile", default="smoke")
+    parser.add_argument("--profile", default="main_canonical")
     return parser.parse_args()
 
 

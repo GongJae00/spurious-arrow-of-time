@@ -1,1 +1,0 @@
-"""Publication figure generation utilities."""

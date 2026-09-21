@@ -1,15 +1,37 @@
 import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 from src.data.irreversible_source_inference import (
     IrreversibleSourceConfig,
     generate_irreversible_source_splits,
 )
-from src.eval.benchmark_diagnostics import (
-    evaluate_classifier,
-    final_frame,
-    fit_classifier,
-    motion_arrow_features,
-)
+
+
+def _probe_accuracy(x_train, y_train, x_test, y_test) -> float:
+    probe = make_pipeline(
+        StandardScaler(),
+        LogisticRegression(max_iter=1000, solver="liblinear", random_state=0),
+    )
+    probe.fit(x_train, y_train)
+    return float(probe.score(x_test, y_test))
+
+
+def _circular_column_slope(x: np.ndarray) -> np.ndarray:
+    mass = np.clip(x, 0.0, None)
+    width = x.shape[-1]
+    cols = np.arange(width, dtype=np.float64)
+    angle = 2.0 * np.pi * cols / width
+    col_mass = mass.sum(axis=2)
+    total = np.clip(col_mass.sum(axis=2), 1e-8, None)
+    mean_cos = (col_mass * np.cos(angle)).sum(axis=2) / total
+    mean_sin = (col_mass * np.sin(angle)).sum(axis=2) / total
+    com = np.arctan2(mean_sin, mean_cos) * width / (2.0 * np.pi)
+    unwrapped = np.unwrap(com * 2.0 * np.pi / width, axis=1)
+    t = np.arange(x.shape[1], dtype=np.float64)
+    t = t - t.mean()
+    return ((unwrapped * t).sum(axis=1) / np.sum(t**2))[:, None]
 
 
 def small_config() -> IrreversibleSourceConfig:
@@ -144,12 +166,16 @@ def test_endpoint_matched_controls_final_nuisance_leakage() -> None:
     train = splits["train"]
     iid = splits["iid_test"]
 
-    final_model = fit_classifier(final_frame(train.nuisance_only), train.y)
-    final_acc = evaluate_classifier(final_model, final_frame(iid.nuisance_only), iid.y)
-    motion_model = fit_classifier(motion_arrow_features(train.nuisance_only), train.y)
-    motion_acc = evaluate_classifier(
-        motion_model,
-        motion_arrow_features(iid.nuisance_only),
+    final_acc = _probe_accuracy(
+        train.nuisance_only[:, -1].reshape(len(train.y), -1),
+        train.y,
+        iid.nuisance_only[:, -1].reshape(len(iid.y), -1),
+        iid.y,
+    )
+    motion_acc = _probe_accuracy(
+        _circular_column_slope(train.nuisance_only),
+        train.y,
+        _circular_column_slope(iid.nuisance_only),
         iid.y,
     )
 

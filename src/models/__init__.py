@@ -1,1 +1,0 @@
-"""Minimal model definitions."""

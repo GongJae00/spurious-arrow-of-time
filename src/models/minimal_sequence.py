@@ -42,44 +42,6 @@ class FinalFrameMLP(nn.Module):
         return ModelOutput(logits=self.classifier(representation), representation=representation)
 
 
-class SequenceGRU(nn.Module):
-    """Classify from a raw image sequence after flattening each frame."""
-
-    def __init__(
-        self,
-        grid_size: int,
-        hidden_dim: int = 64,
-        num_layers: int = 1,
-        dropout: float = 0.0,
-        input_channels: int = 1,
-    ) -> None:
-        super().__init__()
-        frame_dim = input_channels * grid_size * grid_size
-        gru_dropout = dropout if num_layers > 1 else 0.0
-        self.gru = nn.GRU(
-            input_size=frame_dim,
-            hidden_size=hidden_dim,
-            num_layers=num_layers,
-            batch_first=True,
-            dropout=gru_dropout,
-        )
-        self.dropout = nn.Dropout(dropout)
-        self.classifier = nn.Linear(hidden_dim, 2)
-
-    def forward(self, x: torch.Tensor) -> ModelOutput:
-        if x.ndim == 4:
-            batch, length, rows, cols = x.shape
-            frames = x.reshape(batch, length, rows * cols)
-        elif x.ndim == 5:
-            batch, length, channels, rows, cols = x.shape
-            frames = x.reshape(batch, length, channels * rows * cols)
-        else:
-            raise ValueError(f"expected 4D or 5D sequence input, got shape {tuple(x.shape)}")
-        _, hidden = self.gru(frames)
-        representation = self.dropout(hidden[-1])
-        return ModelOutput(logits=self.classifier(representation), representation=representation)
-
-
 class SequenceCNNGRU(nn.Module):
     """Encode each frame with a small CNN, then model time with a GRU."""
 
@@ -331,14 +293,6 @@ def build_model(
         return FinalFrameMLP(
             grid_size=grid_size,
             hidden_dim=hidden_dim,
-            dropout=dropout,
-            input_channels=input_channels,
-        )
-    if model_type == "sequence_gru":
-        return SequenceGRU(
-            grid_size=grid_size,
-            hidden_dim=hidden_dim,
-            num_layers=num_layers,
             dropout=dropout,
             input_channels=input_channels,
         )

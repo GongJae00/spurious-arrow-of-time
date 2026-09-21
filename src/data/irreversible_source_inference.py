@@ -8,11 +8,9 @@ frame-local residue versus an order-encoded pulse.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from pathlib import Path
 from typing import Any
 
 import numpy as np
-import yaml
 
 
 SPLITS = ("train", "val_iid", "iid_test", "ood_test")
@@ -86,12 +84,6 @@ class IrreversibleSourceSplit:
     nuisance_direction: np.ndarray
     counterfactual_direction: np.ndarray
     metadata: dict[str, Any]
-
-
-def load_config(path: str | Path) -> IrreversibleSourceConfig:
-    with Path(path).open("r", encoding="utf-8") as f:
-        raw = yaml.safe_load(f) or {}
-    return IrreversibleSourceConfig(**raw)
 
 
 def generate_irreversible_source_splits(

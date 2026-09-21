@@ -21,14 +21,13 @@ results/**
 !results/extended/
 !results/extended/**
 results/extended/**/epoch_metrics.jsonl
+results/extended/**/diagnostics.json
+results/extended/**/summary.md
 results/extended/_merged_fig/
 results/extended/_canon_fig/
 results/extended/_fig2/
 results/extended/analysis/
 results/extended/figures/
-results/extended/tea_smoke.json
-results/extended/soa_smoke.json
-results/extended/rmb_smoke.json
 results/extended/**/*.pdf
 results/extended/**/*.png
 *.pt

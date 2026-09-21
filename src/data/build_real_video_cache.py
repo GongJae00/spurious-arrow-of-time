@@ -8,7 +8,7 @@ arrow of time of real video.
 
 Usage:
   python -m src.data.build_real_video_cache \
-      --src data/real_video --out data/real_video/cache_g16_L8.npz
+      --src data/real_video --out data/real_video/cache_g16_L8_s5.npz
 """
 
 from __future__ import annotations
@@ -78,7 +78,7 @@ def extract_crops(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--src", default="data/real_video")
-    parser.add_argument("--out", default="data/real_video/cache_g16_L8.npz")
+    parser.add_argument("--out", default="data/real_video/cache_g16_L8_s5.npz")
     parser.add_argument("--grid", type=int, default=16)
     parser.add_argument("--length", type=int, default=8)
     parser.add_argument("--t-stride", type=int, default=3)
