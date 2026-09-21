@@ -1,19 +1,12 @@
-"""Figures: frame-local vs order-encoded directional cue audit.
+"""Manuscript Figures 4a and 4b: frame-local vs order-encoded cue audit.
 
-ext_fig7a_perframe_probe:      per-frame direction decodability
-                               (single-frame probe accuracy vs t) for the
-                               trail variant and the order-encoded variant.
-ext_fig7b_order_interventions: nuisance-only sequence model OOD accuracy
-                               under order interventions (ordered /
-                               frame-shuffled / order-reversed).
+fig4a_perframe_probes:      per-frame direction decodability.
+fig4b_order_interventions:  nuisance-only OOD accuracy under order interventions.
 
 Inputs:
-  results/extended/temporal_evidence_audit.json      (trail variant)
-  results/extended/temporal_evidence_audit_oe.json   (order-encoded variant)
+  results/extended/temporal_evidence_audit.json
+  results/extended/temporal_evidence_audit_oe.json
   results/extended/nuisance_order_probe.json
-
-Usage:
-  python -m src.visualization.temporal_audit_figure
 """
 
 from __future__ import annotations
@@ -68,8 +61,8 @@ def main() -> None:
     ax.legend(fontsize=7.8, loc="lower center", bbox_to_anchor=(0.5, 1.0),
               ncol=2, frameon=False, columnspacing=1.2, handletextpad=0.5)
     fig.subplots_adjust(left=0.16, right=0.985, top=0.90, bottom=0.19)
-    save_figure(fig, RES / "figures", "ext_fig7a_perframe_probe")
-    print("saved ext_fig7a_perframe_probe")
+    save_figure(fig, Path("."), "fig4a_perframe_probes")
+    print("saved fig4a_perframe_probes")
 
     # Figure B: order interventions on the nuisance-only model.
     fig, ax = plt.subplots(figsize=(3.6, 2.55))
@@ -99,8 +92,8 @@ def main() -> None:
     ax.legend(fontsize=7.8, loc="lower center", bbox_to_anchor=(0.5, 1.0),
               ncol=2, frameon=False, columnspacing=1.2, handletextpad=0.5)
     fig.subplots_adjust(left=0.16, right=0.985, top=0.90, bottom=0.19)
-    save_figure(fig, RES / "figures", "ext_fig7b_order_interventions")
-    print("saved ext_fig7b_order_interventions")
+    save_figure(fig, Path("."), "fig4b_order_interventions")
+    print("saved fig4b_order_interventions")
 
 
 if __name__ == "__main__":

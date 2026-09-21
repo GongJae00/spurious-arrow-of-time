@@ -610,7 +610,6 @@ def run_experiment(
     config_path: Path,
     out_dir: Path,
     profile_name: str,
-    write_docs_summary: bool = True,
 ) -> dict[str, Any]:
     config = load_yaml(config_path)
     profiles = config.get("profiles", {})
@@ -706,9 +705,6 @@ def run_experiment(
         summary=summary,
     )
     (out_dir / "summary.md").write_text(summary_md, encoding="utf-8")
-    if write_docs_summary and not runtime_limited:
-        docs_summary = Path("docs/latest_result_summary.md")
-        docs_summary.write_text(summary_md, encoding="utf-8")
     return {"manifest": manifest, "summary": summary}
 
 

@@ -48,30 +48,13 @@ def test_main_training_smoke_writes_outputs(tmp_path: Path) -> None:
     config_path = tmp_path / "config.yaml"
     config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
 
-    result = run_experiment(config_path, tmp_path / "out", "smoke", write_docs_summary=False)
+    result = run_experiment(config_path, tmp_path / "out", "smoke")
 
     assert (tmp_path / "out" / "metrics.jsonl").exists()
     assert (tmp_path / "out" / "summary.json").exists()
     assert (tmp_path / "out" / "manifest.json").exists()
     assert "sequence_erm" in result["summary"]["methods"]
     assert "counterfactual_invariance" in result["summary"]["methods"]
-
-
-def test_runtime_limited_profile_does_not_update_docs_summary(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    config_path = tmp_path / "config.yaml"
-    config_path.write_text(yaml.safe_dump(minimal_config()), encoding="utf-8")
-    docs_dir = tmp_path / "docs"
-    docs_dir.mkdir()
-    docs_summary = docs_dir / "latest_result_summary.md"
-    docs_summary.write_text("keep full result summary\n", encoding="utf-8")
-
-    monkeypatch.chdir(tmp_path)
-    run_experiment(config_path, tmp_path / "out", "smoke", write_docs_summary=True)
-
-    assert docs_summary.read_text(encoding="utf-8") == "keep full result summary\n"
 
 
 def test_stable_run_seed_is_method_and_scenario_specific() -> None:

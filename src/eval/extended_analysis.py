@@ -1,11 +1,4 @@
-"""Analyze and visualize the extended (revision) ablation experiments.
-
-Reads the four extended-profile summaries and produces markdown tables plus
-manuscript-style figures for:
-  1. nuisance-label correlation sweep
-  2. nuisance scale sweep
-  3. model-family comparison
-  4. channel-mixing (two-channel vs additive)
+"""Tables and plots from the extended-profile summaries.
 
 Usage:
   python -m src.eval.extended_analysis --root results/extended --out results/extended/analysis

@@ -15,7 +15,7 @@ paper/
 
 # Generated experiment artifacts: per-run summaries and metrics under
 # results/extended are versioned (the paper's raw result artifacts);
-# per-epoch curves and other scratch outputs are not.
+# per-epoch curves, scratch plots, and other outputs are not.
 results/**
 !results/
 !results/extended/
@@ -24,11 +24,13 @@ results/extended/**/epoch_metrics.jsonl
 results/extended/_merged_fig/
 results/extended/_canon_fig/
 results/extended/_fig2/
+results/extended/analysis/
+results/extended/figures/
 results/extended/tea_smoke.json
 results/extended/soa_smoke.json
 results/extended/rmb_smoke.json
-figures/**
-!figures/.gitkeep
+results/extended/**/*.pdf
+results/extended/**/*.png
 *.pt
 *.pth
 *.ckpt

@@ -1,8 +1,8 @@
-"""Irreversible source inference with a spurious arrow shortcut.
+"""Grid-source sequences with a competing directional nuisance.
 
-The core task is to infer a hidden source pattern after diffusion. The nuisance
-is an independent directed process whose arrow is correlated with the label in
-train/IID and shifted OOD.
+The core is a diffusive latent source. The nuisance direction is correlated
+with the label at train/IID and reversed OOD. Trail decay selects a
+frame-local residue versus an order-encoded pulse.
 """
 
 from __future__ import annotations

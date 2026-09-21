@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Six-gate audit decision-flow figure (paper Fig. 2).
+"""Six-gate audit decision-flow figure (manuscript Fig. 2).
 
-Usage: python -m src.visualization.audit_flow_figure --out fig06_audit_flow.pdf
+Usage: python -m src.visualization.audit_flow_figure --out figures/fig2_audit_flow.pdf
 """
 import argparse
+from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")
@@ -13,7 +14,7 @@ from matplotlib.patches import FancyArrowPatch
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--out", default="fig06_audit_flow.pdf")
+    parser.add_argument("--out", default="figures/fig2_audit_flow.pdf")
     args = parser.parse_args()
 
     fig, ax = plt.subplots(figsize=(4.2, 6.4))
@@ -70,8 +71,12 @@ def main() -> None:
                                      arrowstyle="-|>", mutation_scale=9,
                                      color="#2f7a3a", lw=1.0))
 
-    fig.savefig(args.out, bbox_inches="tight")
-    print("wrote", args.out)
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out, bbox_inches="tight")
+    if out.suffix.lower() == ".pdf":
+        fig.savefig(out.with_suffix(".png"), bbox_inches="tight", dpi=400)
+    print("wrote", out)
 
 
 if __name__ == "__main__":

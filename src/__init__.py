@@ -1,2 +1,2 @@
-"""Irreversible inverse inference benchmark package."""
+"""Cue-locality audit for spurious temporal shortcuts."""
 
