@@ -7,7 +7,7 @@ from sklearn.preprocessing import StandardScaler
 
 from src.data import GeneratorConfig, generate_splits
 
-# Generator shapes, split RNG, OOD reversal, two-channel layout, counterfactual.
+# Algorithm 2: shapes, split RNG, Eq. 4 OOD reversal, two-channel layout.
 
 
 def _probe_accuracy(x_train, y_train, x_test, y_test) -> float:

@@ -1,3 +1,4 @@
+# Paper generator and training defaults (Table A20).
 device: auto
 data:
   grid_size: 16

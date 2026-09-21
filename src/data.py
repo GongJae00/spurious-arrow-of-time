@@ -5,9 +5,8 @@ from pathlib import Path
 
 import numpy as np
 
-# Core: orientation-conditioned diffusion or directional pulse.
-# Nuisance: directional field, trail residue γ, or real-video crops.
-# OOD reverses the nuisance–label correlation; the core–label map is fixed.
+# Algorithm 2. Core (Eq. 6), nuisance (Eqs. 7–8), observation (Eq. 9).
+# OOD reverses P(d_s | y); the core–label map is fixed.
 
 SPLITS = ("train", "val_iid", "iid_test", "ood_test")
 
@@ -83,7 +82,7 @@ def generate_splits(config: GeneratorConfig) -> dict[str, Split]:
 
 
 def generate_split(config: GeneratorConfig, split: str) -> Split:
-    # Algorithm gen. y, core (Eq. diffuse), d_s, nuisance (Eq. nuis), x = [λ_c c, λ_s s].
+    # Algorithm 2. y, core (Eq. 6), d_s (Eq. 4), nuisance (Eqs. 7–8), x (Eq. 9).
     n = config.split_size(split)
     rng = np.random.default_rng(config.seed + 1009 * SPLITS.index(split))
     grid = config.grid_size
@@ -91,7 +90,7 @@ def generate_split(config: GeneratorConfig, split: str) -> Split:
     source_orientation = y.copy()
     source_center = rng.integers(0, grid, size=(n, 2), endpoint=False)
 
-    # OE-Core: directional pulse. Else Eq. diffuse.
+    # OE-Core: directional pulse. Else Eq. 6.
     if config.core_process == "directional_pulse":
         core_direction = (2 * source_orientation - 1).astype(np.int64)
         if config.core_direction_flip_prob > 0:
@@ -101,14 +100,14 @@ def generate_split(config: GeneratorConfig, split: str) -> Split:
     else:
         core = build_core_sequences(config, source_center, source_orientation, rng)
 
-    # Eq. nuis. Train correlated; OOD reversed / randomized / partial.
+    # Eqs. 7–8. Train correlated; OOD reversed / randomized / partial.
     nuisance_direction = sample_nuisance_direction(config, y, split, rng)
     nuisance = build_nuisance_sequences(config, nuisance_direction, rng)
 
     cf_direction = sample_counterfactual_direction(config, nuisance_direction, rng)
     nuisance_cf = build_nuisance_sequences(config, cf_direction, rng)
 
-    # Eq. obs.
+    # Eq. 9.
     mixed, counterfactual = compose_observation_pair(config, core, nuisance, nuisance_cf, rng)
     metadata = split_metadata(config, y, nuisance_direction, cf_direction)
     return Split(
@@ -169,7 +168,7 @@ def build_core_sequences(config: GeneratorConfig, centers: np.ndarray, orientati
 
 
 def diffuse_once(state: np.ndarray, alpha: float) -> np.ndarray:
-    # Eq. diffuse. Four-neighbor update, α=0.22 in the paper setting.
+    # Eq. 6. Four-neighbor update, α=0.22 in the paper setting.
     neighbors = (
         np.roll(state, 1, axis=1)
         + np.roll(state, -1, axis=1)
@@ -187,7 +186,7 @@ def evolve_core_once(state: np.ndarray, config: GeneratorConfig) -> np.ndarray:
 
 
 def compose_observation_pair(config: GeneratorConfig, core: np.ndarray, nuisance: np.ndarray, nuisance_cf: np.ndarray, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
-    # Eq. obs. Additive one-channel or two-channel [λ_c c, λ_s s].
+    # Eq. 9. Additive one-channel or two-channel [λ_c c, λ_s s].
     if config.observation_layout == "additive":
         noise = rng.normal(0.0, config.observation_noise_std, size=core.shape).astype(np.float32)
         mixed = config.core_scale * core + config.nuisance_scale * nuisance + noise
@@ -229,6 +228,7 @@ def build_clutter(config: GeneratorConfig, n: int, rng: np.random.Generator) -> 
 
 
 def sample_nuisance_direction(config: GeneratorConfig, y: np.ndarray, split: str, rng: np.random.Generator) -> np.ndarray:
+    # Eq. 4 / Table 4. Train aligned; OOD reversed, randomized, or partial.
     if split == "ood_test":
         aligned_probability = {
             "reversed": 1.0 - config.nuisance_correlation,
@@ -281,7 +281,7 @@ def build_real_video_nuisance(config: GeneratorConfig, direction: np.ndarray, rn
 
 
 def build_nuisance_sequences(config: GeneratorConfig, direction: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    # Eq. nuis. Pulse plus trail residue γ; γ=0 is order-encoded, γ=0.78 is Trail-FL.
+    # Eqs. 7–8. Pulse plus trail residue γ; γ=0 is Simple OE, γ=0.78 is Trail-FL.
     if config.nuisance_motion == "real_video":
         return build_real_video_nuisance(config, direction, rng)
     n = len(direction)

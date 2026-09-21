@@ -7,6 +7,8 @@ from src.data import Split
 from src.evaluate import as_tensor
 from src.train import eval_sequence, train_sequence
 
+# Algorithm 1 lives on Audit.gate1–gate6. Table 5 / Figure 4b sit after run().
+
 
 def train_mlp_probe(xtr, ytr, xte_list, seed: int, device, epochs: int = 40):
     mean, std = xtr.mean(), xtr.std().clamp_min(1e-6)
@@ -95,17 +97,23 @@ class Audit:
             a = a[:, :, None]
         return as_tensor(a)
 
-    def gate1(self) -> float:
-        # Gate 1. Core accessible: core-only sequence ERM.
-        tr, va, it = self.splits["train"], self.splits["val_iid"], self.splits["iid_test"]
+    def gate1(self) -> dict:
+        # Gate 1. Core accessible: core-only sequence ERM on IID and OOD.
+        tr, va, it, ot = self.splits["train"], self.splits["val_iid"], self.splits["iid_test"], self.splits["ood_test"]
         core = train_sequence(self.seq(tr, "core_only"), torch.from_numpy(tr.y), self.seq(va, "core_only"), torch.from_numpy(va.y), self.seed * 31 + 1, self.device)
-        return eval_sequence(core, self.seq(it, "core_only"), torch.from_numpy(it.y), self.device)
+        return {
+            "iid": eval_sequence(core, self.seq(it, "core_only"), torch.from_numpy(it.y), self.device),
+            "ood": eval_sequence(core, self.seq(ot, "core_only"), torch.from_numpy(ot.y), self.device),
+        }
 
-    def gate2(self) -> float:
-        # Gate 2. Nuisance predictive: nuisance-only sequence ERM.
-        tr, va, it = self.splits["train"], self.splits["val_iid"], self.splits["iid_test"]
+    def gate2(self) -> dict:
+        # Gate 2. Nuisance predictive: nuisance-only sequence ERM on IID and OOD.
+        tr, va, it, ot = self.splits["train"], self.splits["val_iid"], self.splits["iid_test"], self.splits["ood_test"]
         nuis = train_sequence(self.seq(tr, "nuisance_only"), torch.from_numpy(tr.y), self.seq(va, "nuisance_only"), torch.from_numpy(va.y), self.seed * 31 + 2, self.device)
-        return eval_sequence(nuis, self.seq(it, "nuisance_only"), torch.from_numpy(it.y), self.device)
+        return {
+            "iid": eval_sequence(nuis, self.seq(it, "nuisance_only"), torch.from_numpy(it.y), self.device),
+            "ood": eval_sequence(nuis, self.seq(ot, "nuisance_only"), torch.from_numpy(ot.y), self.device),
+        }
 
     def gate3(self) -> float:
         # Gate 3. Endpoint controlled: final-frame direction.
@@ -121,7 +129,7 @@ class Audit:
         return train_mlp_probe(xtr, dtr, [(xte, dte)], self.seed, self.device)[0]
 
     def gate4(self):
-        # Gate 4. Core recoverable: mixed ERM on a no-spurious draw, certification budget 100/30.
+        # Gate 4. Core recoverable: no-spurious mixed ERM, certification budget 100/30.
         if self.nospur_splits is None:
             return None
         ntr, nva, nit, not_sp = (self.nospur_splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
@@ -132,40 +140,21 @@ class Audit:
         }
 
     def gate5(self) -> dict:
-        # Gate 5. Reversal attribution.
+        # Gate 5. Reversal attribution: mixed ERM; OOD reverses P(d_s | y).
         tr, va, it, ot = self.splits["train"], self.splits["val_iid"], self.splits["iid_test"], self.splits["ood_test"]
         xtr, xva = as_tensor(tr.mixed), as_tensor(va.mixed)
         ytr, yva = torch.from_numpy(tr.y), torch.from_numpy(va.y)
         xit, xot = as_tensor(it.mixed), as_tensor(ot.mixed)
         yit, yot = torch.from_numpy(it.y), torch.from_numpy(ot.y)
-        device, seed = self.device, self.seed
-
-        # Ordered mixed ERM.
-        erm = train_sequence(xtr, ytr, xva, yva, seed * 31 + 7, device)
-        res = {
-            "erm_iid": eval_sequence(erm, xit, yit, device),
-            "erm_ood": eval_sequence(erm, xot, yot, device),
+        self.mixed_erm = train_sequence(xtr, ytr, xva, yva, self.seed * 31 + 7, self.device)
+        return {
+            "erm_iid": eval_sequence(self.mixed_erm, xit, yit, self.device),
+            "erm_ood": eval_sequence(self.mixed_erm, xot, yot, self.device),
         }
 
-        # Test-time shuffle.
-        res["erm_iid_shuffled"] = eval_sequence(erm, xit, yit, device, "shuffled", seed)
-        res["erm_ood_shuffled"] = eval_sequence(erm, xot, yot, device, "shuffled", seed)
-
-        # Test-time reverse.
-        res["erm_iid_reversed_order"] = eval_sequence(erm, xit, yit, device, "reversed_order")
-        res["erm_ood_reversed_order"] = eval_sequence(erm, xot, yot, device, "reversed_order")
-
-        # Train on shuffled frames.
-        sh = train_sequence(xtr, ytr, xva, yva, seed * 31 + 8, device, shuffle_frames=True)
-        res["shuftrain_iid"] = eval_sequence(sh, xit, yit, device, "shuffled", seed + 1)
-        res["shuftrain_ood"] = eval_sequence(sh, xot, yot, device, "shuffled", seed + 2)
-        res["shuftrain_iid_ordered"] = eval_sequence(sh, xit, yit, device)
-        res["shuftrain_ood_ordered"] = eval_sequence(sh, xot, yot, device)
-        return res
-
-    def gate6(self, order) -> dict:
-        # Gate 6. Cue locality. `order` is Gate 5.
-        tr, it, ot = self.splits["train"], self.splits["iid_test"], self.splits["ood_test"]
+    def gate6(self, reversal) -> dict:
+        # Gate 6. Cue locality. `reversal` is Gate 5.
+        tr, va, it, ot = self.splits["train"], self.splits["val_iid"], self.splits["iid_test"], self.splits["ood_test"]
         seed, device = self.seed, self.device
         ytr, yit, yot = map(lambda s: torch.from_numpy(s.y), (tr, it, ot))
         dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64))
@@ -239,7 +228,27 @@ class Audit:
         with torch.no_grad():
             set_acc = float((net(xit).argmax(1) == dit_d).float().mean().item())
 
-        # Ordered readout: Gate 5 shuffle and reverse.
+        # Ordered readout: shuffle and reverse of the Gate 5 mixed ERM.
+        xtr, xva = as_tensor(tr.mixed), as_tensor(va.mixed)
+        yva = torch.from_numpy(va.y)
+        xit, xot = as_tensor(it.mixed), as_tensor(ot.mixed)
+        erm = self.mixed_erm
+        order = {
+            "erm_iid": reversal["erm_iid"],
+            "erm_ood": reversal["erm_ood"],
+            "erm_iid_shuffled": eval_sequence(erm, xit, yit, device, "shuffled", seed),
+            "erm_ood_shuffled": eval_sequence(erm, xot, yot, device, "shuffled", seed),
+            "erm_iid_reversed_order": eval_sequence(erm, xit, yit, device, "reversed_order"),
+            "erm_ood_reversed_order": eval_sequence(erm, xot, yot, device, "reversed_order"),
+        }
+
+        # Section 5.5. Train on shuffled frames.
+        sh = train_sequence(xtr, ytr, xva, yva, seed * 31 + 8, device, shuffle_frames=True)
+        order["shuftrain_iid"] = eval_sequence(sh, xit, yit, device, "shuffled", seed + 1)
+        order["shuftrain_ood"] = eval_sequence(sh, xot, yot, device, "shuffled", seed + 2)
+        order["shuftrain_iid_ordered"] = eval_sequence(sh, xit, yit, device)
+        order["shuftrain_ood_ordered"] = eval_sequence(sh, xot, yot, device)
+
         single = max(frames["dir_iid"])
 
         # frame-local
@@ -263,21 +272,27 @@ class Audit:
             "summary": summary,
             "set": set_acc,
             "locality": loc,
+            "order": order,
         }
 
-    def channel_probes(self) -> dict:
-        tr, it = self.splits["train"], self.splits["iid_test"]
-        dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64))
-        dit = torch.from_numpy((it.nuisance_direction > 0).astype(np.int64))
-        L = tr.mixed.shape[1]
-        out = {"dir_nuis_only": [], "dir_core_only": []}
-        seed, device = self.seed, self.device
-        for t in range(L):
-            for key, name in [("nuisance_only", "dir_nuis_only"), ("core_only", "dir_core_only")]:
-                xtr = as_tensor(np.asarray(getattr(tr, key))[:, t].reshape(len(tr.y), -1))
-                xit = as_tensor(np.asarray(getattr(it, key))[:, t].reshape(len(it.y), -1))
-                out[name].append(train_mlp_probe(xtr, dtr, [(xit, dit)], seed * 100 + t, device)[0])
-        return out
+    def run(self) -> dict:
+        # Algorithm 1.
+        # Phase 1 — admissibility of a shortcut reading (Gates 1–5)
+        gate1 = self.gate1()
+        gate2 = self.gate2()
+        gate3 = self.gate3()
+        gate4 = self.gate4()
+        gate5 = self.gate5()
+        # Phase 2 — locate the cue on the locality spectrum (Gate 6)
+        gate6 = self.gate6(gate5)
+        return {
+            "gate1": gate1,
+            "gate2": gate2,
+            "gate3": gate3,
+            "gate4": gate4,
+            "gate5": gate5,
+            "gate6": gate6,
+        }
 
     def mixed_channel(self) -> dict:
         # Table 5. Mixed ERM, then shuffle/reverse one channel.
@@ -319,19 +334,17 @@ class Audit:
             "ood_reversed_order": eval_sequence(model, xot, yot, device, "reversed_order"),
         }
 
-    def run(self) -> dict:
-        # Algorithm 1.
-        gate1 = self.gate1()
-        gate2 = self.gate2()
-        gate3 = self.gate3()
-        gate4 = self.gate4()
-        gate5 = self.gate5()
-        gate6 = self.gate6(gate5)
-        return {
-            "gate1": gate1,
-            "gate2": gate2,
-            "gate3": gate3,
-            "gate4": gate4,
-            "gate5": gate5,
-            "gate6": gate6,
-        }
+    def channel_probes(self) -> dict:
+        # Table 6. Per-frame direction on nuisance-only and core-only.
+        tr, it = self.splits["train"], self.splits["iid_test"]
+        dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64))
+        dit = torch.from_numpy((it.nuisance_direction > 0).astype(np.int64))
+        L = tr.mixed.shape[1]
+        out = {"dir_nuis_only": [], "dir_core_only": []}
+        seed, device = self.seed, self.device
+        for t in range(L):
+            for key, name in [("nuisance_only", "dir_nuis_only"), ("core_only", "dir_core_only")]:
+                xtr = as_tensor(np.asarray(getattr(tr, key))[:, t].reshape(len(tr.y), -1))
+                xit = as_tensor(np.asarray(getattr(it, key))[:, t].reshape(len(it.y), -1))
+                out[name].append(train_mlp_probe(xtr, dtr, [(xit, dit)], seed * 100 + t, device)[0])
+        return out

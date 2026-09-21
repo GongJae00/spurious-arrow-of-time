@@ -1,3 +1,4 @@
+# Twin of train.METHODS. run() reads METHODS.
 methods:
   final_frame_mlp:
     model_type: final_frame_mlp

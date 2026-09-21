@@ -28,8 +28,7 @@ from src.train import (
     train_sequence,
 )
 
-# Table 5 OE-Strict, Table 6/Figure 4 Trail-FL, Table 7 sequence ERM,
-# Table 8 MF-Core, Table 9 UCR, then appendix runs.
+# Table 5 OE-Strict, Table 6 / Figure 4, Gate 3, Table 7–9, then appendix.
 
 
 def load_yaml(path: Path) -> dict:
@@ -148,7 +147,7 @@ def run_shortcut_eval(spec: dict, default: dict) -> dict:
 
 
 def run_certify(spec: dict, default: dict) -> dict:
-    # Table 5. Nuisance-only ERM under shuffle and reverse.
+    # Table 5 cue certification. Nuisance-only ERM under shuffle and reverse.
     device = torch_device(default["device"])
     outpath = Path(spec["out"])
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
@@ -180,7 +179,7 @@ def run_certify(spec: dict, default: dict) -> dict:
 
 
 def run_shuffle(spec: dict, default: dict) -> dict:
-    # Table 5. Per-sample shuffle of the nuisance channel.
+    # Table 5. Per-sample permutation of the nuisance channel.
     device = torch_device(default["device"])
     outpath = Path(spec["out"])
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
@@ -211,22 +210,21 @@ def run_shuffle(spec: dict, default: dict) -> dict:
 
 
 def run_temporal(spec: dict, default: dict) -> dict:
-    # Table 6 / Figure 4a. Gate 6 and Gate 5 order tests.
+    # Table 6 / Figure 4a. Gate 6 probes; order_tests are Gate 5 reversal plus Gate 6 shuffle/reverse.
     device = torch_device(default["device"])
     per_frame_runs, summary_runs, order_runs = [], [], []
     n = int(spec["seeds"])
     for s in range(n):
         a = Audit(make(spec["benchmark"], s), s, device)
-        order = a.gate5()
-        out = a.gate6(order)
+        out = a.gate6(a.gate5())
         per_frame_runs.append(out["per_frame"])
         summary_runs.append(out["summary"])
-        order_runs.append(order)
+        order_runs.append(out["order"])
     L = len(per_frame_runs[0]["dir_iid"])
     result = {
         "per_frame": {k: [aggregate([r[k][t] for r in per_frame_runs]) for t in range(L)] for k in ["label_iid", "label_ood", "dir_iid", "dir_ood", "core_label_iid", "core_label_ood"]},
-        "summary": {name: {k: aggregate([r[name][k] for r in summary_runs]) for k in summary_runs[0][name]} for name in summary_runs[0]},
-        "order": {k: aggregate([r[k] for r in order_runs]) for k in order_runs[0]},
+        "summary_probes": {name: {k: aggregate([r[name][k] for r in summary_runs]) for k in summary_runs[0][name]} for name in summary_runs[0]},
+        "order_tests": {k: aggregate([r[k] for r in order_runs]) for k in order_runs[0]},
     }
     write_json(Path(spec["out"]), result)
     return result
@@ -823,7 +821,7 @@ def run_video_search(spec: dict, default: dict) -> dict:
                 out[f"{base}/final_frame"] = [round(v, 4) for v in out[f"{base}/final_frame"]]
             spn = make("trail_fl", seed, sizes=sizes, extra={**extra, "train_nuisance_mode": "randomized", "ood_mode": "randomized"})
             splits = spn
-            out[f"{base}/no_spurious"] = run_field("mixed", 2, seed * 31 + 11)
+            out[f"{base}/no_spurious"] = run_field("mixed", seed * 31 + 11)
             write_json(outpath, out)
     return out
 

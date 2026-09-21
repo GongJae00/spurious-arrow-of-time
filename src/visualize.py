@@ -16,7 +16,7 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
 from src.data import GeneratorConfig, generate_splits
 from src.evaluate import MetricStore
 
-# Figures 1–4 and A3. A1/A2 are logged rasters.
+# Figure 1 concept, Figure 2 Algorithm 1, Figure 3 construction, Figure 4 locality, Figure A3.
 
 
 TEXT = "#1F2933"

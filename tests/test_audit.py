@@ -4,7 +4,7 @@ import torch
 
 from src.audit import Audit, per_sample_shuffle
 
-# Gate 6 cases in Audit.gate6, and the per-sample shuffle used in Table 5.
+# Gate 6 case formula in Audit.gate6, and Table 5 per-sample shuffle.
 
 
 def test_per_sample_shuffle_preserves_multiset():

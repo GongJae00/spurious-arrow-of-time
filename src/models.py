@@ -3,9 +3,8 @@ from dataclasses import dataclass
 import torch
 from torch import nn
 
-# SequenceCNNGRU is the main CNN+GRU. LSTM / TCN / Transformer / temporal pool
-# are Table A4–A5. SegGRU is Table 9. The GRU frame encoder is separate from
-# CNNFrameEncoder so the main-model init order stays the logged one.
+# Main model: CNN+GRU (Eq. 10). Table A4–A5: LSTM / TCN / Transformer / pool.
+# Table 9: SegGRU. The GRU frame encoder is not CNNFrameEncoder (logged init order).
 
 
 @dataclass(frozen=True)

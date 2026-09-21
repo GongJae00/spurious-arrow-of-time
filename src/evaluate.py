@@ -8,7 +8,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
-# IID/OOD accuracy, seed aggregates, and the collapse/core/chance regimes.
+# Accuracy, Gap_OOD, seed aggregates. Regime cuts 0.8 / 0.2 (Table 2).
 
 
 def as_tensor(a: np.ndarray) -> torch.Tensor:
@@ -70,7 +70,7 @@ def input_gradient_saliency(model: nn.Module, x: torch.Tensor, device: torch.dev
 
 
 def regime(iid: float, ood: float) -> str:
-    # Core: IID and OOD ≥ 0.8. Collapse: IID ≥ 0.8 and OOD ≤ 0.2.
+    # Table 2. Core: IID and OOD ≥ 0.8. Collapse: IID ≥ 0.8 and OOD ≤ 0.2.
     if iid >= 0.8 and ood >= 0.8:
         return "core"
     if iid >= 0.8 and ood <= 0.2:

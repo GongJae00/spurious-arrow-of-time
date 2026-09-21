@@ -2,7 +2,7 @@ import torch
 
 from src.models import SequenceCNNGRU, build_model
 
-# Main CNN+GRU logits and the model roster.
+# Eq. 10 CNN+GRU logits and the model roster.
 
 
 def test_sequence_cnn_gru_logits_shape():

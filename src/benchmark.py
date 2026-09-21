@@ -4,9 +4,9 @@ import numpy as np
 
 from src.data import GeneratorConfig, Split, SPLITS, generate_splits
 
-# Paper constructions. Trail-FL uses trail residue γ=0.78; Simple OE is the
-# same generator with γ=0. OE-Strict / Set-MF / sinusoid replace the nuisance
-# channel after generation. Overlay RNG is seed * salt + 1009 * split index.
+# Table 3 constructions. Trail-FL is γ=0.78; Simple OE is γ=0.
+# OE-Strict / Set-MF / sinusoid replace the nuisance channel after generation.
+# Overlay RNG is seed * salt + 1009 * split index.
 
 PAPER = dict(
     grid_size=16,
@@ -30,7 +30,7 @@ SIZES = dict(n_train=8192, n_val_iid=2048, n_iid_test=4096, n_ood_test=4096)
 
 MF_CORE = dict(diffusion_start_step=8, diffusion_steps_between_frames=2, core_noise_std=0.045, core_noise_growth_power=0.0, observation_noise_std=0.01, nuisance_trail_decay=0.0)
 
-# Closed-path column offsets, mod 16: first and last frames coincide.
+# OE-Strict closed path, mod 16: first and last frames coincide.
 OE_STRICT_CUM = np.array([0, 1, 2, 4, 7, 10, 13, 0])
 
 
@@ -112,6 +112,7 @@ def overlay_nuisance(splits: dict[str, Split], overlay: str, seed: int, corr_tra
 
 
 CONSTRUCTIONS = {
+    # Table 3. OE-Strict, Trail-FL, Set-MF, MF-Core, OE-Core.
     "oe_strict": dict(nuisance_trail_decay=0.0, overlay="oe_strict"),
     "trail_fl": dict(nuisance_trail_decay=0.78),
     "set_mf": dict(nuisance_trail_decay=0.0, overlay="set_mf"),
@@ -139,6 +140,7 @@ def make(benchmark: str, seed: int, sizes: dict | None = None, extra: dict | Non
 
 
 def graph_setup(name: str = "karate"):
+    # Table A11.
     import networkx as nx
     if name == "karate":
         G = nx.karate_club_graph()
@@ -156,6 +158,7 @@ def graph_setup(name: str = "karate"):
 
 
 def graph_split(P, faction, order, n_nodes, n, split_seed, mode, length=8, alpha=0.22, steps_between=4, diff_start=0, core_noise=0.006, obs_noise=0.04, nu_sigma=1.15, nu_speed=2.0, corr=0.97):
+    # Table A11. Graph diffusion core, directional nuisance on the node order.
     rng = np.random.default_rng(split_seed)
     y = np.zeros(n, dtype=np.int64)
     y[n // 2 :] = 1
@@ -208,6 +211,7 @@ def graph_split(P, faction, order, n_nodes, n, split_seed, mode, length=8, alpha
 
 
 def load_forda():
+    # Table 9. Official FordA train/test, L=10 segments of 50.
     rows = [np.loadtxt(f) for f in ["data/ucr/FordA_TRAIN.tsv", "data/ucr/FordA_TEST.tsv"]]
     ntr = len(rows[0])
     a = np.concatenate(rows)
@@ -218,6 +222,7 @@ def load_forda():
 
 
 def load_har(mode="har"):
+    # Table 9. HAR-coarse (dynamic vs static) or HAR-fine (walk vs walk-up).
     base = "data/ucr/har/UCI HAR Dataset"
     xs, ys = [], []
     for split in ["train", "test"]:
@@ -240,6 +245,7 @@ def load_har(mode="har"):
 
 
 def overlay_order_pulse(xc, y, rng, corr, n, length=10, width=50):
+    # Table 9. Order-encoded pulse on a real core; visited-position multiset is direction-independent.
     idx = rng.choice(len(y), size=n, replace=False)
     xcs, ys = xc[idx], y[idx]
     d = np.where(rng.random(n) < corr, ys, 1 - ys)

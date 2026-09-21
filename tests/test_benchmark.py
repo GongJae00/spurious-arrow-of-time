@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 from src.benchmark import OE_STRICT_CUM, make, oe_strict_nuisance, overlay_order_pulse, set_mf_nuisance
 from src.data import GeneratorConfig, generate_splits
 
-# OE-Strict closed path, Set-MF parity, endpoint-matched leakage, named make().
+# Table 3: OE-Strict closed path, Set-MF parity, endpoint matching, make().
 
 
 def _probe_accuracy(x_train, y_train, x_test, y_test) -> float:

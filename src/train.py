@@ -14,7 +14,7 @@ from src.data import GeneratorConfig, Split, generate_split
 from src.evaluate import accuracy, evaluate
 from src.models import build_model
 
-# Table 7 sequence ERM and invariance methods, then Table A6 (GroupDRO, DANN, JTT, IRM).
+# Table 7 sequence ERM and invariance methods. Table A6: GroupDRO, DANN, JTT, IRM.
 
 METHODS = {
     "final_frame_mlp": {"model_type": "final_frame_mlp", "input_key": "mixed", "uses_counterfactual": False, "uses_group_balancing": False, "channel_dropout_prob": 0.0},
@@ -231,7 +231,7 @@ def train_one_method(method: str, splits: dict[str, Split], dataset_config: Gene
 
 
 def train_sequence(xtr, ytr, xval, yval, seed, device, shuffle_frames=False, epochs=40, patience=12, grid_size=16, model_type="sequence_cnn_gru"):
-    # Algorithm 1 reference learner. CNN+GRU, standard budget 40/12.
+    # Reference learner. CNN+GRU, standard budget 40/12 (Table A20).
     torch.manual_seed(seed)
     np.random.seed(seed)
     channels = 1 if xtr.ndim == 4 else int(xtr.shape[2])
@@ -269,6 +269,7 @@ def train_sequence(xtr, ytr, xval, yval, seed, device, shuffle_frames=False, epo
 
 @torch.no_grad()
 def eval_sequence(model, x, y, device, mode: str = "ordered", seed: int = 0) -> float:
+    # ordered, or Gate 6 shuffled / reversed_order.
     x = x.clone()
     if mode == "shuffled":
         g = torch.Generator().manual_seed(seed)
