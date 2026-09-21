@@ -157,8 +157,22 @@ class Audit:
         })
         return res
 
+    def g6(self) -> dict:
+        # G6. Single-frame probe, set probe, ordered readout → locality class.
+        frames = self.per_frame()
+        set_acc = self.set_probe()
+        order = self.g5()
+        single = max(frames["dir_iid"])
+        return {
+            "single_frame": single,
+            "set": set_acc,
+            "locality": self.locality(single, set_acc, order["erm_iid"], order["erm_iid_shuffled"], self.route_a),
+            "per_frame": frames,
+            "order": order,
+        }
+
     def per_frame(self, field: str = "mixed") -> dict:
-        # G6. Single-frame probes: label and direction from frame t.
+        # G6 probe. Label and direction from frame t. Table 6 / Figure 4a.
         splits, seed, device = self.splits, self.seed, self.device
         L = getattr(splits["train"], field).shape[1]
         out = {"frame": list(range(L)), "label_iid": [], "label_ood": [], "dir_iid": [], "dir_ood": [], "core_label_iid": [], "core_label_ood": []}
@@ -187,7 +201,7 @@ class Audit:
         return out
 
     def summaries(self) -> dict:
-        # G6. Order-invariant summaries: temporal mean/std, first, middle, first-last.
+        # G6 probe. Order-invariant summaries: temporal mean/std, first, middle, first-last.
         tr, it, ot = self.splits["train"], self.splits["iid_test"], self.splits["ood_test"]
         ytr, yit, yot = map(lambda s: torch.from_numpy(s.y), (tr, it, ot))
         dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64))
@@ -213,7 +227,7 @@ class Audit:
         return out
 
     def channel_probes(self) -> dict:
-        # G6. Per-frame direction from nuisance-only vs core-only.
+        # G6 probe. Per-frame direction from nuisance-only vs core-only.
         tr, it = self.splits["train"], self.splits["iid_test"]
         dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64))
         dit = torch.from_numpy((it.nuisance_direction > 0).astype(np.int64))
@@ -228,7 +242,7 @@ class Audit:
         return out
 
     def set_probe(self, epochs: int = 40) -> float:
-        # G6. Permutation-invariant set probe on the nuisance channel.
+        # G6 probe. Permutation-invariant set probe on the nuisance channel.
         tr, it = self.splits["train"], self.splits["iid_test"]
 
         def prep(sp):
@@ -303,7 +317,7 @@ class Audit:
 
     @staticmethod
     def locality(single_frame: float, set_acc: float, ordered: float, shuffled: float, route_a: bool) -> str:
-        # G6. Cutoffs 0.8 / 0.6 are the paper's locality rule.
+        # G6 rule. Cutoffs 0.8 / 0.6.
         if single_frame >= 0.8:
             return "frame-local"
         if set_acc >= 0.8:
@@ -317,10 +331,8 @@ class Audit:
         g2 = self.g2()
         g3 = self.g3()
         g4 = self.g4()
-        frames = self.per_frame()
-        set_acc = self.set_probe()
-        order = self.g5()
-        locality = self.locality(max(frames["dir_iid"]), set_acc, order["erm_iid"], order["erm_iid_shuffled"], self.route_a)
+        g6 = self.g6()
+        order = g6["order"]
         return {
             "g1_core": g1,
             "g2_nuisance": g2,
@@ -328,9 +340,9 @@ class Audit:
             "g4_recoverable": g4,
             "g5_iid": order["erm_iid"],
             "g5_ood": order["erm_ood"],
-            "g6_single_frame": max(frames["dir_iid"]),
-            "g6_set": set_acc,
-            "g6_locality": locality,
-            "per_frame": frames,
+            "g6_single_frame": g6["single_frame"],
+            "g6_set": g6["set"],
+            "g6_locality": g6["locality"],
+            "per_frame": g6["per_frame"],
             "order": order,
         }

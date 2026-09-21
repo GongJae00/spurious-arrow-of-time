@@ -38,7 +38,7 @@ The live path is the paper's pipeline:
 | `src/benchmark.py` | OE-Strict, Trail-FL, Set-MF, MF-Core, OE-Core |
 | `src/models.py` | CNN+GRU, G3 final-frame MLP, Table A4–A5, Table 9 SegGRU |
 | `src/train.py` | Sequence ERM (Table 7), Table A6 methods |
-| `src/audit.py` | `Audit`: G1 core, G2 nuisance, G3 endpoint, G4 recovery, G5 reversal, G6 locality |
+| `src/audit.py` | `Audit.g1`–`g6` (Algorithm 1). G6 probes: `per_frame`, `set_probe` |
 | `src/evaluate.py` | Accuracy, seed aggregates, core / collapse / chance |
 | `src/experiments.py` | Table 5–9 then appendix, from `configs/experiments.yaml` |
 | `src/visualize.py` | `fig1`–`fig4`, `fig_a3` |
