@@ -129,7 +129,7 @@ def make(benchmark: str, seed: int, sizes: dict | None = None, extra: dict | Non
     if "overlay" in extra:
         overlay = extra["overlay"]
     data = {k: v for k, v in extra.items() if k != "overlay"}
-    cfg = paper_config(seed, **sizes, **named, **data)
+    cfg = paper_config(seed, **{**sizes, **named, **data})
     splits = generate_splits(cfg)
     if overlay:
         return overlay_nuisance(splits, overlay, seed, corr_train=corr_train)

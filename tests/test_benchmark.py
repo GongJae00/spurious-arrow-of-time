@@ -72,6 +72,12 @@ def test_overlay_order_pulse_shape():
     assert set(np.unique(d)).issubset({0, 1})
 
 
+def test_make_trail_fl_accepts_overlapping_fields():
+    splits = make("trail_fl", seed=0, sizes=dict(n_train=8, n_val_iid=4, n_iid_test=4, n_ood_test=4), extra={"nuisance_trail_decay": 0.78, "n_train": 8})
+    assert splits["train"].mixed.shape[0] == 8
+    assert splits["train"].metadata["nuisance_trail_decay"] == 0.78
+
+
 def test_make_oe_strict_two_channel():
     splits = make("oe_strict", seed=0, sizes=dict(n_train=32, n_val_iid=8, n_iid_test=8, n_ood_test=8))
     mixed = splits["train"].mixed
