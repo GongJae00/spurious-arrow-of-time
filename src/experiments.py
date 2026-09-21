@@ -28,7 +28,7 @@ from src.train import (
     train_sequence,
 )
 
-# Table 5 OE-Strict, Table 6 / Figure 4, Gate 3, Table 7–9, then appendix.
+# Table 5–9 then appendix. `python -m src.experiments` runs every yaml key.
 
 
 def load_yaml(path: Path) -> dict:
@@ -880,15 +880,27 @@ def run(name: str, config_dir: Path = Path("configs")) -> dict:
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--run", required=True)
+    p.add_argument("--run", default="")
     p.add_argument("--configs", default="configs")
     return p.parse_args()
 
 
 def main():
     args = parse_args()
-    result = run(args.run, Path(args.configs))
-    print(json.dumps(result["summary"] if "summary" in result else result, indent=2))
+    config_dir = Path(args.configs)
+    if args.run and args.run != "all":
+        result = run(args.run, config_dir)
+        print(json.dumps(result["summary"] if "summary" in result else result, indent=2))
+        return
+    experiments = load_yaml(config_dir / "experiments.yaml")
+    for name, spec in experiments.items():
+        if type(spec) is dict and "kind" in spec:
+            out = Path(spec["out"])
+            if spec["kind"] == "train" and (out / "summary.json").exists():
+                continue
+            if spec["kind"] != "train" and out.exists():
+                continue
+            run(name, config_dir)
 
 
 if __name__ == "__main__":

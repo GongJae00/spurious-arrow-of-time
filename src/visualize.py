@@ -381,13 +381,11 @@ def render(name: str):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--figure", default="all")
+    p.add_argument("--figure", default="")
     a = p.parse_args()
-    if a.figure == "all":
-        for n in ["fig1", "fig2", "fig3", "fig4", "fig_a3"]:
-            render(n)
-        return
-    render(a.figure)
+    names = ["fig1", "fig2", "fig3", "fig4", "fig_a3"] if a.figure in ("", "all") else [a.figure]
+    for n in names:
+        render(n)
 
 
 if __name__ == "__main__":

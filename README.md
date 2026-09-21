@@ -30,89 +30,27 @@ Logged numbers are under `results/main/`, `results/ablation/`, and `results/revi
 
 ## Code
 
-The live path is the paper's pipeline:
+Algorithm 2 is `generate_split` in `src/data.py`: y, core (Eq. 6), ds (Eq. 4), nuisance (Eqs. 7–8), observation (Eq. 9). Table 3 constructions are `make` in `src/benchmark.py`: OE-Strict, Trail-FL, Set-MF, MF-Core, OE-Core.
 
-`GeneratorConfig` (Algorithm 2) → named construction (`make`, Table 3) → CNN+GRU ERM → `Audit.gate1`–`gate6` (Algorithm 1) → table JSON / figure.
+The sequence model is `SequenceCNNGRU` in `src/models.py` (Eq. 10), trained by `train_sequence` in `src/train.py`.
 
-| Path | Paper object |
-|---|---|
-| `src/data.py` | Algorithm 2: core diffusion (Eq. 6), directional nuisance (Eqs. 7–8), observation (Eq. 9) |
-| `src/benchmark.py` | Table 3: OE-Strict, Trail-FL, Set-MF, MF-Core, OE-Core |
-| `src/models.py` | CNN+GRU (Eq. 10), Gate 3 final-frame MLP, Table A4–A5, Table 9 SegGRU |
-| `src/train.py` | Sequence ERM (Table 7), Table A6 methods |
-| `src/audit.py` | Algorithm 1. Phase 1 `gate1`–`gate5`; Phase 2 `gate6(gate5)`. Gate 5 is OOD reversal; Gate 6 locates the cue. |
-| `src/evaluate.py` | Accuracy, Gap_OOD, Table 2 regime cuts |
-| `src/experiments.py` | Table 5–9 then appendix, from `configs/experiments.yaml` |
-| `src/visualize.py` | Figures 1–4, A3 |
-| `configs/` | Generator defaults (Table A20), constructions, experiment table |
-| `results/main/` | Tables 5–9 |
-| `figures/main/` | Figures 1–4 |
+Algorithm 1 is class `Audit` in `src/audit.py`:
+
+- `gate1` Core accessible
+- `gate2` Nuisance predictive
+- `gate3` Endpoint controlled
+- `gate4` Core recoverable
+- `gate5` Reversal attribution (OOD reverses P(ds|y))
+- `gate6` Cue locality
+- `run` Phase 1, then `gate6(gate5)`
 
 ```bash
 pip install -e ".[dev]"
+python -m src.experiments
+python -m src.visualize
 ```
 
-```bash
-python -m src.experiments --run table5_oe_strict
-python -m src.experiments --run table7_trail_fl
-python -m src.visualize --figure fig1
-```
-
-## Reproduction
-
-Main text, in manuscript order:
-
-| Paper | Command | Output |
-|---|---|---|
-| Figure 1 | `python -m src.visualize --figure fig1` | `figures/main/fig1_conceptual_problem.png` |
-| Figure 2 | `python -m src.visualize --figure fig2` | `figures/main/fig2_audit_flow.png` |
-| Figure 3 | `python -m src.visualize --figure fig3` | `figures/main/fig3_benchmark_construction.png` |
-| Table 5 OE-Strict | `python -m src.experiments --run table5_oe_strict` | `results/main/oe_strict.json` |
-| Table 5 certification | `python -m src.experiments --run table5_oe_strict_certify` | `results/main/oe_strict_certify.json` |
-| Table 5 shuffle | `python -m src.experiments --run table5_oe_strict_shuffle` | `results/main/oe_strict_shuffle.json` |
-| Table 5 no-spurious | `python -m src.experiments --run table5_oe_strict_nospur` | `results/main/oe_strict_nospur.json` |
-| Table 6, Figure 4 trail | `python -m src.experiments --run table6_trail_fl` | `results/main/trail_fl_audit.json` |
-| Table 6, Figure 4 simple OE | `python -m src.experiments --run table6_simple_oe` | `results/main/simple_oe_audit.json` |
-| Table 6 probes | `python -m src.experiments --run table6_probes` | `results/main/trail_fl_probes.json` |
-| Figure 4b nuisance-only | `python -m src.experiments --run fig4b_nuisance_order` | `results/main/nuisance_order.json` |
-| Figure 4 | `python -m src.visualize --figure fig4` | `figures/main/fig4a_perframe_probes.png`, `fig4b_order_interventions.png` |
-| Table 7, A15, A16 trail 30-seed | `python -m src.experiments --run table7_trail_fl` | `results/main/trail_fl/` |
-| Table 8 MF-Core | `python -m src.experiments --run table8_mf_core` | `results/main/mf_core/` |
-| Table 8 core probes | `python -m src.experiments --run table8_mf_core_probes`; `python -m src.experiments --run table8_mf_core_perframe` | `results/main/mf_core_probes.json`, `mf_core_perframe.json` |
-| Set-MF | `python -m src.experiments --run set_mf` | `results/main/set_mf.json` |
-| Table 9 FordA | `python -m src.experiments --run table9_forda` | `results/main/forda.json` |
-| Table 9 HAR | `python -m src.experiments --run table9_har` | `results/main/har.json` |
-| Table 9 HAR-2 | `python -m src.experiments --run table9_har2` | `results/main/har2.json` |
-
-Appendix:
-
-| Paper | Command | Output |
-|---|---|---|
-| Figure A1, Table A8 family | `python -m src.experiments --run family` | `results/ablation/family/`; `figures/appendix/fig_a1_benchmark_family.png` |
-| Figure A2, Table A9 complexity | `python -m src.experiments --run complexity` | `results/ablation/complexity/`; `figures/appendix/fig_a2_complexity_scaleup.png` |
-| Figure A3 scenario | `python -m src.experiments --run scenario` | `results/ablation/scenario/`; `figures/appendix/fig_a3_scenario_audit.png` |
-| Table A2 / A3 correlation | `python -m src.experiments --run simple_oe_corr` / `trail_fl_corr` | `results/ablation/simple_oe_corr/`, `trail_fl_corr/` |
-| Table A4 / A5 architectures | `python -m src.experiments --run simple_oe_arch` / `trail_fl_arch` | `results/ablation/simple_oe_arch/`, `trail_fl_arch/` |
-| Table A6 methods | `python -m src.experiments --run methods` | `results/ablation/methods.json` |
-| Table A10 sinusoid | `python -m src.experiments --run sinusoid` | `results/ablation/sinusoid.json` |
-| Table A11 graphs | `python -m src.experiments --run graph_karate` / `graph_lesmis` | `results/ablation/graph/` |
-| Table A12 video | `python -m src.experiments --run real_video` / `real_video_blur` | `results/ablation/real_video/`, `real_video_blur/` |
-| Table A13 simple OE 30-seed | `python -m src.experiments --run simple_oe_30` | `results/ablation/simple_oe/` |
-| Table A17 budget | `python -m src.experiments --run trail_fl_budget` / `simple_oe_budget` | `results/ablation/trail_fl_budget/`, `simple_oe_budget/` |
-| Table A18 multi-init | `python -m src.experiments --run multi_init` | `results/ablation/multi_init.json` |
-| Table A1 accessibility | `python -m src.experiments --run accessibility` | `results/ablation/accessibility.json` |
-| Table A19 mixing | `python -m src.experiments --run trail_fl_mixing` / `simple_oe_mixing` | `results/ablation/trail_fl_mixing/`, `simple_oe_mixing/` |
-| Nuisance amplitude | `python -m src.experiments --run trail_fl_scale` / `simple_oe_scale` | `results/ablation/trail_fl_scale/`, `simple_oe_scale/` |
-| Complexity controls | `python -m src.experiments --run complexity_controls` | `results/ablation/complexity_controls/` |
-| OE-Core | `python -m src.experiments --run oe_core` | `results/ablation/oe_core/` |
-| OE-Core equalized / order-rand | `python -m src.experiments --run oe_core_equalized`; `python -m src.experiments --run oe_core_order_rand` | `results/reviewer/` |
-| Architecture single-cue | `python -m src.experiments --run arch_cue` | `results/reviewer/arch_cue.json` |
-| GroupDRO sensitivity | `python -m src.experiments --run groupdro` | `results/reviewer/groupdro.json` |
-| Endpoint direction probe | `python -m src.experiments --run endpoint` | `results/reviewer/endpoint.json` |
-| Input-gradient saliency | `python -m src.experiments --run gradsal` | `results/reviewer/gradsal.json` |
-| Real-video positive search | `python -m src.experiments --run real_video_search` | `results/reviewer/real_video_search.json` |
-
-Run names are the keys in `configs/experiments.yaml`.
+`python -m src.experiments --run table5_oe_strict` runs one table. Logged paper numbers are already in `results/`. Figures go to `figures/`.
 
 ## Citation
 
