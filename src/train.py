@@ -16,17 +16,17 @@ from src.models import build_model
 
 
 METHODS = {
-    "final_frame_mlp": {"model_type": "final_frame_mlp", "input_key": "mixed"},
-    "sequence_erm": {"model_type": "sequence_cnn_gru", "input_key": "mixed"},
-    "core_only_oracle": {"model_type": "sequence_cnn_gru", "input_key": "core_only"},
-    "nuisance_only_oracle": {"model_type": "sequence_cnn_gru", "input_key": "nuisance_only"},
-    "sequence_erm_lstm": {"model_type": "sequence_cnn_lstm", "input_key": "mixed"},
-    "sequence_erm_tcn": {"model_type": "sequence_cnn_tcn", "input_key": "mixed"},
-    "sequence_erm_transformer": {"model_type": "sequence_cnn_transformer", "input_key": "mixed"},
-    "sequence_erm_temporal_pool": {"model_type": "sequence_cnn_temporal_pool", "input_key": "mixed"},
-    "counterfactual_invariance": {"model_type": "sequence_cnn_gru", "input_key": "mixed", "uses_counterfactual": True},
-    "group_invariance_light": {"model_type": "sequence_cnn_gru", "input_key": "mixed", "uses_group_balancing": True},
-    "nuisance_channel_dropout": {"model_type": "sequence_cnn_gru", "input_key": "mixed", "channel_dropout_prob": 0.5},
+    "final_frame_mlp": {"model_type": "final_frame_mlp", "input_key": "mixed", "uses_counterfactual": False, "uses_group_balancing": False, "channel_dropout_prob": 0.0},
+    "sequence_erm": {"model_type": "sequence_cnn_gru", "input_key": "mixed", "uses_counterfactual": False, "uses_group_balancing": False, "channel_dropout_prob": 0.0},
+    "core_only_oracle": {"model_type": "sequence_cnn_gru", "input_key": "core_only", "uses_counterfactual": False, "uses_group_balancing": False, "channel_dropout_prob": 0.0},
+    "nuisance_only_oracle": {"model_type": "sequence_cnn_gru", "input_key": "nuisance_only", "uses_counterfactual": False, "uses_group_balancing": False, "channel_dropout_prob": 0.0},
+    "sequence_erm_lstm": {"model_type": "sequence_cnn_lstm", "input_key": "mixed", "uses_counterfactual": False, "uses_group_balancing": False, "channel_dropout_prob": 0.0},
+    "sequence_erm_tcn": {"model_type": "sequence_cnn_tcn", "input_key": "mixed", "uses_counterfactual": False, "uses_group_balancing": False, "channel_dropout_prob": 0.0},
+    "sequence_erm_transformer": {"model_type": "sequence_cnn_transformer", "input_key": "mixed", "uses_counterfactual": False, "uses_group_balancing": False, "channel_dropout_prob": 0.0},
+    "sequence_erm_temporal_pool": {"model_type": "sequence_cnn_temporal_pool", "input_key": "mixed", "uses_counterfactual": False, "uses_group_balancing": False, "channel_dropout_prob": 0.0},
+    "counterfactual_invariance": {"model_type": "sequence_cnn_gru", "input_key": "mixed", "uses_counterfactual": True, "uses_group_balancing": False, "channel_dropout_prob": 0.0},
+    "group_invariance_light": {"model_type": "sequence_cnn_gru", "input_key": "mixed", "uses_counterfactual": False, "uses_group_balancing": True, "channel_dropout_prob": 0.0},
+    "nuisance_channel_dropout": {"model_type": "sequence_cnn_gru", "input_key": "mixed", "uses_counterfactual": False, "uses_group_balancing": False, "channel_dropout_prob": 0.5},
 }
 
 ARCHS = {
@@ -56,8 +56,9 @@ def stable_run_seed(seed: int, scenario: str, method: str) -> int:
 def deep_update(base: dict, override: dict) -> dict:
     out = copy.deepcopy(base)
     for key, value in override.items():
-        if isinstance(value, dict) and isinstance(out.get(key), dict):
-            out[key] = deep_update(out[key], value)
+        cur = out[key] if key in out else None
+        if type(value) is dict and type(cur) is dict:
+            out[key] = deep_update(cur, value)
         else:
             out[key] = copy.deepcopy(value)
     return out
@@ -115,9 +116,9 @@ def frame_shuffle(xb: torch.Tensor) -> torch.Tensor:
 def train_one_method(method: str, splits: dict[str, Split], dataset_config: GeneratorConfig, training: dict, model_config: dict, seed: int, run_seed: int, device: torch.device) -> dict:
     spec = METHODS[method]
     input_key = spec["input_key"]
-    uses_cf = bool(spec.get("uses_counterfactual", False))
-    uses_group = bool(spec.get("uses_group_balancing", False))
-    channel_dropout_prob = float(spec.get("channel_dropout_prob", 0.0))
+    uses_cf = spec["uses_counterfactual"]
+    uses_group = spec["uses_group_balancing"]
+    channel_dropout_prob = spec["channel_dropout_prob"]
     raw = {name: field_array(split, input_key) for name, split in splits.items()}
     raw_cf = {name: np.asarray(split.counterfactual) for name, split in splits.items()} if uses_cf else {}
     if uses_cf:
@@ -126,34 +127,34 @@ def train_one_method(method: str, splits: dict[str, Split], dataset_config: Gene
                 raw_cf[name] = a[:, :, None]
     normalized = normalize_with_train(raw["train"], raw)
     normalized_cf = normalize_with_train(raw["train"], raw_cf) if uses_cf else {}
-    batch_size = int(training.get("batch_size", 128))
+    batch_size = training["batch_size"]
     train_loader = make_loader(
         normalized["train"],
         splits["train"].y,
         batch_size=batch_size,
         shuffle=True,
         seed=run_seed,
-        x_cf=normalized_cf.get("train"),
+        x_cf=normalized_cf["train"] if uses_cf else None,
         group=(splits["train"].nuisance_direction > 0).astype(np.int64) if uses_group else None,
     )
     eval_loaders = {
-        name: make_loader(x, splits[name].y, batch_size=batch_size, shuffle=False, seed=run_seed, x_cf=normalized_cf.get(name))
+        name: make_loader(x, splits[name].y, batch_size=batch_size, shuffle=False, seed=run_seed, x_cf=normalized_cf[name] if uses_cf else None)
         for name, x in normalized.items()
     }
     model = build_model(
-        model_type=str(spec["model_type"]),
+        model_type=spec["model_type"],
         grid_size=dataset_config.grid_size,
-        hidden_dim=int(model_config.get("hidden_dim", 64)),
-        num_layers=int(model_config.get("num_layers", 1)),
-        dropout=float(model_config.get("dropout", 0.0)),
+        hidden_dim=model_config["hidden_dim"],
+        num_layers=model_config["num_layers"],
+        dropout=model_config["dropout"],
         input_channels=infer_input_channels(raw["train"]),
     ).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=float(training.get("lr", 1e-3)), weight_decay=float(training.get("weight_decay", 1e-4)))
-    max_epochs = int(training.get("epochs", 40))
-    patience = int(training.get("patience", 12))
-    grad_clip = float(training.get("grad_clip_norm", 1.0))
-    lambda_cf_task = float(training.get("lambda_cf_task", 1.0))
-    lambda_pred = float(training.get("lambda_pred", 0.2))
+    optimizer = torch.optim.AdamW(model.parameters(), lr=training["lr"], weight_decay=training["weight_decay"])
+    max_epochs = training["epochs"]
+    patience = training["patience"]
+    grad_clip = training["grad_clip_norm"]
+    lambda_cf_task = training["lambda_cf_task"]
+    lambda_pred = training["lambda_pred"]
     best_state = None
     best_val = -math.inf
     best_epoch = 0

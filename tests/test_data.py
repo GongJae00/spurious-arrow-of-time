@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
@@ -48,24 +50,21 @@ def test_nuisance_direction_reverses_ood():
 
 
 def test_randomized_ood_correlation_near_zero():
-    cfg = small_config()
-    cfg = cfg.__class__(**{**cfg.__dict__, "ood_mode": "randomized", "n_ood_test": 512})
+    cfg = replace(small_config(), ood_mode="randomized", n_ood_test=512)
     splits = generate_splits(cfg)
     ood_corr = np.corrcoef(splits["ood_test"].y, splits["ood_test"].nuisance_direction)[0, 1]
     assert abs(ood_corr) < 0.2
 
 
 def test_partial_shift_correlation_target():
-    cfg = small_config()
-    cfg = cfg.__class__(**{**cfg.__dict__, "ood_mode": "partial_shift", "partial_shift_target_correlation": -0.25, "n_ood_test": 512})
+    cfg = replace(small_config(), ood_mode="partial_shift", partial_shift_target_correlation=-0.25, n_ood_test=512)
     splits = generate_splits(cfg)
     ood_corr = np.corrcoef(splits["ood_test"].y, splits["ood_test"].nuisance_direction)[0, 1]
     assert abs(ood_corr - (-0.25)) < 0.2
 
 
 def test_no_spurious_correlation_train_mode():
-    cfg = small_config()
-    cfg = cfg.__class__(**{**cfg.__dict__, "train_nuisance_mode": "randomized", "ood_mode": "randomized", "n_train": 512, "n_iid_test": 512, "n_ood_test": 512})
+    cfg = replace(small_config(), train_nuisance_mode="randomized", ood_mode="randomized", n_train=512, n_iid_test=512, n_ood_test=512)
     splits = generate_splits(cfg)
     for split_name in ["train", "iid_test", "ood_test"]:
         split = splits[split_name]
@@ -82,8 +81,7 @@ def test_counterfactual_changes_nuisance_only():
 
 
 def test_two_channel_observation_layout_keeps_components_separable():
-    cfg = small_config()
-    cfg = cfg.__class__(**{**cfg.__dict__, "observation_layout": "two_channel"})
+    cfg = replace(small_config(), observation_layout="two_channel")
     split = generate_splits(cfg)["train"]
     assert split.core_only.shape == (64, 6, 12, 12)
     assert split.mixed.shape == (64, 6, 2, 12, 12)
@@ -94,8 +92,7 @@ def test_two_channel_observation_layout_keeps_components_separable():
 
 
 def test_randomized_counterfactual_is_not_label_aligned():
-    cfg = small_config()
-    cfg = cfg.__class__(**{**cfg.__dict__, "counterfactual_mode": "randomized", "n_train": 512})
+    cfg = replace(small_config(), counterfactual_mode="randomized", n_train=512)
     split = generate_splits(cfg)["train"]
     corr = np.corrcoef(split.y, split.counterfactual_direction)[0, 1]
     assert abs(corr) < 0.2

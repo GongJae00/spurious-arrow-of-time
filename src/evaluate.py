@@ -76,7 +76,7 @@ def regime(iid: float, ood: float) -> str:
 
 
 def summarize_results(results: list[dict], primary_scenario: str) -> dict:
-    primary = [r for r in results if str(r.get("scenario", primary_scenario)) == primary_scenario] or results
+    primary = [r for r in results if r["scenario"] == primary_scenario] or results
     by_method: dict[str, list] = {}
     for r in primary:
         by_method.setdefault(str(r["method"]), []).append(r)
@@ -93,7 +93,7 @@ def summarize_results(results: list[dict], primary_scenario: str) -> dict:
             }
     scenario_summary: dict = {}
     for r in results:
-        scenario_summary.setdefault(str(r.get("scenario", primary_scenario)), {}).setdefault(str(r["method"]), []).append(r)
+        scenario_summary.setdefault(r["scenario"], {}).setdefault(r["method"], []).append(r)
     compact = {}
     for scenario, methods in scenario_summary.items():
         compact[scenario] = {}
@@ -132,7 +132,7 @@ class MetricStore:
 
     def values(self, method: str, metric: str, scenario: str | None = None) -> np.ndarray:
         scenario = scenario or self.primary_scenario
-        matched = [row for row in self.rows if row.get("scenario") == scenario and row.get("method") == method and metric in row]
+        matched = [row for row in self.rows if row["scenario"] == scenario and row["method"] == method and metric in row]
         if matched:
             matched = sorted(matched, key=lambda row: int(row["seed"]))
             return np.asarray([float(row[metric]) for row in matched], dtype=float)

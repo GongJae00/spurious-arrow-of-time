@@ -1,7 +1,6 @@
 import argparse
 import copy
 import json
-from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
@@ -44,7 +43,7 @@ from src.train import (
 
 def load_yaml(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+        return yaml.safe_load(f)
 
 
 def device_of(name: str) -> torch.device:
@@ -61,35 +60,37 @@ def dump(path: Path, obj):
 def build_dataset_config(base: dict, over: dict, seed: int) -> GeneratorConfig:
     data = deep_update(base, over)
     data["seed"] = seed
-    allowed = set(GeneratorConfig.__dataclass_fields__)
-    return GeneratorConfig(**{k: v for k, v in data.items() if k in allowed})
+    return GeneratorConfig(**{k: data[k] for k in GeneratorConfig.__dataclass_fields__ if k in data})
 
 
-def run_train(spec: dict, default: dict, models: dict) -> dict:
+NAMED = {"trail_fl", "simple_oe", "oe_strict", "set_mf", "mf_core", "oe_core", "oe_core_equalized", "sinusoid"}
+
+
+def run_train(spec: dict, default: dict) -> dict:
     out_dir = Path(spec["out"])
     seeds = [int(s) for s in spec["seeds"]]
-    methods = list(spec.get("methods", models.get("methods", list(METHODS))))
-    scenarios = spec.get("scenarios") or [{"name": "reversal", "data": {}}]
-    primary = str(spec.get("primary_scenario", scenarios[0]["name"]))
-    training = deep_update(default.get("training", {}), spec.get("training", {}))
-    model_config = deep_update(default.get("model", {}), spec.get("model", {}))
-    data_base = deep_update(default.get("data", {}), spec.get("data", {}))
-    device = device_of(str(default.get("device", "auto")))
+    methods = spec["methods"] if "methods" in spec else list(METHODS)
+    scenarios = spec["scenarios"]
+    primary = spec["primary_scenario"]
+    training = deep_update(default["training"], spec["training"] if "training" in spec else {})
+    model_config = deep_update(default["model"], spec["model"] if "model" in spec else {})
+    data_base = deep_update(default["data"], spec["data"] if "data" in spec else {})
+    device = device_of(default["device"])
     out_dir.mkdir(parents=True, exist_ok=True)
     metrics_path = out_dir / "metrics.jsonl"
     if metrics_path.exists():
         metrics_path.unlink()
     all_results = []
     for scenario in scenarios:
-        scenario_name = str(scenario["name"])
-        scenario_data = deep_update(data_base, scenario.get("data", {}))
-        scenario_methods = list(scenario.get("methods", methods))
-        scenario_training = deep_update(training, scenario.get("training", {}))
+        scenario_name = scenario["name"]
+        scenario_data = deep_update(data_base, scenario["data"] if "data" in scenario else {})
+        scenario_methods = scenario["methods"] if "methods" in scenario else methods
+        scenario_training = deep_update(training, scenario["training"] if "training" in scenario else {})
         for seed in seeds:
             set_seed(seed)
             dataset_config = build_dataset_config(scenario_data, {}, seed)
-            bench = spec.get("benchmark")
-            if bench in {"trail_fl", "simple_oe", "oe_strict", "set_mf", "mf_core", "oe_core", "oe_core_equalized", "sinusoid"}:
+            bench = spec["benchmark"] if "benchmark" in spec else None
+            if bench in NAMED:
                 sizes = {k: getattr(dataset_config, k) for k in ("n_train", "n_val_iid", "n_iid_test", "n_ood_test")}
                 extra = {k: v for k, v in scenario_data.items() if k not in sizes}
                 splits = make(bench, seed, sizes=sizes, extra=extra)
@@ -98,20 +99,21 @@ def run_train(spec: dict, default: dict, models: dict) -> dict:
             for method in scenario_methods:
                 run_seed = stable_run_seed(seed, scenario_name, method)
                 set_seed(run_seed)
-                result = train_one_method(method, splits, dataset_config, scenario_training, model_config, seed, run_seed, device)
-                result.pop("model", None)
-                result.update({"profile": spec.get("name", ""), "scenario": scenario_name, "dataset_config": asdict(dataset_config)})
-                all_results.append(result)
+                row = train_one_method(method, splits, dataset_config, scenario_training, model_config, seed, run_seed, device)
+                row.pop("model", None)
+                row["profile"] = spec["name"]
+                row["scenario"] = scenario_name
+                all_results.append(row)
                 with metrics_path.open("a", encoding="utf-8") as f:
-                    f.write(json.dumps({k: v for k, v in result.items() if k != "dataset_config"}) + "\n")
+                    f.write(json.dumps({k: v for k, v in row.items() if k != "dataset_config"}) + "\n")
     summary = summarize_results(all_results, primary_scenario=primary)
     dump(out_dir / "summary.json", summary)
-    dump(out_dir / "manifest.json", {"run": spec.get("name", ""), "seeds": seeds, "methods": methods, "primary_scenario": primary, "device": str(device)})
+    dump(out_dir / "manifest.json", {"run": spec["name"], "seeds": seeds, "methods": methods, "primary_scenario": primary, "device": str(device)})
     return {"summary": summary}
 
 
 def run_shortcut_eval(spec: dict, default: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     outpath = Path(spec["out"])
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
     n_seeds = int(spec["seeds"]) if isinstance(spec["seeds"], int) else len(spec["seeds"])
@@ -184,7 +186,7 @@ def run_shortcut_eval(spec: dict, default: dict) -> dict:
 
 
 def run_certify(spec: dict, default: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     outpath = Path(spec["out"])
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
     seeds = range(int(spec["seeds"]))
@@ -215,7 +217,7 @@ def run_certify(spec: dict, default: dict) -> dict:
 
 
 def run_shuffle(spec: dict, default: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     outpath = Path(spec["out"])
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
     for seed in range(int(spec["seeds"])):
@@ -245,7 +247,7 @@ def run_shuffle(spec: dict, default: dict) -> dict:
 
 
 def run_temporal(spec: dict, default: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     per_frame_runs, summary_runs, order_runs = [], [], []
     n = int(spec["seeds"])
     for s in range(n):
@@ -264,7 +266,7 @@ def run_temporal(spec: dict, default: dict) -> dict:
 
 
 def run_strict_order(spec: dict, default: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     result = {}
     for name, bench in spec["benchmarks"].items():
         ch_runs, set_runs, erm_runs = [], [], []
@@ -287,7 +289,7 @@ def run_strict_order(spec: dict, default: dict) -> dict:
 
 
 def run_nuisance_order(spec: dict, default: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     result = {}
     for name, bench in spec["benchmarks"].items():
         runs = [nuisance_order(make(bench, s), s, device) for s in range(int(spec["seeds"]))]
@@ -297,7 +299,7 @@ def run_nuisance_order(spec: dict, default: dict) -> dict:
 
 
 def run_endpoint(spec: dict, default: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     result = {}
     for variant in ["endpoint_matched", "residue_visible"]:
         accs = []
@@ -311,7 +313,7 @@ def run_endpoint(spec: dict, default: dict) -> dict:
 
 
 def run_mf_core_probes(spec: dict, default: dict, models: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     runs = []
     for s in range(int(spec["seeds"])):
         splits = make("mf_core", s)
@@ -330,7 +332,7 @@ def run_mf_core_probes(spec: dict, default: dict, models: dict) -> dict:
 
 
 def run_mf_core_perframe(spec: dict, default: dict, models: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     runs = []
     for s in range(int(spec["seeds"])):
         splits = make("mf_core", s)
@@ -346,7 +348,7 @@ def run_mf_core_perframe(spec: dict, default: dict, models: dict) -> dict:
 
 
 def run_ucr(spec: dict, default: dict, models: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     dataset = spec["dataset"]
     xc_all, y_all, ntr = load_har(dataset) if dataset in ("har", "har2") else load_forda()
     n = len(y_all)
@@ -475,7 +477,7 @@ def run_ucr(spec: dict, default: dict, models: dict) -> dict:
 
 
 def run_graph(spec: dict, default: dict, models: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     P, faction, order, N = graph_setup(spec["graph"])
     allres = {}
     for s in range(int(spec["seeds"])):
@@ -534,7 +536,7 @@ def run_graph(spec: dict, default: dict, models: dict) -> dict:
 
 
 def run_multi_init(spec: dict, default: dict, models: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     outpath = Path(spec["out"])
     result = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
     budgets = {"standard": (40, 12), "certification": (100, 30)}
@@ -562,7 +564,7 @@ def run_multi_init(spec: dict, default: dict, models: dict) -> dict:
 
 
 def run_accessibility(spec: dict, default: dict, models: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     cues = {
         "diffusion_core": (dict(), "core_only", 1.0),
         "multiframe_core": (dict(diffusion_start_step=8, diffusion_steps_between_frames=2, core_noise_std=0.045, core_noise_growth_power=0.0, observation_noise_std=0.01), "core_only", 0.961),
@@ -614,7 +616,7 @@ def run_accessibility(spec: dict, default: dict, models: dict) -> dict:
 
 
 def run_oe_core_equalized(spec: dict, default: dict, models: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     rows = []
     for s in range(int(spec["seeds"])):
         splits = make("oe_core_equalized", s)
@@ -629,7 +631,7 @@ def run_oe_core_equalized(spec: dict, default: dict, models: dict) -> dict:
 
 
 def run_oe_core_controls(spec: dict, default: dict, models: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     out = {}
     rows = []
     for s in range(int(spec["seeds"])):
@@ -660,7 +662,7 @@ def run_oe_core_controls(spec: dict, default: dict, models: dict) -> dict:
 
 
 def run_arch_cue(spec: dict, default: dict, models: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     out = {}
     for arch, model_type in ARCHS.items():
         if arch == "gru":
@@ -691,7 +693,7 @@ def run_arch_cue(spec: dict, default: dict, models: dict) -> dict:
 
 
 def run_groupdro(spec: dict, default: dict, models: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     result = {}
     for name, kw in {"eta0.01_balanced": dict(eta=0.01, balanced_sampler=True), "eta0.1_standard": dict(eta=0.1, balanced_sampler=False), "eta0.001_standard": dict(eta=0.001, balanced_sampler=False)}.items():
         rows = []
@@ -707,7 +709,7 @@ def run_groupdro(spec: dict, default: dict, models: dict) -> dict:
 
 
 def run_gradsal(spec: dict, default: dict, models: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     out = {}
     for variant, bench in [("trail", "trail_fl"), ("oe", "simple_oe")]:
         shares, profs = [], []
@@ -727,7 +729,7 @@ def run_gradsal(spec: dict, default: dict, models: dict) -> dict:
 
 
 def run_video_search(spec: dict, default: dict, models: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     configs = {
         "A_std_c05_n15": {"real_video_standardize": True, "core_scale": 0.5, "nuisance_scale": 1.5},
         "B_std_c035_n15": {"real_video_standardize": True, "core_scale": 0.35, "nuisance_scale": 1.5},
@@ -796,7 +798,7 @@ def run_video_search(spec: dict, default: dict, models: dict) -> dict:
 
 
 def run_unified(spec: dict, default: dict, models: dict) -> dict:
-    device = device_of(str(default.get("device", "auto")))
+    device = device_of(default["device"])
     outpath = Path(spec["out"])
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
     jobs = [(m, "gru") for m in ["erm", "groupdro_joint", "irmv1", "dann_dir", "jtt", "frame_rand"]] + [("erm", k) for k in ARCHS if k != "gru"]
@@ -812,23 +814,6 @@ def run_unified(spec: dict, default: dict, models: dict) -> dict:
     return out
 
 
-KINDS = {
-    "mf_core_probes": run_mf_core_probes,
-    "mf_core_perframe": run_mf_core_perframe,
-    "ucr": run_ucr,
-    "graph": run_graph,
-    "multi_init": run_multi_init,
-    "accessibility": run_accessibility,
-    "oe_core_equalized": run_oe_core_equalized,
-    "oe_core_controls": run_oe_core_controls,
-    "arch_cue": run_arch_cue,
-    "groupdro": run_groupdro,
-    "gradsal": run_gradsal,
-    "video_search": run_video_search,
-    "unified": run_unified,
-}
-
-
 def run(name: str, config_dir: Path = Path("configs")) -> dict:
     default = load_yaml(config_dir / "default.yaml")
     models = load_yaml(config_dir / "models.yaml")
@@ -840,7 +825,7 @@ def run(name: str, config_dir: Path = Path("configs")) -> dict:
         benches = load_yaml(config_dir / "benchmarks.yaml")
         if "benchmark" in spec:
             spec["data"] = deep_update(benches[spec["benchmark"]], spec["data"] if "data" in spec else {})
-        return run_train(spec, default, models)
+        return run_train(spec, default)
     if kind == "shortcut":
         return run_shortcut_eval(spec, default)
     if kind == "certify":
@@ -855,7 +840,21 @@ def run(name: str, config_dir: Path = Path("configs")) -> dict:
         return run_nuisance_order(spec, default)
     if kind == "endpoint":
         return run_endpoint(spec, default)
-    return KINDS[kind](spec, default, models)
+    return {
+        "mf_core_probes": run_mf_core_probes,
+        "mf_core_perframe": run_mf_core_perframe,
+        "ucr": run_ucr,
+        "graph": run_graph,
+        "multi_init": run_multi_init,
+        "accessibility": run_accessibility,
+        "oe_core_equalized": run_oe_core_equalized,
+        "oe_core_controls": run_oe_core_controls,
+        "arch_cue": run_arch_cue,
+        "groupdro": run_groupdro,
+        "gradsal": run_gradsal,
+        "video_search": run_video_search,
+        "unified": run_unified,
+    }[kind](spec, default, models)
 
 
 def parse_args():
@@ -868,10 +867,7 @@ def parse_args():
 def main():
     args = parse_args()
     result = run(args.run, Path(args.configs))
-    if isinstance(result, dict) and "summary" in result:
-        print(json.dumps(result["summary"], indent=2))
-    else:
-        print(json.dumps({k: ("..." if k.startswith("seed") else v) for k, v in list(result.items())[:3]}, indent=2) if result else "")
+    print(json.dumps(result["summary"] if "summary" in result else result, indent=2))
 
 
 if __name__ == "__main__":

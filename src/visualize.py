@@ -211,7 +211,7 @@ def composite_frame(arr, t, core_vmax, nuisance_vmax):
 
 def figure_benchmark(out: Path, config_path: Path):
     raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-    data = raw.get("data", raw)
+    data = raw["data"] if "data" in raw else raw
     allowed = set(GeneratorConfig.__dataclass_fields__)
     config = GeneratorConfig(**{k: v for k, v in data.items() if k in allowed})
     config = replace(config, n_train=64, n_val_iid=16, n_iid_test=16, n_ood_test=64, seed=19)

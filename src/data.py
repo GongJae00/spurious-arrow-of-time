@@ -1,3 +1,5 @@
+import argparse
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -98,7 +100,7 @@ def generate_split(config: GeneratorConfig, split: str) -> Split:
     cf_direction = sample_counterfactual_direction(config, nuisance_direction, rng)
     nuisance_cf = build_nuisance_sequences(config, cf_direction, rng)
     mixed, counterfactual = compose_observation_pair(config, core, nuisance, nuisance_cf, rng)
-    metadata = split_metadata(config, split, y, source_center, nuisance_direction, cf_direction)
+    metadata = split_metadata(config, y, nuisance_direction, cf_direction)
     return Split(
         split=split,
         core_only=core.astype(np.float32),
@@ -326,51 +328,14 @@ def circular_distance(a: np.ndarray, b: np.ndarray, period: int) -> np.ndarray:
     return np.minimum(raw, period - raw)
 
 
-def split_metadata(config: GeneratorConfig, split: str, y: np.ndarray, source_center: np.ndarray, nuisance_direction: np.ndarray, cf_direction: np.ndarray) -> dict:
+def split_metadata(config: GeneratorConfig, y: np.ndarray, nuisance_direction: np.ndarray, cf_direction: np.ndarray) -> dict:
     return {
-        "split": split,
-        "grid_size": config.grid_size,
-        "length_L": config.length,
-        "n_sequences": int(len(y)),
-        "diffusion_alpha": config.diffusion_alpha,
-        "diffusion_start_step": config.diffusion_start_step,
-        "diffusion_steps_between_frames": config.diffusion_steps_between_frames,
-        "core_scale": config.core_scale,
-        "nuisance_scale": config.nuisance_scale,
-        "nuisance_speed": config.nuisance_speed,
-        "nuisance_trail_decay": config.nuisance_trail_decay,
-        "nuisance_correlation": config.nuisance_correlation,
         "benchmark_variant": config.benchmark_variant,
         "observation_layout": config.observation_layout,
-        "ood_mode": config.ood_mode,
-        "partial_shift_target_correlation": config.partial_shift_target_correlation,
-        "counterfactual_mode": config.counterfactual_mode,
-        "train_nuisance_mode": config.train_nuisance_mode,
-        "class_balance": class_balance(y),
-        "source_center_mean_by_y": mean_by_y(source_center.astype(np.float64), y),
-        "nuisance_direction_mean_by_y": mean_by_y(nuisance_direction.astype(np.float64), y),
-        "counterfactual_direction_mean_by_y": mean_by_y(cf_direction.astype(np.float64), y),
-        "corr_y_nuisance_arrow": safe_corr(y.astype(np.float64), nuisance_direction.astype(float)),
-        "corr_y_counterfactual_arrow": safe_corr(y.astype(np.float64), cf_direction.astype(float)),
+        "nuisance_trail_decay": config.nuisance_trail_decay,
+        "class_balance": {str(c): float(np.mean(y == c)) for c in sorted(np.unique(y).tolist())},
         "counterfactual_changed_fraction": float(np.mean(nuisance_direction != cf_direction)),
     }
-
-
-def class_balance(y: np.ndarray) -> dict[str, float]:
-    return {str(cls): float(np.mean(y == cls)) for cls in sorted(np.unique(y).tolist())}
-
-
-def mean_by_y(values: np.ndarray, y: np.ndarray) -> dict:
-    out = {}
-    for cls in sorted(np.unique(y).tolist()):
-        out[str(cls)] = np.asarray(values[y == cls].mean(axis=0)).round(6).tolist()
-    return out
-
-
-def safe_corr(a: np.ndarray, b: np.ndarray) -> float:
-    if np.std(a) < 1e-12 or np.std(b) < 1e-12:
-        return 0.0
-    return float(np.corrcoef(a, b)[0, 1])
 
 
 def read_frames(path: str, max_frames: int = 2000) -> np.ndarray:
@@ -416,7 +381,6 @@ def extract_crops(frames: np.ndarray, grid: int, length: int, t_stride: int, sho
 
 
 def build_real_video_cache(src: Path, out: Path, grid: int = 16, length: int = 8, t_stride: int = 3, short_side: int = 48, per_clip: int = 3000, min_motion: float = 4.0, seed: int = 1234) -> np.ndarray:
-    import json
     rng = np.random.default_rng(seed)
     all_crops, meta = [], []
     for path in sorted(src.glob("clip*.webm")) + sorted(src.glob("clip*.mp4")):
@@ -433,7 +397,6 @@ def build_real_video_cache(src: Path, out: Path, grid: int = 16, length: int = 8
 
 
 def main():
-    import argparse
     p = argparse.ArgumentParser()
     p.add_argument("--src", default="data/real_video")
     p.add_argument("--out", default="data/real_video/cache_g16_L8_s5.npz")

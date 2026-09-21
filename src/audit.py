@@ -213,8 +213,8 @@ def mixed_erm_channel_tests(splits: dict[str, Split], seed: int, device):
     return res
 
 
-def per_sample_shuffle(x, gen, length=None):
-    L = x.shape[1] if length is None else length
+def per_sample_shuffle(x, gen):
+    L = x.shape[1]
     idx = torch.argsort(torch.rand(x.shape[0], L, generator=gen), dim=1)
     view = idx.view(x.shape[0], L, *([1] * (x.dim() - 2)))
     return torch.gather(x, 1, view.expand_as(x))
@@ -279,11 +279,11 @@ def run_audit(splits: dict[str, Split], seed: int, device, route_a: bool = False
     g3 = final_frame_direction_accuracy(splits, seed, device)
     g4 = None
     if nospur_splits is not None:
-        ntr, nva, nit, not_ = (nospur_splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
+        ntr, nva, nit, not_sp = (nospur_splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
         rec = train_sequence(seq(ntr, "mixed"), torch.from_numpy(ntr.y), seq(nva, "mixed"), torch.from_numpy(nva.y), seed * 31 + 3, device, epochs=100, patience=30)
         g4 = {
             "iid": eval_sequence(rec, seq(nit, "mixed"), torch.from_numpy(nit.y), device),
-            "ood": eval_sequence(rec, seq(not_, "mixed"), torch.from_numpy(not_.y), device),
+            "ood": eval_sequence(rec, seq(not_sp, "mixed"), torch.from_numpy(not_sp.y), device),
         }
     frames = per_frame_probes(splits, seed, device)
     single = max(frames["dir_iid"])

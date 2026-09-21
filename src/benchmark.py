@@ -32,8 +32,7 @@ OE_STRICT_CUM = np.array([0, 1, 2, 4, 7, 10, 13, 0])
 
 def paper_config(seed: int = 0, **over) -> GeneratorConfig:
     fields = {**PAPER, **SIZES, "seed": seed, **over}
-    allowed = set(GeneratorConfig.__dataclass_fields__)
-    return GeneratorConfig(**{k: v for k, v in fields.items() if k in allowed})
+    return GeneratorConfig(**{k: fields[k] for k in GeneratorConfig.__dataclass_fields__ if k in fields})
 
 
 def pulse(pos: np.ndarray, grid: int = 16, sigma: float = 1.15, scale: float = 1.2) -> np.ndarray:
@@ -86,10 +85,6 @@ OVERLAY = {
 }
 
 
-def _direction(y: np.ndarray, corr: float, rng: np.random.Generator) -> np.ndarray:
-    return np.where(rng.random(len(y)) < corr, y, 1 - y) * 2 - 1
-
-
 def overlay_nuisance(splits: dict[str, Split], overlay: str, seed: int, corr_train: float = 0.97) -> dict[str, Split]:
     fn, salt = OVERLAY[overlay]
     out = {}
@@ -97,7 +92,7 @@ def overlay_nuisance(splits: dict[str, Split], overlay: str, seed: int, corr_tra
         corr = 1 - corr_train if name == "ood_test" else corr_train
         rng = np.random.default_rng(seed * salt + 1009 * i)
         sp = splits[name]
-        d = _direction(sp.y, corr, rng)
+        d = np.where(rng.random(len(sp.y)) < corr, sp.y, 1 - sp.y) * 2 - 1
         core = np.asarray(sp.core_only)[:, :, None]
         nu = fn(d, rng)[:, :, None]
         mixed = np.concatenate([core, nu], 2).astype(np.float32)
@@ -183,7 +178,6 @@ def graph_split(P, faction, order, n_nodes, n, split_seed, mode, length=8, alpha
     aligned = rng.random(n) < p_align
     base = np.where(y == 1, 1, -1)
     d = np.where(aligned, base, -base).astype(np.int64)
-    pos_idx = np.arange(n_nodes, dtype=np.float32)
     inv_order = np.empty(n_nodes, dtype=np.int64)
     inv_order[order] = np.arange(n_nodes)
     coord = inv_order.astype(np.float32)
