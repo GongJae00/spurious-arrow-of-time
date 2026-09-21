@@ -20,8 +20,6 @@ data:
   partial_shift_target_correlation: -0.3
   counterfactual_mode: randomized
   train_nuisance_mode: correlated
-  random_labels: false
-  disable_nuisance: false
 model:
   hidden_dim: 64
   num_layers: 1

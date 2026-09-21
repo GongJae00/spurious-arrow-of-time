@@ -9,7 +9,6 @@ import json
 import math
 import platform
 import random
-import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -26,7 +25,7 @@ from src.data.irreversible_source_inference import (
     IrreversibleSourceSplit,
     generate_irreversible_source_splits,
 )
-from src.models.minimal_sequence import build_model, parameter_count
+from src.models.minimal_sequence import build_model
 
 
 METHODS: dict[str, dict[str, Any]] = {
@@ -178,10 +177,6 @@ def make_loader(
     )
 
 
-def accuracy_from_logits(logits: torch.Tensor, y: torch.Tensor) -> float:
-    return float((logits.argmax(dim=1) == y).float().mean().item())
-
-
 def evaluate(
     model: nn.Module,
     loader: DataLoader,
@@ -193,8 +188,6 @@ def evaluate(
     loss_sum = 0.0
     correct = 0
     cf_correct = 0
-    cf_flip = 0
-    cf_l1 = 0.0
     with torch.no_grad():
         for batch in loader:
             x = batch[0].to(device)
@@ -208,25 +201,13 @@ def evaluate(
             if has_counterfactual and len(batch) == 3:
                 x_cf = batch[2].to(device)
                 out_cf = model(x_cf)
-                pred = out.logits.argmax(dim=1)
-                pred_cf = out_cf.logits.argmax(dim=1)
-                cf_correct += int((pred_cf == y).sum().item())
-                cf_flip += int((pred != pred_cf).sum().item())
-                probs = F.softmax(out.logits, dim=1)
-                probs_cf = F.softmax(out_cf.logits, dim=1)
-                cf_l1 += float(torch.abs(probs - probs_cf).sum(dim=1).sum().item())
+                cf_correct += int((out_cf.logits.argmax(dim=1) == y).sum().item())
     metrics = {
         "loss": loss_sum / max(total, 1),
         "accuracy": correct / max(total, 1),
     }
     if has_counterfactual:
-        metrics.update(
-            {
-                "accuracy_on_x_cf": cf_correct / max(total, 1),
-                "cf_prediction_flip_rate": cf_flip / max(total, 1),
-                "cf_probability_l1": cf_l1 / max(total, 1),
-            }
-        )
+        metrics["accuracy_on_x_cf"] = cf_correct / max(total, 1)
     return metrics
 
 
@@ -309,7 +290,6 @@ def train_one_method(
     best_val = -math.inf
     best_epoch = 0
     stale_epochs = 0
-    start = time.time()
     with epoch_path.open("a", encoding="utf-8") as epoch_file:
         for epoch in range(1, max_epochs + 1):
             model.train()
@@ -403,7 +383,6 @@ def train_one_method(
         name: evaluate(model, loader, device, has_counterfactual=uses_cf)
         for name, loader in eval_loaders.items()
     }
-    elapsed = time.time() - start
     result = {
         "seed": seed,
         "run_seed": run_seed,
@@ -411,25 +390,12 @@ def train_one_method(
         "input_key": input_key,
         "uses_counterfactual": uses_cf,
         "best_epoch": best_epoch,
-        "parameter_count": parameter_count(model),
-        "training_time_seconds": elapsed,
         "val_iid_accuracy": split_metrics["val_iid"]["accuracy"],
         "iid_test_accuracy": split_metrics["iid_test"]["accuracy"],
         "ood_test_accuracy": split_metrics["ood_test"]["accuracy"],
         "ood_gap": split_metrics["iid_test"]["accuracy"] - split_metrics["ood_test"]["accuracy"],
         "split_metrics": split_metrics,
     }
-    if uses_cf:
-        result.update(
-            {
-                "cf_prediction_flip_rate": split_metrics["iid_test"]["cf_prediction_flip_rate"],
-                "cf_probability_l1": split_metrics["iid_test"]["cf_probability_l1"],
-                "cf_ood_prediction_flip_rate": split_metrics["ood_test"][
-                    "cf_prediction_flip_rate"
-                ],
-                "cf_ood_probability_l1": split_metrics["ood_test"]["cf_probability_l1"],
-            }
-        )
     return result
 
 
@@ -454,20 +420,6 @@ def summarize_results(results: list[dict[str, Any]], primary_scenario: str) -> d
                 "n": int(len(values)),
                 "values": values.round(6).tolist(),
             }
-    if "sequence_erm" in by_method and "counterfactual_invariance" in by_method:
-        erm = {int(row["seed"]): row for row in by_method["sequence_erm"]}
-        cf = {int(row["seed"]): row for row in by_method["counterfactual_invariance"]}
-        common = sorted(set(erm) & set(cf))
-        reductions = [
-            float(erm[seed]["ood_gap"] - cf[seed]["ood_gap"])
-            for seed in common
-        ]
-        method_summary["main_gap_reduction"] = {
-            "seeds": common,
-            "values": [round(value, 6) for value in reductions],
-            "mean": float(np.mean(reductions)) if reductions else None,
-            "consistent_positive": bool(reductions and all(value > 0 for value in reductions)),
-        }
     scenario_summary: dict[str, Any] = {}
     for result in results:
         scenario = str(result.get("scenario", primary_scenario))

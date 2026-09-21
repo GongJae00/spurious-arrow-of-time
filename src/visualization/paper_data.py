@@ -62,29 +62,3 @@ class MetricStore:
             raise KeyError(f"No values for scenario={scenario!r}, method={method!r}, metric={metric!r}")
         matched = sorted(matched, key=lambda row: int(row["seed"]))
         return np.asarray([float(row[metric]) for row in matched], dtype=float)
-
-    def paired_values(
-        self,
-        method_a: str,
-        method_b: str,
-        metric: str,
-        scenario: str | None = None,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Return seed-aligned metric values for two methods."""
-
-        scenario = scenario or self.primary_scenario
-        by_method: dict[str, dict[int, float]] = {method_a: {}, method_b: {}}
-        for row in self.rows:
-            if row.get("scenario") != scenario:
-                continue
-            method = str(row.get("method"))
-            if method in by_method and metric in row:
-                by_method[method][int(row["seed"])] = float(row[metric])
-        seeds = sorted(set(by_method[method_a]) & set(by_method[method_b]))
-        if not seeds:
-            raise KeyError(f"No paired values for {method_a!r} and {method_b!r}")
-        return (
-            np.asarray(seeds, dtype=int),
-            np.asarray([by_method[method_a][seed] for seed in seeds], dtype=float),
-            np.asarray([by_method[method_b][seed] for seed in seeds], dtype=float),
-        )

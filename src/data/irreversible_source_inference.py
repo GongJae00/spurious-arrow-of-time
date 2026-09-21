@@ -7,7 +7,7 @@ frame-local residue versus an order-encoded pulse.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -43,9 +43,6 @@ class IrreversibleSourceConfig:
     partial_shift_target_correlation: float = -0.3
     counterfactual_mode: str = "reversed"
     train_nuisance_mode: str = "correlated"
-    random_labels: bool = False
-    disable_nuisance: bool = False
-    # Generality / complexity extensions (defaults preserve original behavior).
     nuisance_motion: str = "translate"  # translate | rotate | diagonal | real_video
     real_video_cache: str = ""  # npz of [N, L, grid, grid] uint8 crops for real_video
     real_video_standardize: bool = False  # zero-mean/unit-std per crop (removes static energy)
@@ -105,8 +102,6 @@ def generate_split(config: IrreversibleSourceConfig, split: str) -> Irreversible
 
     y = balanced_labels(n, rng)
     source_orientation = y.copy()
-    if config.random_labels:
-        y = balanced_labels(n, rng)
     source_center = rng.integers(0, grid, size=(n, 2), endpoint=False)
 
     if config.core_process == "directional_pulse":
@@ -127,17 +122,13 @@ def generate_split(config: IrreversibleSourceConfig, split: str) -> Irreversible
     cf_direction = sample_counterfactual_direction(config, nuisance_direction, rng)
     nuisance_cf = build_nuisance_sequences(config, cf_direction, rng)
 
-    if config.disable_nuisance:
-        mixed = compose_core_only_observation(config, core)
-        counterfactual = mixed.copy()
-    else:
-        mixed, counterfactual = compose_observation_pair(
-            config=config,
-            core=core,
-            nuisance=nuisance,
-            nuisance_cf=nuisance_cf,
-            rng=rng,
-        )
+    mixed, counterfactual = compose_observation_pair(
+        config=config,
+        core=core,
+        nuisance=nuisance,
+        nuisance_cf=nuisance_cf,
+        rng=rng,
+    )
 
     metadata = split_metadata(
         config=config,
@@ -244,43 +235,6 @@ def evolve_core_once(state: np.ndarray, config: IrreversibleSourceConfig) -> np.
     raise ValueError(f"unknown core_process {config.core_process!r}")
 
 
-def compose_observation(
-    config: IrreversibleSourceConfig,
-    core: np.ndarray,
-    nuisance: np.ndarray,
-    rng: np.random.Generator,
-) -> np.ndarray:
-    if config.observation_layout == "additive":
-        noise = rng.normal(0.0, config.observation_noise_std, size=core.shape).astype(np.float32)
-        return (config.core_scale * core + config.nuisance_scale * nuisance + noise).astype(
-            np.float32
-        )
-    noise = rng.normal(
-        0.0,
-        config.observation_noise_std,
-        size=(core.shape[0], core.shape[1], 2, core.shape[2], core.shape[3]),
-    ).astype(np.float32)
-    out = np.zeros_like(noise, dtype=np.float32)
-    out[:, :, 0] = config.core_scale * core
-    out[:, :, 1] = config.nuisance_scale * nuisance
-    return (out + noise).astype(np.float32)
-
-
-def compose_core_only_observation(
-    config: IrreversibleSourceConfig,
-    core: np.ndarray,
-) -> np.ndarray:
-    """Clean no-nuisance upper-bound observation used for diagnostic controls."""
-    if config.observation_layout == "additive":
-        return core.astype(np.float32)
-    out = np.zeros(
-        (core.shape[0], core.shape[1], 2, core.shape[2], core.shape[3]),
-        dtype=np.float32,
-    )
-    out[:, :, 0] = config.core_scale * core
-    return out
-
-
 def compose_observation_pair(
     *,
     config: IrreversibleSourceConfig,
@@ -383,11 +337,6 @@ def sample_counterfactual_direction(
         return rng.choice(np.array([-1, 1], dtype=np.int64), size=len(direction)).astype(
             np.int64
         )
-    if config.counterfactual_mode == "randomized_different":
-        cf = rng.choice(np.array([-1, 1], dtype=np.int64), size=len(direction))
-        same = cf == direction
-        cf[same] *= -1
-        return cf.astype(np.int64)
     raise ValueError(f"unknown counterfactual_mode {config.counterfactual_mode!r}")
 
 
@@ -559,8 +508,6 @@ def split_metadata(
         "partial_shift_target_correlation": config.partial_shift_target_correlation,
         "counterfactual_mode": config.counterfactual_mode,
         "train_nuisance_mode": config.train_nuisance_mode,
-        "random_labels": config.random_labels,
-        "disable_nuisance": config.disable_nuisance,
         "class_balance": class_balance(y),
         "source_center_mean_by_y": mean_by_y(source_center.astype(np.float64), y),
         "nuisance_direction_mean_by_y": mean_by_y(nuisance_direction.astype(np.float64), y),
@@ -587,7 +534,3 @@ def safe_corr(a: np.ndarray, b: np.ndarray) -> float:
     if np.std(a) < 1e-12 or np.std(b) < 1e-12:
         return 0.0
     return float(np.corrcoef(a, b)[0, 1])
-
-
-def with_smaller_sizes(config: IrreversibleSourceConfig, n: int) -> IrreversibleSourceConfig:
-    return replace(config, n_train=n, n_val_iid=n, n_iid_test=n, n_ood_test=n)

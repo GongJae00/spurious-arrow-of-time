@@ -12,16 +12,9 @@ selection):
   representation via a gradient-reversal adversary (privileged: uses d_s).
 - jtt: Just Train Twice; stage-1 ERM error set upweighted in stage 2
   (non-privileged).
-
-Usage:
-  python -m src.eval.robust_methods_bench --seeds 10
 """
 
 from __future__ import annotations
-
-import argparse
-import json
-from pathlib import Path
 
 import numpy as np
 import torch
@@ -235,42 +228,3 @@ def train_irm(seed: int, device):
     model.load_state_dict(best_state)
     model.eval()
     return accuracy(model, xit, yit, device), accuracy(model, xot, yot, device)
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--seeds", type=int, default=10)
-    parser.add_argument("--out", default="results/extended/robust_methods_oe.json")
-    args = parser.parse_args()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    result = {}
-    for method in ["groupdro_joint", "irmv1", "dann_dir", "jtt"]:
-        rows = []
-        for s in range(args.seeds):
-            if method == "irmv1":
-                iid, ood = train_irm(s, device)
-            else:
-                iid, ood = train_generic(method, s, device)
-            rows.append({"seed": s, "iid": round(iid, 4), "ood": round(ood, 4)})
-            print(f"{method} seed {s}: iid {iid:.3f} ood {ood:.3f}", flush=True)
-        iids = np.array([r["iid"] for r in rows])
-        oods = np.array([r["ood"] for r in rows])
-        coll = int(((iids >= 0.8) & (oods <= 0.2)).sum())
-        core = int(((iids >= 0.8) & (oods >= 0.8)).sum())
-        result[method] = {
-            "iid_mean": float(iids.mean()), "iid_std": float(iids.std(ddof=1)),
-            "ood_mean": float(oods.mean()), "ood_std": float(oods.std(ddof=1)),
-            "core": core, "collapse": coll, "chance": len(rows) - core - coll,
-            "rows": rows,
-        }
-        print(f"== {method}: iid {iids.mean():.3f} ood {oods.mean():.3f} "
-              f"core {core} coll {coll}", flush=True)
-
-    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    with open(args.out, "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=2)
-
-
-if __name__ == "__main__":
-    main()

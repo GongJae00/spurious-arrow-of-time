@@ -131,14 +131,6 @@ def test_counterfactual_changes_nuisance_only() -> None:
     assert split.metadata["class_balance"]["1"] == 0.5
 
 
-def test_disable_nuisance_replaces_mixed_with_core_only() -> None:
-    cfg = small_config()
-    cfg = cfg.__class__(**{**cfg.__dict__, "disable_nuisance": True})
-    split = generate_irreversible_source_splits(cfg)["train"]
-    np.testing.assert_allclose(split.mixed, split.core_only)
-    np.testing.assert_allclose(split.counterfactual, split.core_only)
-
-
 def test_two_channel_observation_layout_keeps_components_separable() -> None:
     cfg = small_config()
     cfg = cfg.__class__(**{**cfg.__dict__, "observation_layout": "two_channel"})

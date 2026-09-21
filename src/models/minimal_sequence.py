@@ -337,7 +337,3 @@ def build_model(
             input_channels=input_channels,
         )
     raise ValueError(f"unknown model_type {model_type!r}")
-
-
-def parameter_count(model: nn.Module) -> int:
-    return sum(param.numel() for param in model.parameters() if param.requires_grad)
