@@ -79,17 +79,6 @@ def eval_channel_intervention(model, x, y, device, channel: int, mode: str, seed
     return float((torch.cat(preds) == y.to(device)).float().mean().item())
 
 
-def gate6(single_frame: float, set_acc: float, ordered: float, shuffled: float, route_a: bool) -> str:
-    # Algorithm 1 Phase 2. Cutoffs 0.8 / 0.6.
-    if single_frame >= 0.8:
-        return "frame-local"
-    if set_acc >= 0.8:
-        return "order-invariant multi-frame"
-    if ordered >= 0.8 and (route_a or shuffled <= 0.6):
-        return "order-encoded"
-    return "inconclusive"
-
-
 class Audit:
     # Algorithm 1. Privileged access: core-only, nuisance-only, mixed, direction.
 
@@ -169,26 +158,9 @@ class Audit:
         return res
 
     def gate6(self) -> dict:
-        # Gate 6. Cue locality. Algorithm 1 Phase 2.
-        frames = self.per_frame()
-        summary = self.summaries()
-        set_acc = self.set_probe()
-        order = self.gate5()
-        single = max(frames["dir_iid"])
-        loc = gate6(single, set_acc, order["erm_iid"], order["erm_iid_shuffled"], self.route_a)
-        return {
-            "per_frame": frames,
-            "summary": summary,
-            "set": set_acc,
-            "locality": loc,
-            "order": order,
-        }
-
-    def per_frame(self, field: str = "mixed") -> dict:
-        splits, seed, device = self.splits, self.seed, self.device
-        L = getattr(splits["train"], field).shape[1]
-        out = {"frame": list(range(L)), "label_iid": [], "label_ood": [], "dir_iid": [], "dir_ood": [], "core_label_iid": [], "core_label_ood": []}
-        tr, it, ot = splits["train"], splits["iid_test"], splits["ood_test"]
+        # Gate 6. Cue locality.
+        tr, it, ot = self.splits["train"], self.splits["iid_test"], self.splits["ood_test"]
+        seed, device = self.seed, self.device
         ytr, yit, yot = map(lambda s: torch.from_numpy(s.y), (tr, it, ot))
         dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64))
         dit = torch.from_numpy((it.nuisance_direction > 0).astype(np.int64))
@@ -198,26 +170,21 @@ class Audit:
             x = np.asarray(getattr(sp, key))[:, t]
             return as_tensor(x.reshape(len(x), -1))
 
+        L = tr.mixed.shape[1]
+        frames = {"frame": list(range(L)), "label_iid": [], "label_ood": [], "dir_iid": [], "dir_ood": [], "core_label_iid": [], "core_label_ood": []}
         for t in range(L):
-            xtr, xit, xot = frame(tr, t, field), frame(it, t, field), frame(ot, t, field)
+            xtr, xit, xot = frame(tr, t), frame(it, t), frame(ot, t)
             li, lo = train_mlp_probe(xtr, ytr, [(xit, yit), (xot, yot)], seed * 100 + t, device)
             di, do = train_mlp_probe(xtr, dtr, [(xit, dit), (xot, dot)], seed * 100 + t + 50, device)
-            out["label_iid"].append(li)
-            out["label_ood"].append(lo)
-            out["dir_iid"].append(di)
-            out["dir_ood"].append(do)
+            frames["label_iid"].append(li)
+            frames["label_ood"].append(lo)
+            frames["dir_iid"].append(di)
+            frames["dir_ood"].append(do)
             cxtr, cxit, cxot = frame(tr, t, "core_only"), frame(it, t, "core_only"), frame(ot, t, "core_only")
             ci, co = train_mlp_probe(cxtr, ytr, [(cxit, yit), (cxot, yot)], seed * 100 + t + 90, device)
-            out["core_label_iid"].append(ci)
-            out["core_label_ood"].append(co)
-        return out
+            frames["core_label_iid"].append(ci)
+            frames["core_label_ood"].append(co)
 
-    def summaries(self) -> dict:
-        tr, it, ot = self.splits["train"], self.splits["iid_test"], self.splits["ood_test"]
-        ytr, yit, yot = map(lambda s: torch.from_numpy(s.y), (tr, it, ot))
-        dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64))
-        dit = torch.from_numpy((it.nuisance_direction > 0).astype(np.int64))
-        dot = torch.from_numpy((ot.nuisance_direction > 0).astype(np.int64))
         feats = {
             "temporal_mean": lambda x: x.mean(axis=1),
             "temporal_std": lambda x: x.std(axis=1),
@@ -225,8 +192,7 @@ class Audit:
             "middle_frame": lambda x: x[:, x.shape[1] // 2],
             "first_last_pair": lambda x: np.concatenate([x[:, 0], x[:, -1]], axis=1),
         }
-        out = {}
-        seed, device = self.seed, self.device
+        summary = {}
         for name, fn in feats.items():
             def make(sp, fn=fn):
                 x = fn(np.asarray(sp.mixed))
@@ -234,8 +200,53 @@ class Audit:
             xtr, xit, xot = make(tr), make(it), make(ot)
             li, lo = train_mlp_probe(xtr, ytr, [(xit, yit), (xot, yot)], seed * 7 + 1, device)
             di, do = train_mlp_probe(xtr, dtr, [(xit, dit), (xot, dot)], seed * 7 + 2, device)
-            out[name] = {"label_iid": li, "label_ood": lo, "dir_iid": di, "dir_ood": do}
-        return out
+            summary[name] = {"label_iid": li, "label_ood": lo, "dir_iid": di, "dir_ood": do}
+
+        def prep(sp):
+            x = np.asarray(sp.nuisance_only)
+            return as_tensor(x.reshape(len(x), x.shape[1], -1))
+
+        xtr, xit = prep(tr), prep(it)
+        mean, std = xtr.mean(), xtr.std().clamp_min(1e-6)
+        xtr, xit = ((xtr - mean) / std).to(device), ((xit - mean) / std).to(device)
+        dtr_d = dtr.to(device)
+        dit_d = dit.to(device)
+        torch.manual_seed(seed * 17 + 5)
+        net = SetProbe(xtr.shape[-1]).to(device)
+        opt = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-4)
+        g = torch.Generator(device="cpu")
+        g.manual_seed(seed)
+        for _ in range(40):
+            net.train()
+            perm = torch.randperm(len(xtr), device=device)
+            for i in range(0, len(xtr), 128):
+                idx = perm[i : i + 128]
+                xb = xtr[idx]
+                xb = xb[:, torch.randperm(xb.shape[1], generator=g)]
+                opt.zero_grad(set_to_none=True)
+                F.cross_entropy(net(xb), dtr_d[idx]).backward()
+                opt.step()
+        net.eval()
+        with torch.no_grad():
+            set_acc = float((net(xit).argmax(1) == dit_d).float().mean().item())
+
+        order = self.gate5()
+        single = max(frames["dir_iid"])
+        if single >= 0.8:
+            loc = "frame-local"
+        elif set_acc >= 0.8:
+            loc = "order-invariant multi-frame"
+        elif order["erm_iid"] >= 0.8 and (self.route_a or order["erm_iid_shuffled"] <= 0.6):
+            loc = "order-encoded"
+        else:
+            loc = "inconclusive"
+        return {
+            "per_frame": frames,
+            "summary": summary,
+            "set": set_acc,
+            "locality": loc,
+            "order": order,
+        }
 
     def channel_probes(self) -> dict:
         tr, it = self.splits["train"], self.splits["iid_test"]
@@ -250,39 +261,6 @@ class Audit:
                 xit = as_tensor(np.asarray(getattr(it, key))[:, t].reshape(len(it.y), -1))
                 out[name].append(train_mlp_probe(xtr, dtr, [(xit, dit)], seed * 100 + t, device)[0])
         return out
-
-    def set_probe(self, epochs: int = 40) -> float:
-        tr, it = self.splits["train"], self.splits["iid_test"]
-
-        def prep(sp):
-            x = np.asarray(sp.nuisance_only)
-            return as_tensor(x.reshape(len(x), x.shape[1], -1))
-
-        xtr, xit = prep(tr), prep(it)
-        mean, std = xtr.mean(), xtr.std().clamp_min(1e-6)
-        xtr, xit = (xtr - mean) / std, (xit - mean) / std
-        device, seed = self.device, self.seed
-        dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64)).to(device)
-        dit = torch.from_numpy((it.nuisance_direction > 0).astype(np.int64)).to(device)
-        xtr, xit = xtr.to(device), xit.to(device)
-        torch.manual_seed(seed * 17 + 5)
-        net = SetProbe(xtr.shape[-1]).to(device)
-        opt = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-4)
-        g = torch.Generator(device="cpu")
-        g.manual_seed(seed)
-        for _ in range(epochs):
-            net.train()
-            perm = torch.randperm(len(xtr), device=device)
-            for i in range(0, len(xtr), 128):
-                idx = perm[i : i + 128]
-                xb = xtr[idx]
-                xb = xb[:, torch.randperm(xb.shape[1], generator=g)]
-                opt.zero_grad(set_to_none=True)
-                F.cross_entropy(net(xb), dtr[idx]).backward()
-                opt.step()
-        net.eval()
-        with torch.no_grad():
-            return float((net(xit).argmax(1) == dit).float().mean().item())
 
     def mixed_channel(self) -> dict:
         # Table 5. Mixed ERM, then shuffle/reverse the nuisance or core channel.

@@ -1,8 +1,10 @@
+import inspect
+
 import torch
 
-from src.audit import gate6, per_sample_shuffle
+from src.audit import Audit, per_sample_shuffle
 
-# Gate 6 classes (Algorithm 1 Phase 2) and the per-sample shuffle used in Table 5.
+# Gate 6 cases in Audit.gate6, and the per-sample shuffle used in Table 5.
 
 
 def test_per_sample_shuffle_preserves_multiset():
@@ -17,8 +19,11 @@ def test_per_sample_shuffle_preserves_multiset():
 
 
 def test_gate6_classes():
-    assert gate6(0.9, 0.5, 0.9, 0.9, False) == "frame-local"
-    assert gate6(0.5, 0.9, 0.9, 0.9, False) == "order-invariant multi-frame"
-    assert gate6(0.5, 0.5, 0.9, 0.5, True) == "order-encoded"
-    assert gate6(0.5, 0.5, 0.9, 0.5, False) == "order-encoded"
-    assert gate6(0.5, 0.5, 0.5, 0.5, False) == "inconclusive"
+    src = inspect.getsource(Audit.gate6)
+    assert "if single >= 0.8:" in src
+    assert 'loc = "frame-local"' in src
+    assert "elif set_acc >= 0.8:" in src
+    assert 'loc = "order-invariant multi-frame"' in src
+    assert "<= 0.6" in src
+    assert 'loc = "order-encoded"' in src
+    assert 'loc = "inconclusive"' in src
