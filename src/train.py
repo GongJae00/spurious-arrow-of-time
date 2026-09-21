@@ -166,26 +166,35 @@ def train_one_method(method: str, splits: dict[str, Split], dataset_config: Gene
         for batch in train_loader:
             x = batch[0].to(device)
             y = batch[1].to(device)
+
+            # nuisance-channel dropout
             if channel_dropout_prob > 0 and x.ndim == 5 and x.shape[2] >= 2:
                 drop = torch.rand(x.shape[0], device=device) < channel_dropout_prob
                 if drop.any():
                     x = x.clone()
                     x[drop, :, 1] = 0.0
+
             optimizer.zero_grad(set_to_none=True)
             out = model(x)
+
+            # group balancing
             if uses_group:
                 group = batch[-1].to(device)
                 sample_loss = F.cross_entropy(out.logits, y, reduction="none")
                 group_losses = [sample_loss[group == gid].mean() for gid in torch.unique(group)]
                 task_loss = torch.stack(group_losses).mean()
             else:
+                # ERM
                 task_loss = F.cross_entropy(out.logits, y)
+
             cf_task_loss = torch.zeros((), device=device)
             consistency_loss = torch.zeros((), device=device)
+            # counterfactual invariance
             if uses_cf:
                 out_cf = model(batch[2].to(device))
                 cf_task_loss = F.cross_entropy(out_cf.logits, y)
                 consistency_loss = F.kl_div(F.log_softmax(out_cf.logits, dim=1), F.softmax(out.logits.detach(), dim=1), reduction="batchmean")
+
             loss = task_loss + lambda_cf_task * cf_task_loss + lambda_pred * consistency_loss
             loss.backward()
             if grad_clip > 0:

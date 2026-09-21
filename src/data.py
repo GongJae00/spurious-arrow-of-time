@@ -91,6 +91,7 @@ def generate_split(config: GeneratorConfig, split: str) -> Split:
     source_orientation = y.copy()
     source_center = rng.integers(0, grid, size=(n, 2), endpoint=False)
 
+    # OE-Core: directional pulse. Else Eq. diffuse.
     if config.core_process == "directional_pulse":
         core_direction = (2 * source_orientation - 1).astype(np.int64)
         if config.core_direction_flip_prob > 0:
@@ -100,10 +101,14 @@ def generate_split(config: GeneratorConfig, split: str) -> Split:
     else:
         core = build_core_sequences(config, source_center, source_orientation, rng)
 
+    # Eq. nuis. Train correlated; OOD reversed / randomized / partial.
     nuisance_direction = sample_nuisance_direction(config, y, split, rng)
     nuisance = build_nuisance_sequences(config, nuisance_direction, rng)
+
     cf_direction = sample_counterfactual_direction(config, nuisance_direction, rng)
     nuisance_cf = build_nuisance_sequences(config, cf_direction, rng)
+
+    # Eq. obs.
     mixed, counterfactual = compose_observation_pair(config, core, nuisance, nuisance_cf, rng)
     metadata = split_metadata(config, y, nuisance_direction, cf_direction)
     return Split(

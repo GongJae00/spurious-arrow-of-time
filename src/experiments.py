@@ -85,28 +85,42 @@ def run_shortcut_eval(spec: dict, default: dict) -> dict:
             return as_tensor((a - mu) / sd)
 
         r = {}
+
+        # no-spurious mixed ERM
         if nospur:
             m = train_sequence(x("train"), ytr, x("val_iid"), yva, seed, device, epochs=epochs, patience=patience)
             r["nospur"] = (eval_sequence(m, x("iid_test"), torch.from_numpy(splits["iid_test"].y), device), eval_sequence(m, x("ood_test"), torch.from_numpy(splits["ood_test"].y), device))
             out[key] = {k: [round(t, 4) for t in v] for k, v in r.items()}
             write_json(outpath, out)
             continue
+
+        # mixed ERM
         m = train_sequence(x("train"), ytr, x("val_iid"), yva, seed, device, epochs=epochs, patience=patience)
         yo = torch.from_numpy(splits["ood_test"].y)
         xo = x("ood_test")
         r["erm"] = (eval_sequence(m, x("iid_test"), torch.from_numpy(splits["iid_test"].y), device), eval_sequence(m, xo, yo, device))
+
+        # nuisance shuffle
         perm = torch.randperm(L)
         xs = xo.clone()
         xs[:, :, 1] = xs[:, perm, 1]
         r["shuffle_nuis"] = accuracy(m, xs, yo, device)
+
+        # nuisance reverse
         xr = xo.clone()
         xr[:, :, 1] = torch.flip(xr[:, :, 1], dims=[1])
         r["reverse_nuis"] = accuracy(m, xr, yo, device)
+
+        # core reverse
         xc = xo.clone()
         xc[:, :, 0] = torch.flip(xc[:, :, 0], dims=[1])
         r["reverse_core"] = accuracy(m, xc, yo, device)
+
+        # nuisance-only ERM
         nu_m = train_sequence(x("train", 1), ytr, x("val_iid", 1), yva, seed + 5000, device, epochs=epochs, patience=patience)
         r["nuisance_only"] = (eval_sequence(nu_m, x("iid_test", 1), torch.from_numpy(splits["iid_test"].y), device), eval_sequence(nu_m, x("ood_test", 1), yo, device))
+
+        # first-last pair, best single frame, unordered set
         if seed < spec["probe_seeds"]:
             nu_tr = torch.from_numpy(np.asarray(splits["train"].mixed)[:, :, 1])
             nu_te = torch.from_numpy(np.asarray(splits["iid_test"].mixed)[:, :, 1])
@@ -120,8 +134,12 @@ def run_shortcut_eval(spec: dict, default: dict) -> dict:
             srt_tr = torch.sort(nu_tr.reshape(len(nu_tr), L, -1), dim=1)[0]
             srt_te = torch.sort(nu_te.reshape(len(nu_te), L, -1), dim=1)[0]
             r["set_dir"] = probe(srt_tr.reshape(len(srt_tr), -1), dtr, srt_te.reshape(len(srt_te), -1), dte, device)
+
+            # OE-Strict adjacent interior pair (frames 3, 4)
             if benchmark == "oe_strict":
                 r["adjacent_pair_dir"] = probe(nu_tr[:, [3, 4]].reshape(len(nu_tr), -1), dtr, nu_te[:, [3, 4]].reshape(len(nu_te), -1), dte, device)
+
+            # Set-MF temporal mean
             if benchmark == "set_mf":
                 r["temporal_mean_dir"] = probe(nu_tr.mean(1).reshape(len(nu_tr), -1), dtr, nu_te.mean(1).reshape(len(nu_te), -1), dte, device)
         out[key] = rounded(r)

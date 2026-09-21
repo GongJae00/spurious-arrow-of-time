@@ -132,29 +132,35 @@ class Audit:
         }
 
     def gate5(self) -> dict:
-        # Gate 5. Reversal attribution: mixed ERM under shuffle and reverse.
+        # Gate 5. Reversal attribution.
         tr, va, it, ot = self.splits["train"], self.splits["val_iid"], self.splits["iid_test"], self.splits["ood_test"]
         xtr, xva = as_tensor(tr.mixed), as_tensor(va.mixed)
         ytr, yva = torch.from_numpy(tr.y), torch.from_numpy(va.y)
         xit, xot = as_tensor(it.mixed), as_tensor(ot.mixed)
         yit, yot = torch.from_numpy(it.y), torch.from_numpy(ot.y)
         device, seed = self.device, self.seed
+
+        # Ordered mixed ERM.
         erm = train_sequence(xtr, ytr, xva, yva, seed * 31 + 7, device)
         res = {
             "erm_iid": eval_sequence(erm, xit, yit, device),
             "erm_ood": eval_sequence(erm, xot, yot, device),
-            "erm_iid_shuffled": eval_sequence(erm, xit, yit, device, "shuffled", seed),
-            "erm_ood_shuffled": eval_sequence(erm, xot, yot, device, "shuffled", seed),
-            "erm_iid_reversed_order": eval_sequence(erm, xit, yit, device, "reversed_order"),
-            "erm_ood_reversed_order": eval_sequence(erm, xot, yot, device, "reversed_order"),
         }
+
+        # Test-time shuffle.
+        res["erm_iid_shuffled"] = eval_sequence(erm, xit, yit, device, "shuffled", seed)
+        res["erm_ood_shuffled"] = eval_sequence(erm, xot, yot, device, "shuffled", seed)
+
+        # Test-time reverse.
+        res["erm_iid_reversed_order"] = eval_sequence(erm, xit, yit, device, "reversed_order")
+        res["erm_ood_reversed_order"] = eval_sequence(erm, xot, yot, device, "reversed_order")
+
+        # Train on shuffled frames.
         sh = train_sequence(xtr, ytr, xva, yva, seed * 31 + 8, device, shuffle_frames=True)
-        res.update({
-            "shuftrain_iid": eval_sequence(sh, xit, yit, device, "shuffled", seed + 1),
-            "shuftrain_ood": eval_sequence(sh, xot, yot, device, "shuffled", seed + 2),
-            "shuftrain_iid_ordered": eval_sequence(sh, xit, yit, device),
-            "shuftrain_ood_ordered": eval_sequence(sh, xot, yot, device),
-        })
+        res["shuftrain_iid"] = eval_sequence(sh, xit, yit, device, "shuffled", seed + 1)
+        res["shuftrain_ood"] = eval_sequence(sh, xot, yot, device, "shuffled", seed + 2)
+        res["shuftrain_iid_ordered"] = eval_sequence(sh, xit, yit, device)
+        res["shuftrain_ood_ordered"] = eval_sequence(sh, xot, yot, device)
         return res
 
     def gate6(self) -> dict:
@@ -170,6 +176,7 @@ class Audit:
             x = np.asarray(getattr(sp, key))[:, t]
             return as_tensor(x.reshape(len(x), -1))
 
+        # Single-frame classifier, each t, on mixed and on core.
         L = tr.mixed.shape[1]
         frames = {"frame": list(range(L)), "label_iid": [], "label_ood": [], "dir_iid": [], "dir_ood": [], "core_label_iid": [], "core_label_ood": []}
         for t in range(L):
@@ -185,6 +192,7 @@ class Audit:
             frames["core_label_iid"].append(ci)
             frames["core_label_ood"].append(co)
 
+        # Order-invariant summaries: temporal mean, std, first, middle, first-last.
         feats = {
             "temporal_mean": lambda x: x.mean(axis=1),
             "temporal_std": lambda x: x.std(axis=1),
@@ -202,6 +210,7 @@ class Audit:
             di, do = train_mlp_probe(xtr, dtr, [(xit, dit), (xot, dot)], seed * 7 + 2, device)
             summary[name] = {"label_iid": li, "label_ood": lo, "dir_iid": di, "dir_ood": do}
 
+        # Unordered-set probe on the nuisance channel.
         def prep(sp):
             x = np.asarray(sp.nuisance_only)
             return as_tensor(x.reshape(len(x), x.shape[1], -1))
@@ -230,16 +239,26 @@ class Audit:
         with torch.no_grad():
             set_acc = float((net(xit).argmax(1) == dit_d).float().mean().item())
 
+        # Ordered readout: Gate 5 shuffle and reverse.
         order = self.gate5()
         single = max(frames["dir_iid"])
+
+        # frame-local
         if single >= 0.8:
             loc = "frame-local"
+
+        # order-invariant multi-frame
         elif set_acc >= 0.8:
             loc = "order-invariant multi-frame"
+
+        # order-encoded: Route A, or Route B (shuffle ≤ 0.6)
         elif order["erm_iid"] >= 0.8 and (self.route_a or order["erm_iid_shuffled"] <= 0.6):
             loc = "order-encoded"
+
+        # inconclusive
         else:
             loc = "inconclusive"
+
         return {
             "per_frame": frames,
             "summary": summary,
@@ -263,7 +282,7 @@ class Audit:
         return out
 
     def mixed_channel(self) -> dict:
-        # Table 5. Mixed ERM, then shuffle/reverse the nuisance or core channel.
+        # Table 5. Mixed ERM, then shuffle/reverse one channel.
         tr, va, it, ot = (self.splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
         xtr, xva = as_tensor(tr.mixed), as_tensor(va.mixed)
         ytr, yva = torch.from_numpy(tr.y), torch.from_numpy(va.y)
@@ -303,6 +322,7 @@ class Audit:
         }
 
     def run(self) -> dict:
+        # Algorithm 1. Gate 6 includes Gate 5 ordered readout.
         gate1 = self.gate1()
         gate2 = self.gate2()
         gate3 = self.gate3()
