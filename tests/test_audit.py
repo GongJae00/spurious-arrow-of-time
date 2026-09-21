@@ -1,8 +1,8 @@
 import torch
 
-from src.audit import Audit, per_sample_shuffle
+from src.audit import gate6, per_sample_shuffle
 
-# G6 locality classes and the per-sample shuffle used in Table 5.
+# Gate 6 classes (Algorithm 1 Phase 2) and the per-sample shuffle used in Table 5.
 
 
 def test_per_sample_shuffle_preserves_multiset():
@@ -16,9 +16,9 @@ def test_per_sample_shuffle_preserves_multiset():
     assert not torch.equal(x, y)
 
 
-def test_g6_locality_classes():
-    assert Audit.locality(0.9, 0.5, 0.9, 0.9, False) == "frame-local"
-    assert Audit.locality(0.5, 0.9, 0.9, 0.9, False) == "order-invariant multi-frame"
-    assert Audit.locality(0.5, 0.5, 0.9, 0.5, True) == "order-encoded"
-    assert Audit.locality(0.5, 0.5, 0.9, 0.5, False) == "order-encoded"
-    assert Audit.locality(0.5, 0.5, 0.5, 0.5, False) == "inconclusive"
+def test_gate6_classes():
+    assert gate6(0.9, 0.5, 0.9, 0.9, False) == "frame-local"
+    assert gate6(0.5, 0.9, 0.9, 0.9, False) == "order-invariant multi-frame"
+    assert gate6(0.5, 0.5, 0.9, 0.5, True) == "order-encoded"
+    assert gate6(0.5, 0.5, 0.9, 0.5, False) == "order-encoded"
+    assert gate6(0.5, 0.5, 0.5, 0.5, False) == "inconclusive"

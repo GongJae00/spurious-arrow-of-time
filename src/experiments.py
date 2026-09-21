@@ -58,7 +58,7 @@ def rounded(r):
 
 
 def run_shortcut_eval(spec: dict, default: dict) -> dict:
-    # Table 5. OE-Strict mixed ERM, channel interventions, G6 probes.
+    # Table 5. OE-Strict mixed ERM, channel interventions, Gate 6.
     device = torch_device(default["device"])
     outpath = Path(spec["out"])
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
@@ -193,15 +193,15 @@ def run_shuffle(spec: dict, default: dict) -> dict:
 
 
 def run_temporal(spec: dict, default: dict) -> dict:
-    # Table 6 / Figure 4a. Per-frame probes, summary probes, G5 order tests.
+    # Table 6 / Figure 4a. Gate 6 and Gate 5 order tests.
     device = torch_device(default["device"])
     per_frame_runs, summary_runs, order_runs = [], [], []
     n = int(spec["seeds"])
     for s in range(n):
-        a = Audit(make(spec["benchmark"], s), s, device)
-        per_frame_runs.append(a.per_frame())
-        summary_runs.append(a.summaries())
-        order_runs.append(a.g5())
+        out = Audit(make(spec["benchmark"], s), s, device).gate6()
+        per_frame_runs.append(out["per_frame"])
+        summary_runs.append(out["summary"])
+        order_runs.append(out["order"])
     L = len(per_frame_runs[0]["dir_iid"])
     result = {
         "per_frame": {k: [aggregate([r[k][t] for r in per_frame_runs]) for t in range(L)] for k in ["label_iid", "label_ood", "dir_iid", "dir_ood", "core_label_iid", "core_label_ood"]},
@@ -213,7 +213,7 @@ def run_temporal(spec: dict, default: dict) -> dict:
 
 
 def run_strict_order(spec: dict, default: dict) -> dict:
-    # Table 6. Channel probes and G6 set probe.
+    # Table 6. Channel probes and Gate 6 set probe.
     device = torch_device(default["device"])
     result = {}
     for name, bench in spec["benchmarks"].items():
@@ -221,7 +221,7 @@ def run_strict_order(spec: dict, default: dict) -> dict:
         for s in range(int(spec["seeds"])):
             a = Audit(make(bench, s), s, device)
             ch_runs.append(a.channel_probes())
-            set_runs.append(a.set_probe())
+            set_runs.append(a.gate6()["set"])
             if name == "simple_oe":
                 erm_runs.append(a.mixed_channel())
         L = len(ch_runs[0]["dir_nuis_only"])
@@ -248,7 +248,7 @@ def run_nuisance_order(spec: dict, default: dict) -> dict:
 
 
 def run_endpoint(spec: dict, default: dict) -> dict:
-    # G3. Final-frame direction on endpoint-matched vs residue-visible.
+    # Gate 3. Final-frame direction on endpoint-matched vs residue-visible.
     device = torch_device(default["device"])
     result = {}
     for variant in ["endpoint_matched", "residue_visible"]:
@@ -256,7 +256,7 @@ def run_endpoint(spec: dict, default: dict) -> dict:
         for s in range(int(spec["seeds"])):
             cfg = paper_config(s, n_train=4096, n_val_iid=512, n_iid_test=2048, n_ood_test=512, benchmark_variant=variant)
             splits = {"train": generate_split(cfg, "train"), "iid_test": generate_split(cfg, "iid_test")}
-            accs.append(Audit(splits, s, device).g3())
+            accs.append(Audit(splits, s, device).gate3())
         result[variant] = aggregate(accs)
     write_json(Path(spec["out"]), result)
     return result

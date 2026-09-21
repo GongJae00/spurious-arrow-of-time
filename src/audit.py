@@ -79,6 +79,17 @@ def eval_channel_intervention(model, x, y, device, channel: int, mode: str, seed
     return float((torch.cat(preds) == y.to(device)).float().mean().item())
 
 
+def gate6(single_frame: float, set_acc: float, ordered: float, shuffled: float, route_a: bool) -> str:
+    # Algorithm 1 Phase 2. Cutoffs 0.8 / 0.6.
+    if single_frame >= 0.8:
+        return "frame-local"
+    if set_acc >= 0.8:
+        return "order-invariant multi-frame"
+    if ordered >= 0.8 and (route_a or shuffled <= 0.6):
+        return "order-encoded"
+    return "inconclusive"
+
+
 class Audit:
     # Algorithm 1. Privileged access: core-only, nuisance-only, mixed, direction.
 
@@ -95,20 +106,20 @@ class Audit:
             a = a[:, :, None]
         return as_tensor(a)
 
-    def g1(self) -> float:
-        # G1. Core-only sequence ERM.
+    def gate1(self) -> float:
+        # Gate 1. Core accessible: core-only sequence ERM.
         tr, va, it = self.splits["train"], self.splits["val_iid"], self.splits["iid_test"]
         core = train_sequence(self.seq(tr, "core_only"), torch.from_numpy(tr.y), self.seq(va, "core_only"), torch.from_numpy(va.y), self.seed * 31 + 1, self.device)
         return eval_sequence(core, self.seq(it, "core_only"), torch.from_numpy(it.y), self.device)
 
-    def g2(self) -> float:
-        # G2. Nuisance-only sequence ERM.
+    def gate2(self) -> float:
+        # Gate 2. Nuisance predictive: nuisance-only sequence ERM.
         tr, va, it = self.splits["train"], self.splits["val_iid"], self.splits["iid_test"]
         nuis = train_sequence(self.seq(tr, "nuisance_only"), torch.from_numpy(tr.y), self.seq(va, "nuisance_only"), torch.from_numpy(va.y), self.seed * 31 + 2, self.device)
         return eval_sequence(nuis, self.seq(it, "nuisance_only"), torch.from_numpy(it.y), self.device)
 
-    def g3(self) -> float:
-        # G3. Final-frame direction. Endpoint-matched constructions stay near chance.
+    def gate3(self) -> float:
+        # Gate 3. Endpoint controlled: final-frame direction.
         tr, te = self.splits["train"], self.splits["iid_test"]
 
         def prep(sp):
@@ -120,8 +131,8 @@ class Audit:
         xte, dte = prep(te)
         return train_mlp_probe(xtr, dtr, [(xte, dte)], self.seed, self.device)[0]
 
-    def g4(self):
-        # G4. Mixed ERM on a no-spurious draw, certification budget 100/30.
+    def gate4(self):
+        # Gate 4. Core recoverable: mixed ERM on a no-spurious draw, certification budget 100/30.
         if self.nospur_splits is None:
             return None
         ntr, nva, nit, not_sp = (self.nospur_splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
@@ -131,8 +142,8 @@ class Audit:
             "ood": eval_sequence(rec, self.seq(not_sp, "mixed"), torch.from_numpy(not_sp.y), self.device),
         }
 
-    def g5(self) -> dict:
-        # G5. Mixed ERM under shuffle and reverse; also train-on-shuffled.
+    def gate5(self) -> dict:
+        # Gate 5. Reversal attribution: mixed ERM under shuffle and reverse.
         tr, va, it, ot = self.splits["train"], self.splits["val_iid"], self.splits["iid_test"], self.splits["ood_test"]
         xtr, xva = as_tensor(tr.mixed), as_tensor(va.mixed)
         ytr, yva = torch.from_numpy(tr.y), torch.from_numpy(va.y)
@@ -157,22 +168,23 @@ class Audit:
         })
         return res
 
-    def g6(self) -> dict:
-        # G6. Single-frame probe, set probe, ordered readout → locality class.
+    def gate6(self) -> dict:
+        # Gate 6. Cue locality. Algorithm 1 Phase 2.
         frames = self.per_frame()
+        summary = self.summaries()
         set_acc = self.set_probe()
-        order = self.g5()
+        order = self.gate5()
         single = max(frames["dir_iid"])
+        loc = gate6(single, set_acc, order["erm_iid"], order["erm_iid_shuffled"], self.route_a)
         return {
-            "single_frame": single,
-            "set": set_acc,
-            "locality": self.locality(single, set_acc, order["erm_iid"], order["erm_iid_shuffled"], self.route_a),
             "per_frame": frames,
+            "summary": summary,
+            "set": set_acc,
+            "locality": loc,
             "order": order,
         }
 
     def per_frame(self, field: str = "mixed") -> dict:
-        # G6 probe. Label and direction from frame t. Table 6 / Figure 4a.
         splits, seed, device = self.splits, self.seed, self.device
         L = getattr(splits["train"], field).shape[1]
         out = {"frame": list(range(L)), "label_iid": [], "label_ood": [], "dir_iid": [], "dir_ood": [], "core_label_iid": [], "core_label_ood": []}
@@ -201,7 +213,6 @@ class Audit:
         return out
 
     def summaries(self) -> dict:
-        # G6 probe. Order-invariant summaries: temporal mean/std, first, middle, first-last.
         tr, it, ot = self.splits["train"], self.splits["iid_test"], self.splits["ood_test"]
         ytr, yit, yot = map(lambda s: torch.from_numpy(s.y), (tr, it, ot))
         dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64))
@@ -227,7 +238,6 @@ class Audit:
         return out
 
     def channel_probes(self) -> dict:
-        # G6 probe. Per-frame direction from nuisance-only vs core-only.
         tr, it = self.splits["train"], self.splits["iid_test"]
         dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64))
         dit = torch.from_numpy((it.nuisance_direction > 0).astype(np.int64))
@@ -242,7 +252,6 @@ class Audit:
         return out
 
     def set_probe(self, epochs: int = 40) -> float:
-        # G6 probe. Permutation-invariant set probe on the nuisance channel.
         tr, it = self.splits["train"], self.splits["iid_test"]
 
         def prep(sp):
@@ -315,34 +324,19 @@ class Audit:
             "ood_reversed_order": eval_sequence(model, xot, yot, device, "reversed_order"),
         }
 
-    @staticmethod
-    def locality(single_frame: float, set_acc: float, ordered: float, shuffled: float, route_a: bool) -> str:
-        # G6 rule. Cutoffs 0.8 / 0.6.
-        if single_frame >= 0.8:
-            return "frame-local"
-        if set_acc >= 0.8:
-            return "order-invariant multi-frame"
-        if ordered >= 0.8 and (route_a or shuffled <= 0.6):
-            return "order-encoded"
-        return "inconclusive"
-
     def run(self) -> dict:
-        g1 = self.g1()
-        g2 = self.g2()
-        g3 = self.g3()
-        g4 = self.g4()
-        g6 = self.g6()
-        order = g6["order"]
+        gate1 = self.gate1()
+        gate2 = self.gate2()
+        gate3 = self.gate3()
+        gate4 = self.gate4()
+        out = self.gate6()
         return {
-            "g1_core": g1,
-            "g2_nuisance": g2,
-            "g3_endpoint": g3,
-            "g4_recoverable": g4,
-            "g5_iid": order["erm_iid"],
-            "g5_ood": order["erm_ood"],
-            "g6_single_frame": g6["single_frame"],
-            "g6_set": g6["set"],
-            "g6_locality": g6["locality"],
-            "per_frame": g6["per_frame"],
-            "order": order,
+            "gate1": gate1,
+            "gate2": gate2,
+            "gate3": gate3,
+            "gate4": gate4,
+            "gate5": out["order"],
+            "gate6": out["locality"],
+            "per_frame": out["per_frame"],
+            "order": out["order"],
         }
