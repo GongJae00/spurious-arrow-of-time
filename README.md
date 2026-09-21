@@ -28,18 +28,20 @@ Logged numbers are under `results/main/`, `results/ablation/`, and `results/revi
 
 ## Code
 
-The tree follows the paper: data, benchmark, model, train, six-gate audit, evaluate, visualize.
+The live path is the paper's pipeline:
+
+`GeneratorConfig` (Algorithm gen) → named construction (`make`) → CNN+GRU ERM → `Audit` G1–G6 (Algorithm 1) → table JSON / figure.
 
 | Path | Paper object |
 |---|---|
-| `src/data.py` | Core diffusion / directional pulse and directional nuisance |
-| `src/benchmark.py` | Trail-FL, Simple OE, OE-Strict, Set-MF, MF-Core, OE-Core, transfer |
-| `src/models.py` | CNN+GRU (main), Table A4–A5 architectures, Table 9 SegGRU |
-| `src/train.py` | Sequence ERM, Table 7 invariance, Table A6 methods |
-| `src/audit.py` | Algorithm 1, gates G1–G6 |
+| `src/data.py` | Algorithm gen: core diffusion, directional nuisance, two-channel observation |
+| `src/benchmark.py` | OE-Strict, Trail-FL, Set-MF, MF-Core, OE-Core |
+| `src/models.py` | CNN+GRU, G3 final-frame MLP, Table A4–A5, Table 9 SegGRU |
+| `src/train.py` | Sequence ERM (Table 7), Table A6 methods |
+| `src/audit.py` | `Audit`: G1 core, G2 nuisance, G3 endpoint, G4 recovery, G5 reversal, G6 locality |
 | `src/evaluate.py` | Accuracy, seed aggregates, core / collapse / chance |
-| `src/experiments.py` | Named runs in `configs/experiments.yaml` |
-| `src/visualize.py` | Figures 1–4, A3 |
+| `src/experiments.py` | Table 5–9 then appendix, from `configs/experiments.yaml` |
+| `src/visualize.py` | `fig1`–`fig4`, `fig_a3` |
 | `configs/` | Generator defaults, methods, constructions, experiment table |
 | `results/main/` | Tables 5–9 |
 | `figures/main/` | Figures 1–4 |

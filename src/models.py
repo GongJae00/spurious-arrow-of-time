@@ -22,25 +22,6 @@ def _frames(x: torch.Tensor) -> tuple[torch.Tensor, int, int]:
     return x.reshape(batch * length, channels, rows, cols), batch, length
 
 
-class FinalFrameMLP(nn.Module):
-    def __init__(self, grid_size: int, hidden_dim: int = 64, dropout: float = 0.0, input_channels: int = 1, input_dim: int | None = None, num_layers: int = 1):
-        super().__init__()
-        dim = input_channels * grid_size * grid_size if input_dim is None else input_dim
-        self.net = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-        )
-        self.classifier = nn.Linear(hidden_dim, 2)
-
-    def forward(self, x: torch.Tensor) -> ModelOutput:
-        representation = self.net(x[:, -1])
-        return ModelOutput(logits=self.classifier(representation), representation=representation)
-
-
 class SequenceCNNGRU(nn.Module):
     def __init__(self, grid_size: int, hidden_dim: int = 64, num_layers: int = 1, dropout: float = 0.0, input_channels: int = 1):
         super().__init__()
@@ -63,6 +44,25 @@ class SequenceCNNGRU(nn.Module):
         encoded = self.frame_projection(self.frame_encoder(frames)).reshape(batch, length, -1)
         _, hidden = self.gru(encoded)
         representation = self.dropout(hidden[-1])
+        return ModelOutput(logits=self.classifier(representation), representation=representation)
+
+
+class FinalFrameMLP(nn.Module):
+    def __init__(self, grid_size: int, hidden_dim: int = 64, dropout: float = 0.0, input_channels: int = 1, input_dim: int | None = None, num_layers: int = 1):
+        super().__init__()
+        dim = input_channels * grid_size * grid_size if input_dim is None else input_dim
+        self.net = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(dim, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+        )
+        self.classifier = nn.Linear(hidden_dim, 2)
+
+    def forward(self, x: torch.Tensor) -> ModelOutput:
+        representation = self.net(x[:, -1])
         return ModelOutput(logits=self.classifier(representation), representation=representation)
 
 
@@ -180,8 +180,8 @@ class SegGRU(nn.Module):
 
 
 MODELS = {
-    "final_frame_mlp": FinalFrameMLP,
     "sequence_cnn_gru": SequenceCNNGRU,
+    "final_frame_mlp": FinalFrameMLP,
     "sequence_cnn_lstm": SequenceCNNLSTM,
     "sequence_cnn_tcn": SequenceCNNTCN,
     "sequence_cnn_transformer": SequenceCNNTransformer,

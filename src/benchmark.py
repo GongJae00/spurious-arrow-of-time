@@ -112,12 +112,12 @@ def overlay_nuisance(splits: dict[str, Split], overlay: str, seed: int, corr_tra
 
 
 CONSTRUCTIONS = {
-    "trail_fl": dict(nuisance_trail_decay=0.78),
-    "simple_oe": dict(nuisance_trail_decay=0.0),
     "oe_strict": dict(nuisance_trail_decay=0.0, overlay="oe_strict"),
+    "trail_fl": dict(nuisance_trail_decay=0.78),
     "set_mf": dict(nuisance_trail_decay=0.0, overlay="set_mf"),
     "mf_core": dict(**MF_CORE),
     "oe_core": dict(nuisance_trail_decay=0.0, core_process="directional_pulse"),
+    "simple_oe": dict(nuisance_trail_decay=0.0),
     "oe_core_equalized": dict(nuisance_trail_decay=0.0, core_process="directional_pulse", core_direction_flip_prob=0.03),
     "sinusoid": dict(nuisance_trail_decay=0.0, overlay="sinusoid"),
 }

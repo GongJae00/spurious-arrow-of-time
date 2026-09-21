@@ -9,19 +9,7 @@ import yaml
 from torch import nn
 from torch.nn import functional as F
 
-from src.audit import (
-    channel_probes,
-    final_frame_direction_accuracy,
-    mixed_erm_channel_tests,
-    nuisance_order,
-    order_tests,
-    per_frame_probes,
-    per_sample_shuffle,
-    probe,
-    set_probe_direction,
-    summary_probes,
-    train_mlp_probe,
-)
+from src.audit import Audit, per_sample_shuffle, probe, train_mlp_probe
 from src.benchmark import CONSTRUCTIONS, SIZES, graph_setup, graph_split, load_forda, load_har, make, overlay_order_pulse, paper_config
 from src.data import GeneratorConfig, generate_split, generate_splits
 from src.evaluate import accuracy, aggregate, as_tensor, input_gradient_saliency, regime, summarize_results
@@ -40,7 +28,8 @@ from src.train import (
     train_sequence,
 )
 
-# Named runs in configs/experiments.yaml. kind is the table's computation.
+# Table 5 OE-Strict, Table 6/Figure 4 Trail-FL, Table 7 sequence ERM,
+# Table 8 MF-Core, Table 9 UCR, then appendix runs.
 
 
 def load_yaml(path: Path) -> dict:
@@ -68,56 +57,8 @@ def rounded(r):
     return {k: round(v, 4) if type(v) is float else [round(t, 4) for t in v] for k, v in r.items()}
 
 
-def run_train(spec: dict, default: dict) -> dict:
-    # Table 7 and the YAML train rows: CNN+GRU ERM and Table 7 methods.
-    out_dir = Path(spec["out"])
-    seeds = [int(s) for s in spec["seeds"]]
-    methods = spec["methods"] if "methods" in spec else list(METHODS)
-    scenarios = spec["scenarios"]
-    primary = spec["primary_scenario"]
-    training = deep_update(default["training"], spec["training"] if "training" in spec else {})
-    model_config = deep_update(default["model"], spec["model"] if "model" in spec else {})
-    data_base = deep_update(default["data"], spec["data"] if "data" in spec else {})
-    device = torch_device(default["device"])
-    out_dir.mkdir(parents=True, exist_ok=True)
-    metrics_path = out_dir / "metrics.jsonl"
-    if metrics_path.exists():
-        metrics_path.unlink()
-    all_results = []
-    for scenario in scenarios:
-        scenario_name = scenario["name"]
-        scenario_data = deep_update(data_base, scenario["data"] if "data" in scenario else {})
-        scenario_methods = scenario["methods"] if "methods" in scenario else methods
-        scenario_training = deep_update(training, scenario["training"] if "training" in scenario else {})
-        for seed in seeds:
-            set_seed(seed)
-            fields = {**scenario_data, "seed": seed}
-            dataset_config = GeneratorConfig(**{k: fields[k] for k in GeneratorConfig.__dataclass_fields__ if k in fields})
-            bench = spec["benchmark"] if "benchmark" in spec else None
-            if bench in CONSTRUCTIONS:
-                sizes = {k: getattr(dataset_config, k) for k in ("n_train", "n_val_iid", "n_iid_test", "n_ood_test")}
-                extra = {k: v for k, v in scenario_data.items() if k not in sizes}
-                splits = make(bench, seed, sizes=sizes, extra=extra)
-            else:
-                splits = generate_splits(dataset_config)
-            for method in scenario_methods:
-                run_seed = stable_run_seed(seed, scenario_name, method)
-                set_seed(run_seed)
-                row = train_one_method(method, splits, dataset_config, scenario_training, model_config, seed, run_seed, device)
-                del row["model"]
-                row["profile"] = spec["name"]
-                row["scenario"] = scenario_name
-                all_results.append(row)
-                with metrics_path.open("a", encoding="utf-8") as f:
-                    f.write(json.dumps(row) + "\n")
-    summary = summarize_results(all_results, primary_scenario=primary)
-    write_json(out_dir / "summary.json", summary)
-    write_json(out_dir / "manifest.json", {"run": spec["name"], "seeds": seeds, "methods": methods, "primary_scenario": primary, "device": str(device)})
-    return {"summary": summary}
-
-
 def run_shortcut_eval(spec: dict, default: dict) -> dict:
-    # Table 5 / Set-MF / sinusoid: mixed ERM, channel interventions, G6 probes.
+    # Table 5. OE-Strict mixed ERM, channel interventions, G6 probes.
     device = torch_device(default["device"])
     outpath = Path(spec["out"])
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
@@ -189,7 +130,7 @@ def run_shortcut_eval(spec: dict, default: dict) -> dict:
 
 
 def run_certify(spec: dict, default: dict) -> dict:
-    # Table 5 certification: nuisance-only ERM under shuffle and reverse.
+    # Table 5. Nuisance-only ERM under shuffle and reverse.
     device = torch_device(default["device"])
     outpath = Path(spec["out"])
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
@@ -221,7 +162,7 @@ def run_certify(spec: dict, default: dict) -> dict:
 
 
 def run_shuffle(spec: dict, default: dict) -> dict:
-    # Table 5 per-sample shuffle of the nuisance channel.
+    # Table 5. Per-sample shuffle of the nuisance channel.
     device = torch_device(default["device"])
     outpath = Path(spec["out"])
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
@@ -252,15 +193,15 @@ def run_shuffle(spec: dict, default: dict) -> dict:
 
 
 def run_temporal(spec: dict, default: dict) -> dict:
-    # Table 6 / Figure 4a: per-frame probes, summary probes, G5 order tests.
+    # Table 6 / Figure 4a. Per-frame probes, summary probes, G5 order tests.
     device = torch_device(default["device"])
     per_frame_runs, summary_runs, order_runs = [], [], []
     n = int(spec["seeds"])
     for s in range(n):
-        splits = make(spec["benchmark"], s)
-        per_frame_runs.append(per_frame_probes(splits, s, device))
-        summary_runs.append(summary_probes(splits, s, device))
-        order_runs.append(order_tests(splits, s, device))
+        a = Audit(make(spec["benchmark"], s), s, device)
+        per_frame_runs.append(a.per_frame())
+        summary_runs.append(a.summaries())
+        order_runs.append(a.g5())
     L = len(per_frame_runs[0]["dir_iid"])
     result = {
         "per_frame": {k: [aggregate([r[k][t] for r in per_frame_runs]) for t in range(L)] for k in ["label_iid", "label_ood", "dir_iid", "dir_ood", "core_label_iid", "core_label_ood"]},
@@ -272,17 +213,17 @@ def run_temporal(spec: dict, default: dict) -> dict:
 
 
 def run_strict_order(spec: dict, default: dict) -> dict:
-    # Table 6 channel probes and G6 set probe.
+    # Table 6. Channel probes and G6 set probe.
     device = torch_device(default["device"])
     result = {}
     for name, bench in spec["benchmarks"].items():
         ch_runs, set_runs, erm_runs = [], [], []
         for s in range(int(spec["seeds"])):
-            splits = make(bench, s)
-            ch_runs.append(channel_probes(splits, s, device))
-            set_runs.append(set_probe_direction(splits, s, device))
+            a = Audit(make(bench, s), s, device)
+            ch_runs.append(a.channel_probes())
+            set_runs.append(a.set_probe())
             if name == "simple_oe":
-                erm_runs.append(mixed_erm_channel_tests(splits, s, device))
+                erm_runs.append(a.mixed_channel())
         L = len(ch_runs[0]["dir_nuis_only"])
         result[name] = {
             "dir_nuis_only": [aggregate([r["dir_nuis_only"][t] for r in ch_runs]) for t in range(L)],
@@ -296,18 +237,18 @@ def run_strict_order(spec: dict, default: dict) -> dict:
 
 
 def run_nuisance_order(spec: dict, default: dict) -> dict:
-    # Figure 4b: nuisance-only ERM under order interventions.
+    # Figure 4b. Nuisance-only ERM under order interventions.
     device = torch_device(default["device"])
     result = {}
     for name, bench in spec["benchmarks"].items():
-        runs = [nuisance_order(make(bench, s), s, device) for s in range(int(spec["seeds"]))]
+        runs = [Audit(make(bench, s), s, device).nuisance_order() for s in range(int(spec["seeds"]))]
         result[name] = {k: aggregate([r[k] for r in runs]) for k in runs[0]}
     write_json(Path(spec["out"]), result)
     return result
 
 
 def run_endpoint(spec: dict, default: dict) -> dict:
-    # G3: final-frame direction on endpoint-matched vs residue-visible.
+    # G3. Final-frame direction on endpoint-matched vs residue-visible.
     device = torch_device(default["device"])
     result = {}
     for variant in ["endpoint_matched", "residue_visible"]:
@@ -315,14 +256,62 @@ def run_endpoint(spec: dict, default: dict) -> dict:
         for s in range(int(spec["seeds"])):
             cfg = paper_config(s, n_train=4096, n_val_iid=512, n_iid_test=2048, n_ood_test=512, benchmark_variant=variant)
             splits = {"train": generate_split(cfg, "train"), "iid_test": generate_split(cfg, "iid_test")}
-            accs.append(final_frame_direction_accuracy(splits, s, device))
+            accs.append(Audit(splits, s, device).g3())
         result[variant] = aggregate(accs)
     write_json(Path(spec["out"]), result)
     return result
 
 
+def run_train(spec: dict, default: dict) -> dict:
+    # Table 7. Sequence ERM and Table 7 methods on named constructions.
+    out_dir = Path(spec["out"])
+    seeds = [int(s) for s in spec["seeds"]]
+    methods = spec["methods"] if "methods" in spec else list(METHODS)
+    scenarios = spec["scenarios"]
+    primary = spec["primary_scenario"]
+    training = deep_update(default["training"], spec["training"] if "training" in spec else {})
+    model_config = deep_update(default["model"], spec["model"] if "model" in spec else {})
+    data_base = deep_update(default["data"], spec["data"] if "data" in spec else {})
+    device = torch_device(default["device"])
+    out_dir.mkdir(parents=True, exist_ok=True)
+    metrics_path = out_dir / "metrics.jsonl"
+    if metrics_path.exists():
+        metrics_path.unlink()
+    all_results = []
+    for scenario in scenarios:
+        scenario_name = scenario["name"]
+        scenario_data = deep_update(data_base, scenario["data"] if "data" in scenario else {})
+        scenario_methods = scenario["methods"] if "methods" in scenario else methods
+        scenario_training = deep_update(training, scenario["training"] if "training" in scenario else {})
+        for seed in seeds:
+            set_seed(seed)
+            fields = {**scenario_data, "seed": seed}
+            dataset_config = GeneratorConfig(**{k: fields[k] for k in GeneratorConfig.__dataclass_fields__ if k in fields})
+            bench = spec["benchmark"] if "benchmark" in spec else None
+            if bench in CONSTRUCTIONS:
+                sizes = {k: getattr(dataset_config, k) for k in ("n_train", "n_val_iid", "n_iid_test", "n_ood_test")}
+                extra = {k: v for k, v in scenario_data.items() if k not in sizes}
+                splits = make(bench, seed, sizes=sizes, extra=extra)
+            else:
+                splits = generate_splits(dataset_config)
+            for method in scenario_methods:
+                run_seed = stable_run_seed(seed, scenario_name, method)
+                set_seed(run_seed)
+                row = train_one_method(method, splits, dataset_config, scenario_training, model_config, seed, run_seed, device)
+                del row["model"]
+                row["profile"] = spec["name"]
+                row["scenario"] = scenario_name
+                all_results.append(row)
+                with metrics_path.open("a", encoding="utf-8") as f:
+                    f.write(json.dumps(row) + "\n")
+    summary = summarize_results(all_results, primary_scenario=primary)
+    write_json(out_dir / "summary.json", summary)
+    write_json(out_dir / "manifest.json", {"run": spec["name"], "seeds": seeds, "methods": methods, "primary_scenario": primary, "device": str(device)})
+    return {"summary": summary}
+
+
 def run_mf_core_probes(spec: dict, default: dict) -> dict:
-    # Table 8: temporal-mean probe vs core-only GRU.
+    # Table 8. Temporal-mean probe vs core-only GRU.
     device = torch_device(default["device"])
     runs = []
     for s in range(int(spec["seeds"])):
@@ -342,7 +331,7 @@ def run_mf_core_probes(spec: dict, default: dict) -> dict:
 
 
 def run_mf_core_perframe(spec: dict, default: dict) -> dict:
-    # Table 8: per-frame core-only label probes.
+    # Table 8. Per-frame core-only label probes.
     device = torch_device(default["device"])
     runs = []
     for s in range(int(spec["seeds"])):
@@ -359,7 +348,7 @@ def run_mf_core_perframe(spec: dict, default: dict) -> dict:
 
 
 def run_ucr(spec: dict, default: dict) -> dict:
-    # Table 9: FordA / HAR with an order-pulse overlay on the official split.
+    # Table 9. FordA / HAR with an order-pulse overlay on the official split.
     device = torch_device(default["device"])
     dataset = spec["dataset"]
     xc_all, y_all, ntr = load_har(dataset) if dataset in ("har", "har2") else load_forda()
@@ -490,7 +479,7 @@ def run_ucr(spec: dict, default: dict) -> dict:
 
 
 def run_graph(spec: dict, default: dict) -> dict:
-    # Table A11: Karate / Les Misérables diffusion core with a directional nuisance.
+    # Table A11. Karate / Les Misérables diffusion core with a directional nuisance.
     device = torch_device(default["device"])
     P, faction, order, N = graph_setup(spec["graph"])
     allres = {}
@@ -550,7 +539,7 @@ def run_graph(spec: dict, default: dict) -> dict:
 
 
 def run_multi_init(spec: dict, default: dict) -> dict:
-    # Table A18: 15 inits × data seeds, standard vs certification budget.
+    # Table A18. 15 inits × data seeds, standard vs certification budget.
     device = torch_device(default["device"])
     outpath = Path(spec["out"])
     result = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
@@ -579,7 +568,7 @@ def run_multi_init(spec: dict, default: dict) -> dict:
 
 
 def run_accessibility(spec: dict, default: dict) -> dict:
-    # Table A1: epochs to 95% of the cue ceiling.
+    # Table A1. Epochs to 95% of the cue ceiling.
     device = torch_device(default["device"])
     cues = {
         "diffusion_core": (dict(), "core_only", 1.0),
@@ -632,7 +621,7 @@ def run_accessibility(spec: dict, default: dict) -> dict:
 
 
 def run_oe_core_equalized(spec: dict, default: dict) -> dict:
-    # OE-Core with a 0.03 core-direction flip.
+    # OE-Core. Core-direction flip 0.03.
     device = torch_device(default["device"])
     rows = []
     for s in range(int(spec["seeds"])):
@@ -648,7 +637,7 @@ def run_oe_core_equalized(spec: dict, default: dict) -> dict:
 
 
 def run_oe_core_controls(spec: dict, default: dict) -> dict:
-    # Frame-rand on OE-Core; paired ERM and IRM λ on Simple OE.
+    # OE-Core. Frame-rand; paired ERM and IRM λ on Simple OE.
     device = torch_device(default["device"])
     out = {}
     rows = []
@@ -680,7 +669,7 @@ def run_oe_core_controls(spec: dict, default: dict) -> dict:
 
 
 def run_arch_cue(spec: dict, default: dict) -> dict:
-    # Single-cue LSTM/TCN/Transformer/pool; GroupDRO at ρ=0.70.
+    # Table A4–A5. Single-cue LSTM/TCN/Transformer/pool; GroupDRO at ρ=0.70.
     device = torch_device(default["device"])
     out = {}
     for arch, model_type in ARCHS.items():
@@ -712,7 +701,7 @@ def run_arch_cue(spec: dict, default: dict) -> dict:
 
 
 def run_groupdro(spec: dict, default: dict) -> dict:
-    # GroupDRO η and balanced-sampler sweep.
+    # GroupDRO. η and balanced-sampler sweep.
     device = torch_device(default["device"])
     result = {}
     for name, kw in {"eta0.01_balanced": dict(eta=0.01, balanced_sampler=True), "eta0.1_standard": dict(eta=0.1, balanced_sampler=False), "eta0.001_standard": dict(eta=0.001, balanced_sampler=False)}.items():
@@ -729,7 +718,7 @@ def run_groupdro(spec: dict, default: dict) -> dict:
 
 
 def run_gradsal(spec: dict, default: dict) -> dict:
-    # Input-gradient share on the nuisance channel.
+    # Input-gradient. Nuisance-channel share.
     device = torch_device(default["device"])
     out = {}
     for variant, bench in [("trail", "trail_fl"), ("oe", "simple_oe")]:
@@ -750,7 +739,7 @@ def run_gradsal(spec: dict, default: dict) -> dict:
 
 
 def run_video_search(spec: dict, default: dict) -> dict:
-    # Real-video nuisance: ERM, core-only, nuisance-only, final-frame, no-spurious.
+    # Table A12. Real-video nuisance: ERM, core-only, nuisance-only, final-frame, no-spurious.
     device = torch_device(default["device"])
     configs = {
         "A_std_c05_n15": {"real_video_standardize": True, "core_scale": 0.5, "nuisance_scale": 1.5},
@@ -820,7 +809,7 @@ def run_video_search(spec: dict, default: dict) -> dict:
 
 
 def run_unified(spec: dict, default: dict) -> dict:
-    # Table A6: ERM / GroupDRO / IRMv1 / DANN / JTT / frame-rand, sel_iid and sel_shift.
+    # Table A6. ERM / GroupDRO / IRMv1 / DANN / JTT / frame-rand, sel_iid and sel_shift.
     device = torch_device(default["device"])
     outpath = Path(spec["out"])
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
@@ -847,7 +836,6 @@ def run(name: str, config_dir: Path = Path("configs")) -> dict:
         if "benchmark" in spec:
             spec["data"] = deep_update(benches[spec["benchmark"]], spec["data"] if "data" in spec else {})
     return {
-        "train": run_train,
         "shortcut": run_shortcut_eval,
         "certify": run_certify,
         "shuffle": run_shuffle,
@@ -855,19 +843,20 @@ def run(name: str, config_dir: Path = Path("configs")) -> dict:
         "strict_order": run_strict_order,
         "nuisance_order": run_nuisance_order,
         "endpoint": run_endpoint,
+        "train": run_train,
         "mf_core_probes": run_mf_core_probes,
         "mf_core_perframe": run_mf_core_perframe,
         "ucr": run_ucr,
+        "unified": run_unified,
         "graph": run_graph,
+        "video_search": run_video_search,
+        "arch_cue": run_arch_cue,
+        "groupdro": run_groupdro,
+        "gradsal": run_gradsal,
         "multi_init": run_multi_init,
         "accessibility": run_accessibility,
         "oe_core_equalized": run_oe_core_equalized,
         "oe_core_controls": run_oe_core_controls,
-        "arch_cue": run_arch_cue,
-        "groupdro": run_groupdro,
-        "gradsal": run_gradsal,
-        "video_search": run_video_search,
-        "unified": run_unified,
     }[spec["kind"]](spec, default)
 
 

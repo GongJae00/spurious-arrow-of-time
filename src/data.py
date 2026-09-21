@@ -83,6 +83,7 @@ def generate_splits(config: GeneratorConfig) -> dict[str, Split]:
 
 
 def generate_split(config: GeneratorConfig, split: str) -> Split:
+    # Algorithm gen. y, core (Eq. diffuse), d_s, nuisance (Eq. nuis), x = [λ_c c, λ_s s].
     n = config.split_size(split)
     rng = np.random.default_rng(config.seed + 1009 * SPLITS.index(split))
     grid = config.grid_size
@@ -163,6 +164,7 @@ def build_core_sequences(config: GeneratorConfig, centers: np.ndarray, orientati
 
 
 def diffuse_once(state: np.ndarray, alpha: float) -> np.ndarray:
+    # Eq. diffuse. Four-neighbor update, α=0.22 in the paper setting.
     neighbors = (
         np.roll(state, 1, axis=1)
         + np.roll(state, -1, axis=1)
@@ -180,6 +182,7 @@ def evolve_core_once(state: np.ndarray, config: GeneratorConfig) -> np.ndarray:
 
 
 def compose_observation_pair(config: GeneratorConfig, core: np.ndarray, nuisance: np.ndarray, nuisance_cf: np.ndarray, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
+    # Eq. obs. Additive one-channel or two-channel [λ_c c, λ_s s].
     if config.observation_layout == "additive":
         noise = rng.normal(0.0, config.observation_noise_std, size=core.shape).astype(np.float32)
         mixed = config.core_scale * core + config.nuisance_scale * nuisance + noise
@@ -273,6 +276,7 @@ def build_real_video_nuisance(config: GeneratorConfig, direction: np.ndarray, rn
 
 
 def build_nuisance_sequences(config: GeneratorConfig, direction: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    # Eq. nuis. Pulse plus trail residue γ; γ=0 is order-encoded, γ=0.78 is Trail-FL.
     if config.nuisance_motion == "real_video":
         return build_real_video_nuisance(config, direction, rng)
     n = len(direction)

@@ -77,43 +77,7 @@ def style_axis(ax):
     ax.set_axisbelow(True)
 
 
-def figure_audit_flow(out: Path):
-    # Figure 2. Algorithm 1 gate diagram.
-    fig, ax = plt.subplots(figsize=(4.2, 6.4))
-    ax.set_xlim(0, 10)
-    ax.set_ylim(1.5, 21)
-    ax.axis("off")
-    BOX = dict(boxstyle="round,pad=0.32", fc="#eef3fb", ec="#33518a", lw=1.1)
-    FAIL = dict(boxstyle="round,pad=0.28", fc="#fbeeee", ec="#8a3333", lw=1.0)
-    OUT = dict(boxstyle="round,pad=0.32", fc="#eefbef", ec="#2f7a3a", lw=1.1)
-    gates = [
-        (19.6, "G1: Core learnable\nalone?", "reject /\ntask too hard"),
-        (16.9, "G2: Nuisance\npredictive alone?", "reject /\nweak shortcut cue"),
-        (14.2, "G3: Endpoint leakage\ncontrolled?", "reject /\nendpoint leakage"),
-        (11.5, "G4: Reference-learner\nrecovery (no-spurious)?", "reject /\ncore not recovered\nunder ref. budget"),
-        (8.8, "G5: Reversal collapse\n(signature match)?", "inconclusive /\nsignature mismatch"),
-    ]
-    cx = 3.9
-    for y, q, fail in gates:
-        ax.text(cx, y, q, ha="center", va="center", fontsize=8.3, bbox=BOX)
-        ax.text(7.0, y, fail, ha="left", va="center", fontsize=7.5, bbox=FAIL)
-        ax.add_patch(FancyArrowPatch((6.1, y), (6.82, y), arrowstyle="-|>", mutation_scale=9, color="#8a3333", lw=0.9))
-        ax.text(6.45, y + 0.32, "no", fontsize=7.5, color="#8a3333", ha="center")
-    for (y1, _, _), (y2, _, _) in zip(gates, gates[1:]):
-        ax.add_patch(FancyArrowPatch((cx, y1 - 0.62), (cx, y2 + 0.62), arrowstyle="-|>", mutation_scale=10, color="#33518a", lw=1.1))
-        ax.text(cx + 0.28, (y1 + y2) / 2, "yes", fontsize=7.5, color="#33518a")
-    y6 = 6.0
-    ax.text(cx, y6, "G6: Cue-locality audit\n(probes + order interventions;\nRoute A construction-certified /\nRoute B intervention-certified)", ha="center", va="center", fontsize=8.0, bbox=BOX)
-    ax.add_patch(FancyArrowPatch((cx, gates[-1][0] - 0.85), (cx, y6 + 0.95), arrowstyle="-|>", mutation_scale=10, color="#33518a", lw=1.1))
-    ax.text(cx + 0.28, (gates[-1][0] + y6) / 2 - 0.1, "yes", fontsize=7.5, color="#33518a")
-    outs = [(1.15, 3.45, "frame-local\n(single-frame\nprobe $\\geq$ 0.8)"), (4.6, 3.7, "order-invariant\nmulti-frame\n(set probe\n$\\geq$ 0.8)"), (8.3, 3.45, "order-encoded\n(only ordered\nreadout $\\geq$ 0.8)")]
-    for x, ye, t in outs:
-        ax.text(x, 2.6, t, ha="center", va="center", fontsize=7.5, bbox=OUT)
-        ax.add_patch(FancyArrowPatch((cx, y6 - 1.05), (x, ye), arrowstyle="-|>", mutation_scale=9, color="#2f7a3a", lw=1.0))
-    save_figure(fig, out)
-
-
-def figure_conceptual(out: Path):
+def fig1(out: Path):
     # Figure 1. Core path vs nuisance shortcut under OOD reversal.
     C_CORE, C_CORE_L = "#2F6F8F", "#E3EEF4"
     C_NUI, C_NUI_L = "#B85C38", "#F8ECE5"
@@ -175,6 +139,42 @@ def figure_conceptual(out: Path):
     save_figure(fig, out)
 
 
+def fig2(out: Path):
+    # Figure 2. Algorithm 1 gate diagram.
+    fig, ax = plt.subplots(figsize=(4.2, 6.4))
+    ax.set_xlim(0, 10)
+    ax.set_ylim(1.5, 21)
+    ax.axis("off")
+    BOX = dict(boxstyle="round,pad=0.32", fc="#eef3fb", ec="#33518a", lw=1.1)
+    FAIL = dict(boxstyle="round,pad=0.28", fc="#fbeeee", ec="#8a3333", lw=1.0)
+    OUT = dict(boxstyle="round,pad=0.32", fc="#eefbef", ec="#2f7a3a", lw=1.1)
+    gates = [
+        (19.6, "G1: Core learnable\nalone?", "reject /\ntask too hard"),
+        (16.9, "G2: Nuisance\npredictive alone?", "reject /\nweak shortcut cue"),
+        (14.2, "G3: Endpoint leakage\ncontrolled?", "reject /\nendpoint leakage"),
+        (11.5, "G4: Reference-learner\nrecovery (no-spurious)?", "reject /\ncore not recovered\nunder ref. budget"),
+        (8.8, "G5: Reversal collapse\n(signature match)?", "inconclusive /\nsignature mismatch"),
+    ]
+    cx = 3.9
+    for y, q, fail in gates:
+        ax.text(cx, y, q, ha="center", va="center", fontsize=8.3, bbox=BOX)
+        ax.text(7.0, y, fail, ha="left", va="center", fontsize=7.5, bbox=FAIL)
+        ax.add_patch(FancyArrowPatch((6.1, y), (6.82, y), arrowstyle="-|>", mutation_scale=9, color="#8a3333", lw=0.9))
+        ax.text(6.45, y + 0.32, "no", fontsize=7.5, color="#8a3333", ha="center")
+    for (y1, _, _), (y2, _, _) in zip(gates, gates[1:]):
+        ax.add_patch(FancyArrowPatch((cx, y1 - 0.62), (cx, y2 + 0.62), arrowstyle="-|>", mutation_scale=10, color="#33518a", lw=1.1))
+        ax.text(cx + 0.28, (y1 + y2) / 2, "yes", fontsize=7.5, color="#33518a")
+    y6 = 6.0
+    ax.text(cx, y6, "G6: Cue-locality audit\n(probes + order interventions;\nRoute A construction-certified /\nRoute B intervention-certified)", ha="center", va="center", fontsize=8.0, bbox=BOX)
+    ax.add_patch(FancyArrowPatch((cx, gates[-1][0] - 0.85), (cx, y6 + 0.95), arrowstyle="-|>", mutation_scale=10, color="#33518a", lw=1.1))
+    ax.text(cx + 0.28, (gates[-1][0] + y6) / 2 - 0.1, "yes", fontsize=7.5, color="#33518a")
+    outs = [(1.15, 3.45, "frame-local\n(single-frame\nprobe $\\geq$ 0.8)"), (4.6, 3.7, "order-invariant\nmulti-frame\n(set probe\n$\\geq$ 0.8)"), (8.3, 3.45, "order-encoded\n(only ordered\nreadout $\\geq$ 0.8)")]
+    for x, ye, t in outs:
+        ax.text(x, 2.6, t, ha="center", va="center", fontsize=7.5, bbox=OUT)
+        ax.add_patch(FancyArrowPatch((cx, y6 - 1.05), (x, ye), arrowstyle="-|>", mutation_scale=9, color="#2f7a3a", lw=1.0))
+    save_figure(fig, out)
+
+
 def normalize_image(img, vmax=None):
     img = np.clip(np.asarray(img, dtype=float), 0.0, None)
     if vmax is None:
@@ -214,7 +214,7 @@ def composite_frame(arr, t, core_vmax, nuisance_vmax):
     return np.clip(colorize(frame, CORE_COLOR, core_vmax), 0.0, 1.0)
 
 
-def figure_benchmark(out: Path, config_path: Path):
+def fig3(out: Path, config_path: Path):
     # Figure 3. Core, nuisance, mixed, counterfactual, OOD, and γ=0 nuisance.
     raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     data = raw["data"]
@@ -267,7 +267,7 @@ def figure_benchmark(out: Path, config_path: Path):
     save_figure(fig, out)
 
 
-def figure_temporal(trail_path: Path, oe_path: Path, probe_path: Path, out_a: Path, out_b: Path):
+def fig4(trail_path: Path, oe_path: Path, probe_path: Path, out_a: Path, out_b: Path):
     # Figure 4. Per-frame direction probes and nuisance-only order interventions.
     trail = json.loads(trail_path.read_text(encoding="utf-8"))
     oe = json.loads(oe_path.read_text(encoding="utf-8"))
@@ -314,7 +314,7 @@ def figure_temporal(trail_path: Path, oe_path: Path, probe_path: Path, out_a: Pa
     save_figure(fig, out_b)
 
 
-def figure_scenario_audit(out: Path, store: MetricStore):
+def fig_a3(out: Path, store: MetricStore):
     # Figure A3. OOD accuracy by scenario and method.
     scenarios = ["main_spurious_arrow", "no_spurious_correlation", "residue_visible_control", "ood_randomized", "ood_partial_shift"]
     columns = ["Main\nreversal", "No\nspurious", "Residue\nvisible", "OOD\nrandom", "Partial\nshift"]
@@ -361,17 +361,17 @@ def figure_scenario_audit(out: Path, store: MetricStore):
 def render(name: str):
     apply_style()
     figures = {
-        "fig1": lambda: figure_conceptual(Path("figures/main/fig1_conceptual_problem")),
-        "fig2": lambda: figure_audit_flow(Path("figures/main/fig2_audit_flow")),
-        "fig3": lambda: figure_benchmark(Path("figures/main/fig3_benchmark_construction"), Path("configs/default.yaml")),
-        "fig4": lambda: figure_temporal(
+        "fig1": lambda: fig1(Path("figures/main/fig1_conceptual_problem")),
+        "fig2": lambda: fig2(Path("figures/main/fig2_audit_flow")),
+        "fig3": lambda: fig3(Path("figures/main/fig3_benchmark_construction"), Path("configs/default.yaml")),
+        "fig4": lambda: fig4(
             Path("results/main/trail_fl_audit.json"),
             Path("results/main/simple_oe_audit.json"),
             Path("results/main/nuisance_order.json"),
             Path("figures/main/fig4a_perframe_probes"),
             Path("figures/main/fig4b_order_interventions"),
         ),
-        "fig_a3": lambda: figure_scenario_audit(
+        "fig_a3": lambda: fig_a3(
             Path("figures/appendix/fig_a3_scenario_audit"),
             MetricStore(Path("results/ablation/scenario/summary.json")),
         ),

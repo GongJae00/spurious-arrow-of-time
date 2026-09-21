@@ -1,6 +1,6 @@
 import torch
 
-from src.audit import g6_locality, per_sample_shuffle
+from src.audit import Audit, per_sample_shuffle
 
 # G6 locality classes and the per-sample shuffle used in Table 5.
 
@@ -17,8 +17,8 @@ def test_per_sample_shuffle_preserves_multiset():
 
 
 def test_g6_locality_classes():
-    assert g6_locality(0.9, 0.5, 0.9, 0.9, False) == "frame-local"
-    assert g6_locality(0.5, 0.9, 0.9, 0.9, False) == "order-invariant multi-frame"
-    assert g6_locality(0.5, 0.5, 0.9, 0.5, True) == "order-encoded"
-    assert g6_locality(0.5, 0.5, 0.9, 0.5, False) == "order-encoded"
-    assert g6_locality(0.5, 0.5, 0.5, 0.5, False) == "inconclusive"
+    assert Audit.locality(0.9, 0.5, 0.9, 0.9, False) == "frame-local"
+    assert Audit.locality(0.5, 0.9, 0.9, 0.9, False) == "order-invariant multi-frame"
+    assert Audit.locality(0.5, 0.5, 0.9, 0.5, True) == "order-encoded"
+    assert Audit.locality(0.5, 0.5, 0.9, 0.5, False) == "order-encoded"
+    assert Audit.locality(0.5, 0.5, 0.5, 0.5, False) == "inconclusive"

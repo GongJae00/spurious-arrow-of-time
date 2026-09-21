@@ -5,11 +5,7 @@ from torch.nn import functional as F
 
 from src.data import Split
 from src.evaluate import as_tensor
-from src.train import train_sequence, eval_sequence
-
-# Algorithm 1. G1 core learnable, G2 nuisance predictive, G3 endpoint,
-# G4 no-spurious recovery at certification budget 100/30, G5 reversal
-# signature, G6 cue locality (frame-local / set / order-encoded).
+from src.train import eval_sequence, train_sequence
 
 
 def train_mlp_probe(xtr, ytr, xte_list, seed: int, device, epochs: int = 40):
@@ -51,98 +47,11 @@ def probe(xtr, ttr, xte, tte, device, epochs=30):
         return float((md(xte.to(device)).argmax(1).cpu() == tte).float().mean())
 
 
-def per_frame_probes(splits: dict[str, Split], seed: int, device, field: str = "mixed"):
-    # G6 single-frame probes: label and direction from frame t.
-    L = getattr(splits["train"], field).shape[1]
-    out = {"frame": list(range(L)), "label_iid": [], "label_ood": [], "dir_iid": [], "dir_ood": [], "core_label_iid": [], "core_label_ood": []}
-    tr, it, ot = splits["train"], splits["iid_test"], splits["ood_test"]
-    ytr, yit, yot = map(lambda s: torch.from_numpy(s.y), (tr, it, ot))
-    dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64))
-    dit = torch.from_numpy((it.nuisance_direction > 0).astype(np.int64))
-    dot = torch.from_numpy((ot.nuisance_direction > 0).astype(np.int64))
-
-    def frame(sp, t, key="mixed"):
-        x = np.asarray(getattr(sp, key))[:, t]
-        return as_tensor(x.reshape(len(x), -1))
-
-    for t in range(L):
-        xtr, xit, xot = frame(tr, t, field), frame(it, t, field), frame(ot, t, field)
-        li, lo = train_mlp_probe(xtr, ytr, [(xit, yit), (xot, yot)], seed * 100 + t, device)
-        di, do = train_mlp_probe(xtr, dtr, [(xit, dit), (xot, dot)], seed * 100 + t + 50, device)
-        out["label_iid"].append(li)
-        out["label_ood"].append(lo)
-        out["dir_iid"].append(di)
-        out["dir_ood"].append(do)
-        cxtr, cxit, cxot = frame(tr, t, "core_only"), frame(it, t, "core_only"), frame(ot, t, "core_only")
-        ci, co = train_mlp_probe(cxtr, ytr, [(cxit, yit), (cxot, yot)], seed * 100 + t + 90, device)
-        out["core_label_iid"].append(ci)
-        out["core_label_ood"].append(co)
-    return out
-
-
-def summary_probes(splits: dict[str, Split], seed: int, device):
-    tr, it, ot = splits["train"], splits["iid_test"], splits["ood_test"]
-    ytr, yit, yot = map(lambda s: torch.from_numpy(s.y), (tr, it, ot))
-    dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64))
-    dit = torch.from_numpy((it.nuisance_direction > 0).astype(np.int64))
-    dot = torch.from_numpy((ot.nuisance_direction > 0).astype(np.int64))
-    feats = {
-        "temporal_mean": lambda x: x.mean(axis=1),
-        "temporal_std": lambda x: x.std(axis=1),
-        "first_frame": lambda x: x[:, 0],
-        "middle_frame": lambda x: x[:, x.shape[1] // 2],
-        "first_last_pair": lambda x: np.concatenate([x[:, 0], x[:, -1]], axis=1),
-    }
-    out = {}
-    for name, fn in feats.items():
-        def make(sp, fn=fn):
-            x = fn(np.asarray(sp.mixed))
-            return as_tensor(x.reshape(len(x), -1))
-        xtr, xit, xot = make(tr), make(it), make(ot)
-        li, lo = train_mlp_probe(xtr, ytr, [(xit, yit), (xot, yot)], seed * 7 + 1, device)
-        di, do = train_mlp_probe(xtr, dtr, [(xit, dit), (xot, dot)], seed * 7 + 2, device)
-        out[name] = {"label_iid": li, "label_ood": lo, "dir_iid": di, "dir_ood": do}
-    return out
-
-
-def order_tests(splits: dict[str, Split], seed: int, device):
-    # G5 mixed ERM, then shuffle / reverse at test; also train-on-shuffled.
-    tr, va, it, ot = splits["train"], splits["val_iid"], splits["iid_test"], splits["ood_test"]
-    xtr, xva = as_tensor(tr.mixed), as_tensor(va.mixed)
-    ytr, yva = torch.from_numpy(tr.y), torch.from_numpy(va.y)
-    xit, xot = as_tensor(it.mixed), as_tensor(ot.mixed)
-    yit, yot = torch.from_numpy(it.y), torch.from_numpy(ot.y)
-    erm = train_sequence(xtr, ytr, xva, yva, seed * 31 + 7, device)
-    res = {
-        "erm_iid": eval_sequence(erm, xit, yit, device),
-        "erm_ood": eval_sequence(erm, xot, yot, device),
-        "erm_iid_shuffled": eval_sequence(erm, xit, yit, device, "shuffled", seed),
-        "erm_ood_shuffled": eval_sequence(erm, xot, yot, device, "shuffled", seed),
-        "erm_iid_reversed_order": eval_sequence(erm, xit, yit, device, "reversed_order"),
-        "erm_ood_reversed_order": eval_sequence(erm, xot, yot, device, "reversed_order"),
-    }
-    sh = train_sequence(xtr, ytr, xva, yva, seed * 31 + 8, device, shuffle_frames=True)
-    res.update({
-        "shuftrain_iid": eval_sequence(sh, xit, yit, device, "shuffled", seed + 1),
-        "shuftrain_ood": eval_sequence(sh, xot, yot, device, "shuffled", seed + 2),
-        "shuftrain_iid_ordered": eval_sequence(sh, xit, yit, device),
-        "shuftrain_ood_ordered": eval_sequence(sh, xot, yot, device),
-    })
-    return res
-
-
-def channel_probes(splits: dict[str, Split], seed: int, device):
-    tr, it = splits["train"], splits["iid_test"]
-    dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64))
-    dit = torch.from_numpy((it.nuisance_direction > 0).astype(np.int64))
-    L = tr.mixed.shape[1]
-    out = {"dir_nuis_only": [], "dir_core_only": []}
-    for t in range(L):
-        for key, name in [("nuisance_only", "dir_nuis_only"), ("core_only", "dir_core_only")]:
-            xtr = as_tensor(np.asarray(getattr(tr, key))[:, t].reshape(len(tr.y), -1))
-            xit = as_tensor(np.asarray(getattr(it, key))[:, t].reshape(len(it.y), -1))
-            out[name].append(train_mlp_probe(xtr, dtr, [(xit, dit)], seed * 100 + t, device)[0])
-    return out
+def per_sample_shuffle(x, gen):
+    L = x.shape[1]
+    idx = torch.argsort(torch.rand(x.shape[0], L, generator=gen), dim=1)
+    view = idx.view(x.shape[0], L, *([1] * (x.dim() - 2)))
+    return torch.gather(x, 1, view.expand_as(x))
 
 
 class SetProbe(nn.Module):
@@ -154,40 +63,6 @@ class SetProbe(nn.Module):
     def forward(self, x):
         h = self.enc(x)
         return self.head(torch.cat([h.mean(dim=1), h.max(dim=1).values], dim=1))
-
-
-def set_probe_direction(splits: dict[str, Split], seed: int, device, epochs: int = 40):
-    # G6 permutation-invariant set probe on the nuisance channel.
-    tr, it = splits["train"], splits["iid_test"]
-
-    def prep(sp):
-        x = np.asarray(sp.nuisance_only)
-        return as_tensor(x.reshape(len(x), x.shape[1], -1))
-
-    xtr, xit = prep(tr), prep(it)
-    mean, std = xtr.mean(), xtr.std().clamp_min(1e-6)
-    xtr, xit = (xtr - mean) / std, (xit - mean) / std
-    dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64)).to(device)
-    dit = torch.from_numpy((it.nuisance_direction > 0).astype(np.int64)).to(device)
-    xtr, xit = xtr.to(device), xit.to(device)
-    torch.manual_seed(seed * 17 + 5)
-    net = SetProbe(xtr.shape[-1]).to(device)
-    opt = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-4)
-    g = torch.Generator(device="cpu")
-    g.manual_seed(seed)
-    for _ in range(epochs):
-        net.train()
-        perm = torch.randperm(len(xtr), device=device)
-        for i in range(0, len(xtr), 128):
-            idx = perm[i : i + 128]
-            xb = xtr[idx]
-            xb = xb[:, torch.randperm(xb.shape[1], generator=g)]
-            opt.zero_grad(set_to_none=True)
-            F.cross_entropy(net(xb), dtr[idx]).backward()
-            opt.step()
-    net.eval()
-    with torch.no_grad():
-        return float((net(xit).argmax(1) == dit).float().mean().item())
 
 
 @torch.no_grad()
@@ -204,124 +79,258 @@ def eval_channel_intervention(model, x, y, device, channel: int, mode: str, seed
     return float((torch.cat(preds) == y.to(device)).float().mean().item())
 
 
-def mixed_erm_channel_tests(splits: dict[str, Split], seed: int, device):
-    tr, va, it, ot = (splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
-    xtr, xva = as_tensor(tr.mixed), as_tensor(va.mixed)
-    ytr, yva = torch.from_numpy(tr.y), torch.from_numpy(va.y)
-    xit, xot = as_tensor(it.mixed), as_tensor(ot.mixed)
-    yit, yot = torch.from_numpy(it.y), torch.from_numpy(ot.y)
-    model = train_sequence(xtr, ytr, xva, yva, seed * 31 + 7, device)
-    res = {}
-    for split, x, y in [("iid", xit, yit), ("ood", xot, yot)]:
-        res[f"{split}_original"] = eval_channel_intervention(model, x, y, device, 1, "none")
-        res[f"{split}_nuis_shuffle"] = eval_channel_intervention(model, x, y, device, 1, "shuffled", seed)
-        res[f"{split}_nuis_reverse"] = eval_channel_intervention(model, x, y, device, 1, "reversed_order")
-        res[f"{split}_core_reverse"] = eval_channel_intervention(model, x, y, device, 0, "reversed_order")
-    return res
+class Audit:
+    # Algorithm 1. Privileged access: core-only, nuisance-only, mixed, direction.
 
+    def __init__(self, splits: dict[str, Split], seed: int, device, route_a: bool = False, nospur_splits: dict[str, Split] | None = None):
+        self.splits = splits
+        self.seed = seed
+        self.device = device
+        self.route_a = route_a
+        self.nospur_splits = nospur_splits
 
-def per_sample_shuffle(x, gen):
-    L = x.shape[1]
-    idx = torch.argsort(torch.rand(x.shape[0], L, generator=gen), dim=1)
-    view = idx.view(x.shape[0], L, *([1] * (x.dim() - 2)))
-    return torch.gather(x, 1, view.expand_as(x))
-
-
-def final_frame_direction_accuracy(splits: dict[str, Split], seed: int, device) -> float:
-    tr, te = splits["train"], splits["iid_test"]
-
-    def prep(sp):
-        x = np.asarray(sp.mixed)[:, -1].reshape(len(sp.y), -1).astype(np.float32)
-        d = (np.asarray(sp.nuisance_direction) > 0).astype(np.int64)
-        return torch.from_numpy(x), torch.from_numpy(d)
-
-    xtr, dtr = prep(tr)
-    xte, dte = prep(te)
-    return train_mlp_probe(xtr, dtr, [(xte, dte)], seed, device)[0]
-
-
-def nuisance_order(splits: dict[str, Split], seed: int, device):
-    tr, va, it, ot = (splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
-
-    def nu(sp):
-        x = np.asarray(sp.nuisance_only)
-        if x.ndim == 4:
-            x = x[:, :, None]
-        return as_tensor(x)
-
-    model = train_sequence(nu(tr), torch.from_numpy(tr.y), nu(va), torch.from_numpy(va.y), seed * 13 + 3, device)
-    yit, yot = torch.from_numpy(it.y), torch.from_numpy(ot.y)
-    xit, xot = nu(it), nu(ot)
-    return {
-        "iid": eval_sequence(model, xit, yit, device),
-        "ood": eval_sequence(model, xot, yot, device),
-        "iid_shuffled": eval_sequence(model, xit, yit, device, "shuffled", seed),
-        "ood_shuffled": eval_sequence(model, xot, yot, device, "shuffled", seed),
-        "iid_reversed_order": eval_sequence(model, xit, yit, device, "reversed_order"),
-        "ood_reversed_order": eval_sequence(model, xot, yot, device, "reversed_order"),
-    }
-
-
-def g6_locality(single_frame: float, set_acc: float, ordered: float, shuffled: float, route_a: bool) -> str:
-    # Cutoffs 0.8 / 0.6 are the paper's G6 rule.
-    if single_frame >= 0.8:
-        return "frame-local"
-    if set_acc >= 0.8:
-        return "order-invariant multi-frame"
-    if ordered >= 0.8 and (route_a or shuffled <= 0.6):
-        return "order-encoded"
-    return "inconclusive"
-
-
-def run_audit(splits: dict[str, Split], seed: int, device, route_a: bool = False, nospur_splits: dict[str, Split] | None = None) -> dict:
-    tr, va, it, ot = (splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
-
-    def seq(sp, key):
+    def seq(self, sp, key):
         a = np.asarray(getattr(sp, key))
         if a.ndim == 4:
             a = a[:, :, None]
         return as_tensor(a)
 
-    # G1: core-only sequence ERM.
-    core = train_sequence(seq(tr, "core_only"), torch.from_numpy(tr.y), seq(va, "core_only"), torch.from_numpy(va.y), seed * 31 + 1, device)
-    g1 = eval_sequence(core, seq(it, "core_only"), torch.from_numpy(it.y), device)
+    def g1(self) -> float:
+        # G1. Core-only sequence ERM.
+        tr, va, it = self.splits["train"], self.splits["val_iid"], self.splits["iid_test"]
+        core = train_sequence(self.seq(tr, "core_only"), torch.from_numpy(tr.y), self.seq(va, "core_only"), torch.from_numpy(va.y), self.seed * 31 + 1, self.device)
+        return eval_sequence(core, self.seq(it, "core_only"), torch.from_numpy(it.y), self.device)
 
-    # G2: nuisance-only sequence ERM.
-    nuis = train_sequence(seq(tr, "nuisance_only"), torch.from_numpy(tr.y), seq(va, "nuisance_only"), torch.from_numpy(va.y), seed * 31 + 2, device)
-    g2 = eval_sequence(nuis, seq(it, "nuisance_only"), torch.from_numpy(it.y), device)
+    def g2(self) -> float:
+        # G2. Nuisance-only sequence ERM.
+        tr, va, it = self.splits["train"], self.splits["val_iid"], self.splits["iid_test"]
+        nuis = train_sequence(self.seq(tr, "nuisance_only"), torch.from_numpy(tr.y), self.seq(va, "nuisance_only"), torch.from_numpy(va.y), self.seed * 31 + 2, self.device)
+        return eval_sequence(nuis, self.seq(it, "nuisance_only"), torch.from_numpy(it.y), self.device)
 
-    # G3: final-frame direction. Endpoint-matched constructions stay near chance.
-    g3 = final_frame_direction_accuracy(splits, seed, device)
+    def g3(self) -> float:
+        # G3. Final-frame direction. Endpoint-matched constructions stay near chance.
+        tr, te = self.splits["train"], self.splits["iid_test"]
 
-    # G4: mixed ERM on a no-spurious draw, certification budget 100/30.
-    g4 = None
-    if nospur_splits is not None:
-        ntr, nva, nit, not_sp = (nospur_splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
-        rec = train_sequence(seq(ntr, "mixed"), torch.from_numpy(ntr.y), seq(nva, "mixed"), torch.from_numpy(nva.y), seed * 31 + 3, device, epochs=100, patience=30)
-        g4 = {
-            "iid": eval_sequence(rec, seq(nit, "mixed"), torch.from_numpy(nit.y), device),
-            "ood": eval_sequence(rec, seq(not_sp, "mixed"), torch.from_numpy(not_sp.y), device),
+        def prep(sp):
+            x = np.asarray(sp.mixed)[:, -1].reshape(len(sp.y), -1).astype(np.float32)
+            d = (np.asarray(sp.nuisance_direction) > 0).astype(np.int64)
+            return torch.from_numpy(x), torch.from_numpy(d)
+
+        xtr, dtr = prep(tr)
+        xte, dte = prep(te)
+        return train_mlp_probe(xtr, dtr, [(xte, dte)], self.seed, self.device)[0]
+
+    def g4(self):
+        # G4. Mixed ERM on a no-spurious draw, certification budget 100/30.
+        if self.nospur_splits is None:
+            return None
+        ntr, nva, nit, not_sp = (self.nospur_splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
+        rec = train_sequence(self.seq(ntr, "mixed"), torch.from_numpy(ntr.y), self.seq(nva, "mixed"), torch.from_numpy(nva.y), self.seed * 31 + 3, self.device, epochs=100, patience=30)
+        return {
+            "iid": eval_sequence(rec, self.seq(nit, "mixed"), torch.from_numpy(nit.y), self.device),
+            "ood": eval_sequence(rec, self.seq(not_sp, "mixed"), torch.from_numpy(not_sp.y), self.device),
         }
 
-    frames = per_frame_probes(splits, seed, device)
-    single = max(frames["dir_iid"])
-    set_acc = set_probe_direction(splits, seed, device)
+    def g5(self) -> dict:
+        # G5. Mixed ERM under shuffle and reverse; also train-on-shuffled.
+        tr, va, it, ot = self.splits["train"], self.splits["val_iid"], self.splits["iid_test"], self.splits["ood_test"]
+        xtr, xva = as_tensor(tr.mixed), as_tensor(va.mixed)
+        ytr, yva = torch.from_numpy(tr.y), torch.from_numpy(va.y)
+        xit, xot = as_tensor(it.mixed), as_tensor(ot.mixed)
+        yit, yot = torch.from_numpy(it.y), torch.from_numpy(ot.y)
+        device, seed = self.device, self.seed
+        erm = train_sequence(xtr, ytr, xva, yva, seed * 31 + 7, device)
+        res = {
+            "erm_iid": eval_sequence(erm, xit, yit, device),
+            "erm_ood": eval_sequence(erm, xot, yot, device),
+            "erm_iid_shuffled": eval_sequence(erm, xit, yit, device, "shuffled", seed),
+            "erm_ood_shuffled": eval_sequence(erm, xot, yot, device, "shuffled", seed),
+            "erm_iid_reversed_order": eval_sequence(erm, xit, yit, device, "reversed_order"),
+            "erm_ood_reversed_order": eval_sequence(erm, xot, yot, device, "reversed_order"),
+        }
+        sh = train_sequence(xtr, ytr, xva, yva, seed * 31 + 8, device, shuffle_frames=True)
+        res.update({
+            "shuftrain_iid": eval_sequence(sh, xit, yit, device, "shuffled", seed + 1),
+            "shuftrain_ood": eval_sequence(sh, xot, yot, device, "shuffled", seed + 2),
+            "shuftrain_iid_ordered": eval_sequence(sh, xit, yit, device),
+            "shuftrain_ood_ordered": eval_sequence(sh, xot, yot, device),
+        })
+        return res
 
-    # G5: mixed ERM under order interventions (shuffle, reverse).
-    order = order_tests(splits, seed, device)
+    def per_frame(self, field: str = "mixed") -> dict:
+        # G6. Single-frame probes: label and direction from frame t.
+        splits, seed, device = self.splits, self.seed, self.device
+        L = getattr(splits["train"], field).shape[1]
+        out = {"frame": list(range(L)), "label_iid": [], "label_ood": [], "dir_iid": [], "dir_ood": [], "core_label_iid": [], "core_label_ood": []}
+        tr, it, ot = splits["train"], splits["iid_test"], splits["ood_test"]
+        ytr, yit, yot = map(lambda s: torch.from_numpy(s.y), (tr, it, ot))
+        dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64))
+        dit = torch.from_numpy((it.nuisance_direction > 0).astype(np.int64))
+        dot = torch.from_numpy((ot.nuisance_direction > 0).astype(np.int64))
 
-    # G6: locality from single-frame, permutation-invariant set, and ordered readout.
-    locality = g6_locality(single, set_acc, order["erm_iid"], order["erm_iid_shuffled"], route_a)
-    return {
-        "g1_core": g1,
-        "g2_nuisance": g2,
-        "g3_endpoint": g3,
-        "g4_recoverable": g4,
-        "g5_iid": order["erm_iid"],
-        "g5_ood": order["erm_ood"],
-        "g6_single_frame": single,
-        "g6_set": set_acc,
-        "g6_locality": locality,
-        "per_frame": frames,
-        "order": order,
-    }
+        def frame(sp, t, key="mixed"):
+            x = np.asarray(getattr(sp, key))[:, t]
+            return as_tensor(x.reshape(len(x), -1))
+
+        for t in range(L):
+            xtr, xit, xot = frame(tr, t, field), frame(it, t, field), frame(ot, t, field)
+            li, lo = train_mlp_probe(xtr, ytr, [(xit, yit), (xot, yot)], seed * 100 + t, device)
+            di, do = train_mlp_probe(xtr, dtr, [(xit, dit), (xot, dot)], seed * 100 + t + 50, device)
+            out["label_iid"].append(li)
+            out["label_ood"].append(lo)
+            out["dir_iid"].append(di)
+            out["dir_ood"].append(do)
+            cxtr, cxit, cxot = frame(tr, t, "core_only"), frame(it, t, "core_only"), frame(ot, t, "core_only")
+            ci, co = train_mlp_probe(cxtr, ytr, [(cxit, yit), (cxot, yot)], seed * 100 + t + 90, device)
+            out["core_label_iid"].append(ci)
+            out["core_label_ood"].append(co)
+        return out
+
+    def summaries(self) -> dict:
+        # G6. Order-invariant summaries: temporal mean/std, first, middle, first-last.
+        tr, it, ot = self.splits["train"], self.splits["iid_test"], self.splits["ood_test"]
+        ytr, yit, yot = map(lambda s: torch.from_numpy(s.y), (tr, it, ot))
+        dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64))
+        dit = torch.from_numpy((it.nuisance_direction > 0).astype(np.int64))
+        dot = torch.from_numpy((ot.nuisance_direction > 0).astype(np.int64))
+        feats = {
+            "temporal_mean": lambda x: x.mean(axis=1),
+            "temporal_std": lambda x: x.std(axis=1),
+            "first_frame": lambda x: x[:, 0],
+            "middle_frame": lambda x: x[:, x.shape[1] // 2],
+            "first_last_pair": lambda x: np.concatenate([x[:, 0], x[:, -1]], axis=1),
+        }
+        out = {}
+        seed, device = self.seed, self.device
+        for name, fn in feats.items():
+            def make(sp, fn=fn):
+                x = fn(np.asarray(sp.mixed))
+                return as_tensor(x.reshape(len(x), -1))
+            xtr, xit, xot = make(tr), make(it), make(ot)
+            li, lo = train_mlp_probe(xtr, ytr, [(xit, yit), (xot, yot)], seed * 7 + 1, device)
+            di, do = train_mlp_probe(xtr, dtr, [(xit, dit), (xot, dot)], seed * 7 + 2, device)
+            out[name] = {"label_iid": li, "label_ood": lo, "dir_iid": di, "dir_ood": do}
+        return out
+
+    def channel_probes(self) -> dict:
+        # G6. Per-frame direction from nuisance-only vs core-only.
+        tr, it = self.splits["train"], self.splits["iid_test"]
+        dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64))
+        dit = torch.from_numpy((it.nuisance_direction > 0).astype(np.int64))
+        L = tr.mixed.shape[1]
+        out = {"dir_nuis_only": [], "dir_core_only": []}
+        seed, device = self.seed, self.device
+        for t in range(L):
+            for key, name in [("nuisance_only", "dir_nuis_only"), ("core_only", "dir_core_only")]:
+                xtr = as_tensor(np.asarray(getattr(tr, key))[:, t].reshape(len(tr.y), -1))
+                xit = as_tensor(np.asarray(getattr(it, key))[:, t].reshape(len(it.y), -1))
+                out[name].append(train_mlp_probe(xtr, dtr, [(xit, dit)], seed * 100 + t, device)[0])
+        return out
+
+    def set_probe(self, epochs: int = 40) -> float:
+        # G6. Permutation-invariant set probe on the nuisance channel.
+        tr, it = self.splits["train"], self.splits["iid_test"]
+
+        def prep(sp):
+            x = np.asarray(sp.nuisance_only)
+            return as_tensor(x.reshape(len(x), x.shape[1], -1))
+
+        xtr, xit = prep(tr), prep(it)
+        mean, std = xtr.mean(), xtr.std().clamp_min(1e-6)
+        xtr, xit = (xtr - mean) / std, (xit - mean) / std
+        device, seed = self.device, self.seed
+        dtr = torch.from_numpy((tr.nuisance_direction > 0).astype(np.int64)).to(device)
+        dit = torch.from_numpy((it.nuisance_direction > 0).astype(np.int64)).to(device)
+        xtr, xit = xtr.to(device), xit.to(device)
+        torch.manual_seed(seed * 17 + 5)
+        net = SetProbe(xtr.shape[-1]).to(device)
+        opt = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-4)
+        g = torch.Generator(device="cpu")
+        g.manual_seed(seed)
+        for _ in range(epochs):
+            net.train()
+            perm = torch.randperm(len(xtr), device=device)
+            for i in range(0, len(xtr), 128):
+                idx = perm[i : i + 128]
+                xb = xtr[idx]
+                xb = xb[:, torch.randperm(xb.shape[1], generator=g)]
+                opt.zero_grad(set_to_none=True)
+                F.cross_entropy(net(xb), dtr[idx]).backward()
+                opt.step()
+        net.eval()
+        with torch.no_grad():
+            return float((net(xit).argmax(1) == dit).float().mean().item())
+
+    def mixed_channel(self) -> dict:
+        # Table 5. Mixed ERM, then shuffle/reverse the nuisance or core channel.
+        tr, va, it, ot = (self.splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
+        xtr, xva = as_tensor(tr.mixed), as_tensor(va.mixed)
+        ytr, yva = torch.from_numpy(tr.y), torch.from_numpy(va.y)
+        xit, xot = as_tensor(it.mixed), as_tensor(ot.mixed)
+        yit, yot = torch.from_numpy(it.y), torch.from_numpy(ot.y)
+        device, seed = self.device, self.seed
+        model = train_sequence(xtr, ytr, xva, yva, seed * 31 + 7, device)
+        res = {}
+        for split, x, y in [("iid", xit, yit), ("ood", xot, yot)]:
+            res[f"{split}_original"] = eval_channel_intervention(model, x, y, device, 1, "none")
+            res[f"{split}_nuis_shuffle"] = eval_channel_intervention(model, x, y, device, 1, "shuffled", seed)
+            res[f"{split}_nuis_reverse"] = eval_channel_intervention(model, x, y, device, 1, "reversed_order")
+            res[f"{split}_core_reverse"] = eval_channel_intervention(model, x, y, device, 0, "reversed_order")
+        return res
+
+    def nuisance_order(self) -> dict:
+        # Figure 4b. Nuisance-only ERM under shuffle and reverse.
+        tr, va, it, ot = (self.splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
+
+        def nu(sp):
+            x = np.asarray(sp.nuisance_only)
+            if x.ndim == 4:
+                x = x[:, :, None]
+            return as_tensor(x)
+
+        device, seed = self.device, self.seed
+        model = train_sequence(nu(tr), torch.from_numpy(tr.y), nu(va), torch.from_numpy(va.y), seed * 13 + 3, device)
+        yit, yot = torch.from_numpy(it.y), torch.from_numpy(ot.y)
+        xit, xot = nu(it), nu(ot)
+        return {
+            "iid": eval_sequence(model, xit, yit, device),
+            "ood": eval_sequence(model, xot, yot, device),
+            "iid_shuffled": eval_sequence(model, xit, yit, device, "shuffled", seed),
+            "ood_shuffled": eval_sequence(model, xot, yot, device, "shuffled", seed),
+            "iid_reversed_order": eval_sequence(model, xit, yit, device, "reversed_order"),
+            "ood_reversed_order": eval_sequence(model, xot, yot, device, "reversed_order"),
+        }
+
+    @staticmethod
+    def locality(single_frame: float, set_acc: float, ordered: float, shuffled: float, route_a: bool) -> str:
+        # G6. Cutoffs 0.8 / 0.6 are the paper's locality rule.
+        if single_frame >= 0.8:
+            return "frame-local"
+        if set_acc >= 0.8:
+            return "order-invariant multi-frame"
+        if ordered >= 0.8 and (route_a or shuffled <= 0.6):
+            return "order-encoded"
+        return "inconclusive"
+
+    def run(self) -> dict:
+        g1 = self.g1()
+        g2 = self.g2()
+        g3 = self.g3()
+        g4 = self.g4()
+        frames = self.per_frame()
+        set_acc = self.set_probe()
+        order = self.g5()
+        locality = self.locality(max(frames["dir_iid"]), set_acc, order["erm_iid"], order["erm_iid_shuffled"], self.route_a)
+        return {
+            "g1_core": g1,
+            "g2_nuisance": g2,
+            "g3_endpoint": g3,
+            "g4_recoverable": g4,
+            "g5_iid": order["erm_iid"],
+            "g5_ood": order["erm_ood"],
+            "g6_single_frame": max(frames["dir_iid"]),
+            "g6_set": set_acc,
+            "g6_locality": locality,
+            "per_frame": frames,
+            "order": order,
+        }
