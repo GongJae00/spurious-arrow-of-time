@@ -1,0 +1,71 @@
+trail_fl:
+  nuisance_trail_decay: 0.78
+simple_oe:
+  nuisance_trail_decay: 0.0
+oe_strict:
+  overlay: oe_strict
+  nuisance_trail_decay: 0.0
+set_mf:
+  overlay: set_mf
+  nuisance_trail_decay: 0.0
+mf_core:
+  nuisance_trail_decay: 0.0
+  diffusion_start_step: 8
+  diffusion_steps_between_frames: 2
+  core_noise_std: 0.045
+  core_noise_growth_power: 0.0
+  observation_noise_std: 0.01
+oe_core:
+  nuisance_trail_decay: 0.0
+  core_process: directional_pulse
+oe_core_equalized:
+  nuisance_trail_decay: 0.0
+  core_process: directional_pulse
+  core_direction_flip_prob: 0.03
+sinusoid:
+  overlay: sinusoid
+  nuisance_trail_decay: 0.0
+family_diffusion_translate:
+  core_process: diffusion
+  nuisance_motion: translate
+family_diffusion_rotate:
+  core_process: diffusion
+  nuisance_motion: rotate
+family_diffusion_diagonal:
+  core_process: diffusion
+  nuisance_motion: diagonal
+family_advection_translate:
+  core_process: advection
+  advection_shift: 1
+  nuisance_motion: translate
+complexity_grid32:
+  grid_size: 32
+  observation_noise_std: 0.06
+complexity_clutter:
+  background_clutter: 0.6
+  background_clutter_count: 4
+  observation_noise_std: 0.06
+complexity_grid32_clutter:
+  grid_size: 32
+  length: 10
+  background_clutter: 0.6
+  background_clutter_count: 5
+  observation_noise_std: 0.06
+real_video:
+  nuisance_motion: real_video
+  real_video_cache: data/real_video/cache_g16_L8_s5.npz
+real_video_blur:
+  nuisance_motion: real_video
+  real_video_cache: data/real_video/cache_g16_L8_s5.npz
+  real_video_blur_sigma: 1.5
+  nuisance_scale: 1.2
+graph_karate:
+  graph: karate
+graph_lesmis:
+  graph: lesmis
+forda:
+  dataset: forda
+har:
+  dataset: har
+har2:
+  dataset: har2

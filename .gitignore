@@ -12,29 +12,26 @@ htmlcov/
 # Local-only manuscript workspace
 paper/
 
-# Generated experiment artifacts: per-run summaries and metrics under
-# results/extended are versioned (the paper's raw result artifacts);
-# per-epoch curves, scratch plots, and other outputs are not.
+# Generated experiment artifacts: paper result JSON under results/main,
+# results/ablation, and results/reviewer is versioned; per-epoch curves,
+# scratch plots, and logs are not.
 results/**
 !results/
-!results/extended/
-!results/extended/**
-results/extended/**/epoch_metrics.jsonl
-results/extended/**/diagnostics.json
-results/extended/**/summary.md
-results/extended/_merged_fig/
-results/extended/_canon_fig/
-results/extended/_fig2/
-results/extended/analysis/
-results/extended/figures/
-results/extended/**/*.pdf
-results/extended/**/*.png
+!results/main/
+!results/main/**
+!results/ablation/
+!results/ablation/**
+!results/reviewer/
+!results/reviewer/**
+results/**/epoch_metrics.jsonl
+results/**/diagnostics.json
+results/**/summary.md
 *.pt
 *.pth
 *.ckpt
 
 # Large binary sources: raw clips and preprocessed caches are rebuilt via
-# src/data/build_real_video_cache.py from data/real_video/urls.json.
+# python -m src.data from data/real_video/urls.json.
 data/real_video/*.webm
 data/real_video/*.npz
 

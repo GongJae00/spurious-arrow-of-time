@@ -1,0 +1,41 @@
+device: auto
+data:
+  grid_size: 16
+  length: 8
+  diffusion_alpha: 0.22
+  diffusion_start_step: 0
+  diffusion_steps_between_frames: 4
+  core_noise_std: 0.006
+  core_noise_growth_power: 1.0
+  observation_noise_std: 0.04
+  core_scale: 1.0
+  nuisance_scale: 1.2
+  nuisance_sigma: 1.15
+  nuisance_speed: 2.0
+  nuisance_trail_decay: 0.78
+  nuisance_correlation: 0.97
+  benchmark_variant: endpoint_matched
+  observation_layout: two_channel
+  ood_mode: reversed
+  partial_shift_target_correlation: -0.3
+  counterfactual_mode: randomized
+  train_nuisance_mode: correlated
+  n_train: 8192
+  n_val_iid: 2048
+  n_iid_test: 4096
+  n_ood_test: 4096
+model:
+  hidden_dim: 64
+  num_layers: 1
+  dropout: 0.0
+training:
+  batch_size: 128
+  epochs: 40
+  patience: 12
+  lr: 0.001
+  weight_decay: 0.0001
+  grad_clip_norm: 1.0
+  lambda_cf_task: 1.0
+  lambda_pred: 0.2
+  certification_epochs: 100
+  certification_patience: 30

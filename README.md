@@ -5,7 +5,7 @@ YoungJae Cho, Do-Yup Kim, Youngjun Kim, Dae-Yeol Kim
 [Code](https://github.com/GongJae00/spurious-arrow-of-time)
 
 <p align="center">
-  <img src="figures/fig1_conceptual_problem.png" alt="Figure 1. Spurious temporal shortcut: both cues predict the label at train/IID; OOD reverses only the nuisance–label relation." width="100%">
+  <img src="figures/main/fig1_conceptual_problem.png" alt="Figure 1. Spurious temporal shortcut: both cues predict the label at train/IID; OOD reverses only the nuisance–label relation." width="100%">
 </p>
 
 <p align="center"><em>Figure 1.</em> Both cues predict the label at train/IID. OOD changes only the nuisance–label relation: a core-following model stays robust, a shortcut-following model collapses.</p>
@@ -22,36 +22,34 @@ The same audit reclassifies the **trail** variant, designed as an order cue, as 
 
 On the trail mixed task, sequence ERM collapses in 29/30 seeds (Table 7: 0.971 IID, 0.061 OOD).
 
-Logged numbers are under `results/extended/`.
+Logged numbers are under `results/main/`, `results/ablation/`, and `results/reviewer/`.
 
 ## Code
 
-This repository is the generator, the sequence models, the audit scripts, and the logged runs behind the manuscript tables.
+The tree follows the paper: data, benchmark, model, train, six-gate audit, evaluate, visualize.
 
 | Path | Role |
 |---|---|
-| `src/data/irreversible_source_inference.py` | Core/nuisance generator (trail and simple order-encoded) |
-| `src/eval/hardpair_oe.py` | OE-Strict nuisance (Table 5) |
-| `src/eval/midclass_oe.py` | Set-MF nuisance |
-| `src/models/minimal_sequence.py` | CNN+GRU and architecture variants |
-| `src/train/main_experiment.py` | YAML-profile training |
-| `configs/irreversible_source_extended.yaml` | Paper profiles (`main_canonical`, `oe_canonical`, sweeps) |
-| `src/eval/` | Cue-locality probes, transfer, appendix runs |
-| `src/visualization/` | Manuscript figures |
-| `results/extended/` | Logged artifacts |
-| `figures/` | Figures 1–4 and A1–A3 |
+| `src/data.py` | Core/nuisance generator |
+| `src/benchmark.py` | Trail-FL, Simple OE, OE-Strict, Set-MF, MF-Core, OE-Core, transfer constructions |
+| `src/models.py` | CNN+GRU and architecture variants |
+| `src/train.py` | ERM and robustness methods |
+| `src/audit.py` | Gates G1–G6 |
+| `src/evaluate.py` | Accuracy, aggregates, regime |
+| `src/experiments.py` | Named runs from `configs/experiments.yaml` |
+| `src/visualize.py` | Manuscript figures |
+| `configs/` | Default generator, models, benchmarks, experiment table |
+| `results/main/` | Tables 5–9 |
+| `figures/main/` | Figures 1–4 |
 
 ```bash
 pip install -e ".[dev]"
 ```
 
-YAML-profile runs:
-
 ```bash
-python -m src.train.main_experiment \
-  --config configs/irreversible_source_extended.yaml \
-  --profile <profile> \
-  --out results/extended/<profile>
+python -m src.experiments --run table5_oe_strict
+python -m src.experiments --run table7_trail_fl
+python -m src.visualize --figure fig1
 ```
 
 ## Reproduction
@@ -60,52 +58,54 @@ Main text:
 
 | Paper | Command | Output |
 |---|---|---|
-| Table 5 OE-Strict | `python -m src.eval.hardpair_oe --seeds 30` | `results/extended/hardpair_oe30.json` |
-| Table 5 certification | `python -m src.eval.hardpair_certify --seeds 5` | `results/extended/hardpair_certify.json` |
-| Table 5 shuffle | `python -m src.eval.hardpair_shuffle --seeds 5` | `results/extended/hardpair_shuffle.json` |
-| Table 5 no-spurious | `python -m src.eval.hardpair_oe --seeds 10 --nospurious --out results/extended/hardpair_nospur.json` | `results/extended/hardpair_nospur.json` |
-| Table 6, Figure 4 trail | `python -m src.eval.temporal_evidence_audit --seeds 10` | `results/extended/temporal_evidence_audit.json` |
-| Table 6, Figure 4 simple OE | `python -m src.eval.temporal_evidence_audit --seeds 10 --trail-decay 0.0 --out results/extended/temporal_evidence_audit_oe.json` | `results/extended/temporal_evidence_audit_oe.json` |
-| Table 6 probes | `python -m src.eval.strict_order_audit --seeds 10` | `results/extended/strict_order_audit.json` |
-| Figure 4b nuisance-only | `python -m src.eval.nuisance_order_probe --seeds 10` | `results/extended/nuisance_order_probe.json` |
-| Table 7, A15, A16 trail 30-seed | `--profile main_canonical` | `results/extended/main_canonical/` |
-| Table 8 MF-Core | `--profile hardcore_oe` | `results/extended/hardcore_oe/` |
-| Table 8 core probes | `python -m src.eval.hardcore_probe_final --seeds 5`; `python -m src.eval.hardcore_perframe --seeds 5` | `results/extended/hardcore_probe_final.json`, `hardcore_perframe.json` |
-| Set-MF | `python -m src.eval.midclass_oe --seeds 10` | `results/extended/midclass_oe.json` |
-| Table 9 FordA | `python -m src.eval.semisynthetic_ucr --official --dataset forda --out results/extended/semisyn_official_forda.json` | `results/extended/semisyn_official_forda.json` |
-| Table 9 HAR | `python -m src.eval.semisynthetic_ucr --official --dataset har --out results/extended/semisyn_official_har.json` | `results/extended/semisyn_official_har.json` |
-| Table 9 HAR-2 | `python -m src.eval.semisynthetic_ucr --official --dataset har2 --out results/extended/semisyn_official_har2.json` | `results/extended/semisyn_official_har2.json` |
-| Figure 1 | `python -m src.visualization.submission_figures` | `figures/fig1_conceptual_problem.png` |
-| Figure 2 | `python -m src.visualization.audit_flow_figure` | `figures/fig2_audit_flow.png` |
-| Figure 3 | `python -m src.visualization.paper_figures` | `figures/fig3_benchmark_construction.png` |
-| Figure 4 | `python -m src.visualization.temporal_audit_figure` | `figures/fig4a_perframe_probes.png`, `fig4b_order_interventions.png` |
+| Table 5 OE-Strict | `python -m src.experiments --run table5_oe_strict` | `results/main/oe_strict.json` |
+| Table 5 certification | `python -m src.experiments --run table5_oe_strict_certify` | `results/main/oe_strict_certify.json` |
+| Table 5 shuffle | `python -m src.experiments --run table5_oe_strict_shuffle` | `results/main/oe_strict_shuffle.json` |
+| Table 5 no-spurious | `python -m src.experiments --run table5_oe_strict_nospur` | `results/main/oe_strict_nospur.json` |
+| Table 6, Figure 4 trail | `python -m src.experiments --run table6_trail_fl` | `results/main/trail_fl_audit.json` |
+| Table 6, Figure 4 simple OE | `python -m src.experiments --run table6_simple_oe` | `results/main/simple_oe_audit.json` |
+| Table 6 probes | `python -m src.experiments --run table6_probes` | `results/main/trail_fl_probes.json` |
+| Figure 4b nuisance-only | `python -m src.experiments --run fig4b_nuisance_order` | `results/main/nuisance_order.json` |
+| Table 7, A15, A16 trail 30-seed | `python -m src.experiments --run table7_trail_fl` | `results/main/trail_fl/` |
+| Table 8 MF-Core | `python -m src.experiments --run table8_mf_core` | `results/main/mf_core/` |
+| Table 8 core probes | `python -m src.experiments --run table8_mf_core_probes`; `python -m src.experiments --run table8_mf_core_perframe` | `results/main/mf_core_probes.json`, `mf_core_perframe.json` |
+| Set-MF | `python -m src.experiments --run set_mf` | `results/main/set_mf.json` |
+| Table 9 FordA | `python -m src.experiments --run table9_forda` | `results/main/forda.json` |
+| Table 9 HAR | `python -m src.experiments --run table9_har` | `results/main/har.json` |
+| Table 9 HAR-2 | `python -m src.experiments --run table9_har2` | `results/main/har2.json` |
+| Figure 1 | `python -m src.visualize --figure fig1` | `figures/main/fig1_conceptual_problem.png` |
+| Figure 2 | `python -m src.visualize --figure fig2` | `figures/main/fig2_audit_flow.png` |
+| Figure 3 | `python -m src.visualize --figure fig3` | `figures/main/fig3_benchmark_construction.png` |
+| Figure 4 | `python -m src.visualize --figure fig4` | `figures/main/fig4a_perframe_probes.png`, `fig4b_order_interventions.png` |
 
-Appendix (manuscript Table A21):
+Appendix:
 
-| Paper | Run | Output |
+| Paper | Command | Output |
 |---|---|---|
-| Figure A1, Table A8 family | `--profile family` | `results/extended/family/`; `figures/fig5_benchmark_family.png` |
-| Figure A2, Table A9 complexity | `--profile complexity` / `complexity_controls` | `results/extended/complexity/`, `complexity_controls/`; `figures/fig6_complexity_scaleup.png` |
-| Figure A3 scenario | `--profile scenario_audit` | `results/extended/scenario_audit/`; `figures/fig7_scenario_audit.png` |
-| Table A2 / A3 correlation | `--profile oe_corr_sweep` / `corr_sweep` | `results/extended/oe_corr_sweep/`, `corr_sweep/` |
-| Table A4 / A5 architectures | `--profile oe_model_family` / `model_family` | `results/extended/oe_model_family/`, `model_family/` |
-| Table A6 methods | `python -m src.eval.unified_paired_bench` | `results/extended/unified_paired.json` |
-| Table A10 sinusoid | `python -m src.eval.freqsweep_oe --seeds 10` | `results/extended/freqsweep_oe.json` |
-| Table A11 graphs | `python -m src.eval.graph_source_experiment --graph karate` (or `lesmis`) | `results/extended/graph_source/` |
-| Table A12 video | `--profile real_video_4k` / `real_video_blur_8k` | `results/extended/real_video_4k/`, `real_video_blur_8k/` |
-| Table A13 simple OE 30-seed | `--profile oe_canonical` | `results/extended/oe_canonical/` |
-| Table A17 budget | `--profile ext_budget_main` / `oe_ext_budget` | `results/extended/ext_budget_main/`, `oe_ext_budget/` |
-| Table A18 multi-init | `python -m src.eval.multi_init_experiment` | `results/extended/multi_init.json` |
-| Table A1 accessibility | `python -m src.eval.cue_accessibility` | `results/extended/cue_accessibility.json` |
-| Table A19 mixing | `--profile channel_mixing` / `oe_channel_mixing` | `results/extended/channel_mixing/`, `oe_channel_mixing/` |
-| Nuisance amplitude | `--profile nuisance_scale_sweep` / `oe_scale_sweep` | `results/extended/nuisance_scale_sweep/`, `oe_scale_sweep/` |
-| OE-Core | `--profile occ_benchmark` | `results/extended/occ_benchmark/` |
-| OE-Core equalized / order-rand | `python -m src.eval.occ_equalized --seeds 10`; `python -m src.eval.occ_and_paired --seeds 10` | `results/extended/occ_equalized.json`, `occ_and_paired.json` |
-| Architecture single-cue | `python -m src.eval.arch_cue_control --seeds 5` | `results/extended/arch_cue_control.json` |
-| GroupDRO sensitivity | `python -m src.eval.groupdro_sensitivity --seeds 10` | `results/extended/groupdro_sensitivity.json` |
-| Endpoint direction probe | `python -m src.eval.endpoint_direction_audit` | `results/extended/endpoint_direction_audit.json` |
-| Input-gradient saliency | `python -m src.eval.gradsal_compare --seeds 3` | `results/extended/gradsal_compare.json` |
-| Real-video positive search | `python -m src.eval.rv_positive_search` | `results/extended/rv_positive_search.json` |
+| Figure A1, Table A8 family | `python -m src.experiments --run family` | `results/ablation/family/`; `figures/appendix/fig_a1_benchmark_family.png` |
+| Figure A2, Table A9 complexity | `python -m src.experiments --run complexity` | `results/ablation/complexity/`; `figures/appendix/fig_a2_complexity_scaleup.png` |
+| Figure A3 scenario | `python -m src.experiments --run scenario` | `results/ablation/scenario/`; `figures/appendix/fig_a3_scenario_audit.png` |
+| Table A2 / A3 correlation | `python -m src.experiments --run simple_oe_corr` / `trail_fl_corr` | `results/ablation/simple_oe_corr/`, `trail_fl_corr/` |
+| Table A4 / A5 architectures | `python -m src.experiments --run simple_oe_arch` / `trail_fl_arch` | `results/ablation/simple_oe_arch/`, `trail_fl_arch/` |
+| Table A6 methods | `python -m src.experiments --run methods` | `results/ablation/methods.json` |
+| Table A10 sinusoid | `python -m src.experiments --run sinusoid` | `results/ablation/sinusoid.json` |
+| Table A11 graphs | `python -m src.experiments --run graph_karate` | `results/ablation/graph/` |
+| Table A12 video | `python -m src.experiments --run real_video` | `results/ablation/real_video/` |
+| Table A13 simple OE 30-seed | `python -m src.experiments --run simple_oe_30` | `results/ablation/simple_oe/` |
+| Table A17 budget | `python -m src.experiments --run trail_fl_budget` | `results/ablation/trail_fl_budget/` |
+| Table A18 multi-init | `python -m src.experiments --run multi_init` | `results/ablation/multi_init.json` |
+| Table A1 accessibility | `python -m src.experiments --run accessibility` | `results/ablation/accessibility.json` |
+| Table A19 mixing | `python -m src.experiments --run trail_fl_mixing` | `results/ablation/trail_fl_mixing/` |
+| Nuisance amplitude | `python -m src.experiments --run trail_fl_scale` | `results/ablation/trail_fl_scale/` |
+| OE-Core | `python -m src.experiments --run oe_core` | `results/ablation/oe_core/` |
+| OE-Core equalized / order-rand | `python -m src.experiments --run oe_core_equalized`; `python -m src.experiments --run oe_core_order_rand` | `results/reviewer/` |
+| Architecture single-cue | `python -m src.experiments --run arch_cue` | `results/reviewer/arch_cue.json` |
+| GroupDRO sensitivity | `python -m src.experiments --run groupdro` | `results/reviewer/groupdro.json` |
+| Endpoint direction probe | `python -m src.experiments --run endpoint` | `results/reviewer/endpoint.json` |
+| Input-gradient saliency | `python -m src.experiments --run gradsal` | `results/reviewer/gradsal.json` |
+| Real-video positive search | `python -m src.experiments --run real_video_search` | `results/reviewer/real_video_search.json` |
+
+Run names are the keys in `configs/experiments.yaml`.
 
 ## Citation
 

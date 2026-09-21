@@ -1,0 +1,42 @@
+methods:
+  final_frame_mlp:
+    model_type: final_frame_mlp
+    input_key: mixed
+  sequence_erm:
+    model_type: sequence_cnn_gru
+    input_key: mixed
+  core_only_oracle:
+    model_type: sequence_cnn_gru
+    input_key: core_only
+  nuisance_only_oracle:
+    model_type: sequence_cnn_gru
+    input_key: nuisance_only
+  sequence_erm_lstm:
+    model_type: sequence_cnn_lstm
+    input_key: mixed
+  sequence_erm_tcn:
+    model_type: sequence_cnn_tcn
+    input_key: mixed
+  sequence_erm_transformer:
+    model_type: sequence_cnn_transformer
+    input_key: mixed
+  sequence_erm_temporal_pool:
+    model_type: sequence_cnn_temporal_pool
+    input_key: mixed
+  counterfactual_invariance:
+    model_type: sequence_cnn_gru
+    input_key: mixed
+    uses_counterfactual: true
+  group_invariance_light:
+    model_type: sequence_cnn_gru
+    input_key: mixed
+    uses_group_balancing: true
+  nuisance_channel_dropout:
+    model_type: sequence_cnn_gru
+    input_key: mixed
+    channel_dropout_prob: 0.5
+irm:
+  lambda: 1000.0
+  warmup_epochs: 5
+groupdro:
+  eta: 0.01
