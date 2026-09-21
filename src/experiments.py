@@ -7,6 +7,8 @@ from pathlib import Path
 import numpy as np
 import torch
 import yaml
+from torch import nn
+from torch.nn import functional as F
 
 from src.audit import (
     channel_probes,
@@ -23,7 +25,7 @@ from src.audit import (
 )
 from src.benchmark import SIZES, graph_setup, graph_split, load_forda, load_har, make, overlay_order_pulse, paper_config
 from src.data import GeneratorConfig, generate_split, generate_splits
-from src.evaluate import accuracy, aggregate, as_tensor, regime, summarize_results
+from src.evaluate import accuracy, aggregate, as_tensor, input_gradient_saliency, regime, summarize_results
 from src.models import FinalFrameMLP, SegGRU, build_model
 from src.train import (
     ARCHS,
@@ -32,6 +34,7 @@ from src.train import (
     eval_sequence,
     set_seed,
     stable_run_seed,
+    train_dual,
     train_irm,
     train_one_method,
     train_robust,
@@ -343,12 +346,11 @@ def run_mf_core_perframe(spec: dict, default: dict, models: dict) -> dict:
 
 
 def run_ucr(spec: dict, default: dict, models: dict) -> dict:
-    from torch.nn import functional as F
     device = device_of(str(default.get("device", "auto")))
     dataset = spec["dataset"]
     xc_all, y_all, ntr = load_har(dataset) if dataset in ("har", "har2") else load_forda()
     n = len(y_all)
-    L, W, CORR = 10, 50, 0.97
+    L, CORR = 10, 0.97
     cut = [int(ntr * 0.9), ntr, ntr + (n - ntr) // 2, n] if spec.get("official") else [int(n * 0.62), int(n * 0.70), int(n * 0.85), n]
     outpath = Path(spec["out"])
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
@@ -419,6 +421,54 @@ def run_ucr(spec: dict, default: dict, models: dict) -> dict:
         xrc = xo.clone()
         xrc[:, :, 0] = torch.flip(xrc[:, :, 0], dims=[1])
         r["erm_reverse_core"] = acc(erm, xrc, yo)
+        ns = {}
+        for name in pool:
+            xcs, nu, ys, d = pool[name]
+            rng2 = np.random.default_rng(seed * 13 + 1009 * ["train", "val", "iid", "ood"].index(name))
+            ns[name] = overlay_order_pulse(xcs, ys, rng2, 0.5, len(ys))
+        pool_bak = {k: pool[k] for k in pool}
+        pool.update(ns)
+        m = fit(2, "mixed")
+        r["no_spurious"] = [acc(m, *T("iid", "mixed")[:2]), acc(m, *T("ood", "mixed")[:2])]
+        pool.update(pool_bak)
+
+        def probe_ucr(x, t, tgt):
+            xt = x[:, :, :] if t is None else x[:, t]
+            model = nn.Sequential(nn.Linear(xt.reshape(len(xt), -1).shape[1], 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
+            opt = torch.optim.AdamW(model.parameters(), lr=1e-3)
+            xtr = xt.reshape(len(xt), -1)
+            for _ in range(30):
+                pm = torch.randperm(len(xtr))
+                for i in range(0, len(xtr), 256):
+                    j = pm[i : i + 256]
+                    opt.zero_grad(set_to_none=True)
+                    F.cross_entropy(model(xtr[j].to(device)), tgt[j].to(device)).backward()
+                    opt.step()
+            model.eval()
+            return model
+
+        xn_tr, ytr_, dtr_ = T("train", "nu")
+        xn_iid, yiid_, diid_ = T("iid", "nu")
+        best_sf = 0.0
+        for t in range(L):
+            pm = probe_ucr(xn_tr, t, dtr_)
+            with torch.no_grad():
+                v = float((pm(xn_iid[:, t].reshape(len(xn_iid), -1).to(device)).argmax(1).cpu() == diid_).float().mean())
+            best_sf = max(best_sf, v)
+        r["best_single_seg_dir"] = best_sf
+        srt = torch.sort(xn_tr.reshape(len(xn_tr), L, -1), dim=1)[0]
+        srti = torch.sort(xn_iid.reshape(len(xn_iid), L, -1), dim=1)[0]
+        pm = probe_ucr(srt, None, dtr_)
+        with torch.no_grad():
+            r["unordered_set_dir"] = float((pm(srti.reshape(len(srti), -1).to(device)).argmax(1).cpu() == diid_).float().mean())
+        xm_tr, ytr2, dtr2 = T("train", "mixed")
+        xm_iid, yiid2, diid2 = T("iid", "mixed")
+        pm = probe_ucr(xm_tr, L - 1, ytr2)
+        with torch.no_grad():
+            r["final_seg_label"] = float((pm(xm_iid[:, L - 1].reshape(len(xm_iid), -1).to(device)).argmax(1).cpu() == yiid2).float().mean())
+        pm = probe_ucr(xm_tr, L - 1, dtr2)
+        with torch.no_grad():
+            r["final_seg_dir"] = float((pm(xm_iid[:, L - 1].reshape(len(xm_iid), -1).to(device)).argmax(1).cpu() == diid2).float().mean())
         out[key] = {k: (round(v, 4) if isinstance(v, float) else [round(t, 4) for t in v]) for k, v in r.items()}
         dump(outpath, out)
     return out
@@ -512,7 +562,6 @@ def run_multi_init(spec: dict, default: dict, models: dict) -> dict:
 
 
 def run_accessibility(spec: dict, default: dict, models: dict) -> dict:
-    from torch.nn import functional as F
     device = device_of(str(default.get("device", "auto")))
     cues = {
         "diffusion_core": (dict(), "core_only", 1.0),
@@ -629,6 +678,14 @@ def run_arch_cue(spec: dict, default: dict, models: dict) -> dict:
             i = np.array([r[0] for r in rows])
             o = np.array([r[1] for r in rows])
             out[f"{arch}/{field}"] = {"iid": float(i.mean()), "iid_std": float(i.std(ddof=1)), "ood": float(o.mean()), "ood_std": float(o.std(ddof=1))}
+    rows = []
+    for s in range(int(spec["seeds"])):
+        splits = make("simple_oe", s, extra={"nuisance_correlation": 0.70})
+        iid, ood, _ = train_robust("groupdro", splits, s, device)
+        rows.append((iid, ood))
+    i = np.array([r[0] for r in rows])
+    o = np.array([r[1] for r in rows])
+    out["groupdro_corr0.70"] = {"iid": float(i.mean()), "ood": float(o.mean()), "core": int(((i >= 0.8) & (o >= 0.8)).sum())}
     dump(Path(spec["out"]), out)
     return out
 
@@ -650,7 +707,6 @@ def run_groupdro(spec: dict, default: dict, models: dict) -> dict:
 
 
 def run_gradsal(spec: dict, default: dict, models: dict) -> dict:
-    from torch.nn import functional as F
     device = device_of(str(default.get("device", "auto")))
     out = {}
     for variant, bench in [("trail", "trail_fl"), ("oe", "simple_oe")]:
@@ -662,15 +718,9 @@ def run_gradsal(spec: dict, default: dict, models: dict) -> dict:
             x = lambda n: as_tensor((np.asarray(splits[n].mixed) - mu) / sd)
             y = lambda n: torch.from_numpy(splits[n].y)
             m = train_sequence(x("train"), y("train"), x("val_iid"), y("val_iid"), s, device, input_channels=2)
-            m.train()
-            xt = x("iid_test")[:512].to(device).requires_grad_(True)
-            logits = m(xt).logits
-            logits.gather(1, logits.argmax(1, keepdim=True)).sum().backward()
-            g = xt.grad.abs()
-            core_g = g[:, :, 0].mean(dim=(0, 2, 3))
-            nuis_g = g[:, :, 1].mean(dim=(0, 2, 3))
-            shares.append(float(nuis_g.sum() / (core_g.sum() + nuis_g.sum())))
-            profs.append((nuis_g / nuis_g.sum()).detach().cpu().numpy().round(4).tolist())
+            share, prof = input_gradient_saliency(m, x("iid_test")[:512], device)
+            shares.append(share)
+            profs.append(np.asarray(prof).round(4).tolist())
         out[variant] = {"nuis_share_mean": round(float(np.mean(shares)), 4), "nuis_share_std": round(float(np.std(shares)), 4), "frame_profile_mean": np.mean(profs, axis=0).round(4).tolist()}
     dump(Path(spec["out"]), out)
     return out
@@ -698,12 +748,49 @@ def run_video_search(spec: dict, default: dict, models: dict) -> dict:
                 continue
             extra = {**over, "nuisance_motion": "real_video", "real_video_cache": "data/real_video/cache_g16_L8_s5.npz"}
             splits = make("trail_fl", seed, sizes=sizes, extra=extra)
-            mu = float(np.asarray(splits["train"].mixed).mean())
-            sd = float(np.asarray(splits["train"].mixed).std()) or 1.0
-            x = lambda n: as_tensor((np.asarray(splits[n].mixed) - mu) / sd)
-            y = lambda n: torch.from_numpy(splits[n].y)
-            m = train_sequence(x("train"), y("train"), x("val_iid"), y("val_iid"), seed * 31 + 11, device, input_channels=2)
-            out[f"{base}/erm"] = [round(eval_sequence(m, x("iid_test"), y("iid_test"), device), 4), round(eval_sequence(m, x("ood_test"), y("ood_test"), device), 4)]
+            def run_field(field, channels, s):
+                a0 = np.asarray(getattr(splits["train"], field))
+                if a0.ndim == 4:
+                    a0 = a0[:, :, None]
+                mu = float(a0.mean())
+                sd = float(a0.std()) or 1.0
+                def x(n):
+                    a = np.asarray(getattr(splits[n], field))
+                    if a.ndim == 4:
+                        a = a[:, :, None]
+                    return as_tensor((a - mu) / sd)
+                y = lambda n: torch.from_numpy(splits[n].y)
+                m = train_sequence(x("train"), y("train"), x("val_iid"), y("val_iid"), s, device, input_channels=channels)
+                return [round(eval_sequence(m, x("iid_test"), y("iid_test"), device), 4), round(eval_sequence(m, x("ood_test"), y("ood_test"), device), 4)]
+            out[f"{base}/erm"] = run_field("mixed", 2, seed * 31 + 11)
+            out[f"{base}/core_only"] = run_field("core_only", 1, seed * 31 + 12)
+            out[f"{base}/nuis_only"] = run_field("nuisance_only", 1, seed * 31 + 13)
+            def last(name):
+                a = np.asarray(splits[name].mixed)[:, -1]
+                return a.reshape(len(a), -1)
+            mu, sd = last("train").mean(), last("train").std() or 1.0
+            xlast = {n: torch.from_numpy(((last(n) - mu) / sd).astype(np.float32)) for n in splits}
+            y = {n: torch.from_numpy(splits[n].y) for n in splits}
+            torch.manual_seed(seed * 31 + 14)
+            head = nn.Sequential(nn.Linear(xlast["train"].shape[1], 128), nn.ReLU(), nn.Linear(128, 2)).to(device)
+            opt = torch.optim.AdamW(head.parameters(), lr=1e-3, weight_decay=1e-4)
+            for _ in range(20):
+                perm = torch.randperm(len(xlast["train"]))
+                for i in range(0, len(perm), 256):
+                    idx = perm[i : i + 256]
+                    opt.zero_grad(set_to_none=True)
+                    F.cross_entropy(head(xlast["train"][idx].to(device)), y["train"][idx].to(device)).backward()
+                    opt.step()
+            head.eval()
+            with torch.no_grad():
+                out[f"{base}/final_frame"] = [
+                    float((head(xlast["iid_test"].to(device)).argmax(1).cpu() == y["iid_test"]).float().mean()),
+                    float((head(xlast["ood_test"].to(device)).argmax(1).cpu() == y["ood_test"]).float().mean()),
+                ]
+                out[f"{base}/final_frame"] = [round(v, 4) for v in out[f"{base}/final_frame"]]
+            spn = make("trail_fl", seed, sizes=sizes, extra={**extra, "train_nuisance_mode": "randomized", "ood_mode": "randomized"})
+            splits = spn
+            out[f"{base}/no_spurious"] = run_field("mixed", 2, seed * 31 + 11)
             dump(outpath, out)
     return out
 
@@ -719,21 +806,7 @@ def run_unified(spec: dict, default: dict, models: dict) -> dict:
             key = f"{method}/{arch}/seed{seed}"
             if key in out:
                 continue
-            if method == "irmv1":
-                splits1 = make("simple_oe", seed + 7919, extra={"nuisance_correlation": 0.85}, sizes={**SIZES, "n_train": 4096})
-                iid, ood, _ = train_irm(splits, splits1, seed, device)
-                r = {"sel_iid": [iid, ood]}
-            elif method == "erm":
-                model_type = ARCHS[arch]
-                mu = float(np.asarray(splits["train"].mixed).mean())
-                sd = float(np.asarray(splits["train"].mixed).std()) or 1.0
-                x = lambda n: as_tensor((np.asarray(splits[n].mixed) - mu) / sd)
-                y = lambda n: torch.from_numpy(splits[n].y)
-                m = train_sequence(x("train"), y("train"), x("val_iid"), y("val_iid"), seed, device, model_type=model_type, input_channels=2)
-                r = {"sel_iid": [eval_sequence(m, x("iid_test"), y("iid_test"), device), eval_sequence(m, x("ood_test"), y("ood_test"), device)]}
-            else:
-                iid, ood, _ = train_robust({"groupdro_joint": "groupdro", "dann_dir": "dann_dir", "jtt": "jtt", "frame_rand": "frame_rand"}[method], splits, seed, device)
-                r = {"sel_iid": [iid, ood]}
+            r = train_dual(method, arch, seed, splits, device)
             out[key] = {sel: [round(v, 4) for v in r[sel]] for sel in r}
             dump(outpath, out)
     return out
@@ -766,7 +839,7 @@ def run(name: str, config_dir: Path = Path("configs")) -> dict:
     if kind == "train":
         benches = load_yaml(config_dir / "benchmarks.yaml")
         if "benchmark" in spec:
-            spec["data"] = deep_update(benches.get(spec["benchmark"], {}), spec.get("data", {}))
+            spec["data"] = deep_update(benches[spec["benchmark"]], spec["data"] if "data" in spec else {})
         return run_train(spec, default, models)
     if kind == "shortcut":
         return run_shortcut_eval(spec, default)

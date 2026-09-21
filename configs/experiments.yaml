@@ -53,11 +53,11 @@ table7_trail_fl:
   out: results/main/trail_fl
   seeds: *s30
   methods: [final_frame_mlp, sequence_erm, core_only_oracle, nuisance_only_oracle, counterfactual_invariance, group_invariance_light, nuisance_channel_dropout]
-  primary_scenario: reversal
+  primary_scenario: main_spurious_arrow
   scenarios:
-  - name: reversal
+  - name: main_spurious_arrow
     data: {ood_mode: reversed}
-  - name: no_spurious
+  - name: no_spurious_correlation
     methods: [sequence_erm, core_only_oracle, nuisance_only_oracle]
     data: {train_nuisance_mode: randomized, ood_mode: randomized}
 table8_mf_core:
@@ -67,11 +67,11 @@ table8_mf_core:
   seeds: *s10
   methods: [final_frame_mlp, sequence_erm, sequence_erm_temporal_pool, core_only_oracle, nuisance_only_oracle]
   training: {epochs: 100, patience: 30}
-  primary_scenario: reversal
+  primary_scenario: hc_main
   scenarios:
-  - name: reversal
+  - name: hc_main
     data: {ood_mode: reversed}
-  - name: no_spurious
+  - name: hc_no_spurious
     methods: [sequence_erm, core_only_oracle, nuisance_only_oracle]
     data: {train_nuisance_mode: randomized, ood_mode: randomized}
 table8_mf_core_probes:
@@ -283,11 +283,11 @@ trail_fl_budget:
   seeds: *s30
   methods: [sequence_erm]
   training: {epochs: 100, patience: 30}
-  primary_scenario: reversal
+  primary_scenario: main_spurious_arrow
   scenarios:
-  - name: reversal
+  - name: main_spurious_arrow
     data: {ood_mode: reversed}
-  - name: no_spurious
+  - name: no_spurious_correlation
     data: {train_nuisance_mode: randomized, ood_mode: randomized}
 simple_oe_budget:
   kind: train
@@ -370,11 +370,11 @@ oe_core:
   seeds: *s10
   methods: [final_frame_mlp, sequence_erm, sequence_erm_temporal_pool, core_only_oracle, nuisance_only_oracle]
   training: {epochs: 100, patience: 30}
-  primary_scenario: reversal
+  primary_scenario: occ_main
   scenarios:
-  - name: reversal
+  - name: occ_main
     data: {ood_mode: reversed}
-  - name: no_spurious
+  - name: occ_no_spurious
     methods: [sequence_erm, core_only_oracle, nuisance_only_oracle]
     data: {train_nuisance_mode: randomized, ood_mode: randomized}
 oe_core_equalized:

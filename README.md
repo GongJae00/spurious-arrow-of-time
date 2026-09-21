@@ -89,14 +89,15 @@ Appendix:
 | Table A4 / A5 architectures | `python -m src.experiments --run simple_oe_arch` / `trail_fl_arch` | `results/ablation/simple_oe_arch/`, `trail_fl_arch/` |
 | Table A6 methods | `python -m src.experiments --run methods` | `results/ablation/methods.json` |
 | Table A10 sinusoid | `python -m src.experiments --run sinusoid` | `results/ablation/sinusoid.json` |
-| Table A11 graphs | `python -m src.experiments --run graph_karate` | `results/ablation/graph/` |
-| Table A12 video | `python -m src.experiments --run real_video` | `results/ablation/real_video/` |
+| Table A11 graphs | `python -m src.experiments --run graph_karate` / `graph_lesmis` | `results/ablation/graph/` |
+| Table A12 video | `python -m src.experiments --run real_video` / `real_video_blur` | `results/ablation/real_video/`, `real_video_blur/` |
 | Table A13 simple OE 30-seed | `python -m src.experiments --run simple_oe_30` | `results/ablation/simple_oe/` |
-| Table A17 budget | `python -m src.experiments --run trail_fl_budget` | `results/ablation/trail_fl_budget/` |
+| Table A17 budget | `python -m src.experiments --run trail_fl_budget` / `simple_oe_budget` | `results/ablation/trail_fl_budget/`, `simple_oe_budget/` |
 | Table A18 multi-init | `python -m src.experiments --run multi_init` | `results/ablation/multi_init.json` |
 | Table A1 accessibility | `python -m src.experiments --run accessibility` | `results/ablation/accessibility.json` |
-| Table A19 mixing | `python -m src.experiments --run trail_fl_mixing` | `results/ablation/trail_fl_mixing/` |
-| Nuisance amplitude | `python -m src.experiments --run trail_fl_scale` | `results/ablation/trail_fl_scale/` |
+| Table A19 mixing | `python -m src.experiments --run trail_fl_mixing` / `simple_oe_mixing` | `results/ablation/trail_fl_mixing/`, `simple_oe_mixing/` |
+| Nuisance amplitude | `python -m src.experiments --run trail_fl_scale` / `simple_oe_scale` | `results/ablation/trail_fl_scale/`, `simple_oe_scale/` |
+| Complexity controls | `python -m src.experiments --run complexity_controls` | `results/ablation/complexity_controls/` |
 | OE-Core | `python -m src.experiments --run oe_core` | `results/ablation/oe_core/` |
 | OE-Core equalized / order-rand | `python -m src.experiments --run oe_core_equalized`; `python -m src.experiments --run oe_core_order_rand` | `results/reviewer/` |
 | Architecture single-cue | `python -m src.experiments --run arch_cue` | `results/reviewer/arch_cue.json` |

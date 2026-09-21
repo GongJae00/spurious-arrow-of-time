@@ -18,11 +18,9 @@ from src.evaluate import MetricStore
 
 TEXT = "#1F2933"
 MUTED_TEXT = "#5B6470"
-LIGHT_TEXT = "#7A8591"
 GRID = "#E7EBEF"
 SPINE = "#B9C1CA"
 PANEL_BORDER = "#D9DEE5"
-MISSING = "#F1F3F5"
 NUISANCE = "#D06B45"
 SEQUENCE = "#273F4D"
 CORE_COLOR = np.asarray([0.05, 0.55, 0.50])
@@ -355,33 +353,23 @@ def figure_scenario_audit(out: Path, store: MetricStore):
 
 def render(name: str):
     apply_style()
-    if name == "fig1":
-        figure_conceptual(Path("figures/main/fig1_conceptual_problem"))
-        return
-    if name == "fig2":
-        figure_audit_flow(Path("figures/main/fig2_audit_flow"))
-        return
-    if name == "fig3":
-        figure_benchmark(Path("figures/main/fig3_benchmark_construction"), Path("configs/default.yaml"))
-        return
-    if name == "fig4":
-        figure_temporal(
+    figures = {
+        "fig1": lambda: figure_conceptual(Path("figures/main/fig1_conceptual_problem")),
+        "fig2": lambda: figure_audit_flow(Path("figures/main/fig2_audit_flow")),
+        "fig3": lambda: figure_benchmark(Path("figures/main/fig3_benchmark_construction"), Path("configs/default.yaml")),
+        "fig4": lambda: figure_temporal(
             Path("results/main/trail_fl_audit.json"),
             Path("results/main/simple_oe_audit.json"),
             Path("results/main/nuisance_order.json"),
             Path("figures/main/fig4a_perframe_probes"),
             Path("figures/main/fig4b_order_interventions"),
-        )
-        return
-    if name == "fig_a3":
-        store = MetricStore(Path("results/ablation/scenario/summary.json"), Path("results/ablation/scenario/metrics.jsonl"))
-        figure_scenario_audit(Path("figures/appendix/fig_a3_scenario_audit"), store)
-        return
-    render("fig1")
-    render("fig2")
-    render("fig3")
-    render("fig4")
-    render("fig_a3")
+        ),
+        "fig_a3": lambda: figure_scenario_audit(
+            Path("figures/appendix/fig_a3_scenario_audit"),
+            MetricStore(Path("results/ablation/scenario/summary.json"), Path("results/ablation/scenario/metrics.jsonl")),
+        ),
+    }
+    figures[name]()
 
 
 def main():

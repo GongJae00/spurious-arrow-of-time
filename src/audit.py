@@ -4,7 +4,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from src.data import Split
-from src.evaluate import as_tensor, accuracy, aggregate
+from src.evaluate import as_tensor
 from src.train import train_sequence, eval_sequence
 
 
@@ -265,7 +265,7 @@ def g6_locality(single_frame: float, set_acc: float, ordered: float, shuffled: f
     return "inconclusive"
 
 
-def run_audit(splits: dict[str, Split], seed: int, device, route_a: bool = False) -> dict:
+def run_audit(splits: dict[str, Split], seed: int, device, route_a: bool = False, nospur_splits: dict[str, Split] | None = None) -> dict:
     tr, va, it, ot = (splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
     def seq(sp, key):
         a = np.asarray(getattr(sp, key))
@@ -277,6 +277,14 @@ def run_audit(splits: dict[str, Split], seed: int, device, route_a: bool = False
     nuis = train_sequence(seq(tr, "nuisance_only"), torch.from_numpy(tr.y), seq(va, "nuisance_only"), torch.from_numpy(va.y), seed * 31 + 2, device)
     g2 = eval_sequence(nuis, seq(it, "nuisance_only"), torch.from_numpy(it.y), device)
     g3 = final_frame_direction_accuracy(splits, seed, device)
+    g4 = None
+    if nospur_splits is not None:
+        ntr, nva, nit, not_ = (nospur_splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
+        rec = train_sequence(seq(ntr, "mixed"), torch.from_numpy(ntr.y), seq(nva, "mixed"), torch.from_numpy(nva.y), seed * 31 + 3, device, epochs=100, patience=30)
+        g4 = {
+            "iid": eval_sequence(rec, seq(nit, "mixed"), torch.from_numpy(nit.y), device),
+            "ood": eval_sequence(rec, seq(not_, "mixed"), torch.from_numpy(not_.y), device),
+        }
     frames = per_frame_probes(splits, seed, device)
     single = max(frames["dir_iid"])
     set_acc = set_probe_direction(splits, seed, device)
@@ -286,6 +294,7 @@ def run_audit(splits: dict[str, Split], seed: int, device, route_a: bool = False
         "g1_core": g1,
         "g2_nuisance": g2,
         "g3_endpoint": g3,
+        "g4_recoverable": g4,
         "g5_iid": order["erm_iid"],
         "g5_ood": order["erm_ood"],
         "g6_single_frame": single,

@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -53,6 +54,19 @@ def aggregate(values) -> dict:
     }
 
 
+def input_gradient_saliency(model: nn.Module, x: torch.Tensor, device: torch.device):
+    model.train()
+    xt = x.to(device).requires_grad_(True)
+    logits = model(xt).logits
+    logits.gather(1, logits.argmax(1, keepdim=True)).sum().backward()
+    g = xt.grad.abs()
+    core_g = g[:, :, 0].mean(dim=(0, 2, 3))
+    nuis_g = g[:, :, 1].mean(dim=(0, 2, 3))
+    share = float(nuis_g.sum() / (core_g.sum() + nuis_g.sum()))
+    prof = (nuis_g / nuis_g.sum()).detach().cpu().numpy()
+    return share, prof
+
+
 def regime(iid: float, ood: float) -> str:
     if iid >= 0.8 and ood >= 0.8:
         return "core"
@@ -104,21 +118,17 @@ class Aggregate:
 
 class MetricStore:
     def __init__(self, summary_path: Path, metrics_path: Path):
-        import json
         self.summary = json.loads(summary_path.read_text(encoding="utf-8"))
         self.primary_scenario = str(self.summary["primary_scenario"])
         self.rows = [json.loads(line) for line in metrics_path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
     def aggregate(self, method: str, metric: str, scenario: str | None = None) -> Aggregate:
         scenario = scenario or self.primary_scenario
-        if scenario == self.primary_scenario and method in self.summary["methods"]:
-            source = self.summary["methods"][method].get(metric)
-        else:
-            source = self.summary["scenarios"][scenario][method].get(metric)
-        if source is not None:
+        if scenario == self.primary_scenario and method in self.summary["methods"] and metric in self.summary["methods"][method]:
+            source = self.summary["methods"][method][metric]
             return Aggregate(mean=float(source["mean"]), std=float(source["std"]), n=int(source["n"]))
-        vals = self.values(method, metric, scenario)
-        return Aggregate(mean=float(vals.mean()), std=float(vals.std()), n=int(vals.size))
+        source = self.summary["scenarios"][scenario][method][metric]
+        return Aggregate(mean=float(source["mean"]), std=float(source["std"]), n=int(source["n"]))
 
     def values(self, method: str, metric: str, scenario: str | None = None) -> np.ndarray:
         scenario = scenario or self.primary_scenario

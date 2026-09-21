@@ -3,7 +3,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from src.benchmark import OE_STRICT_CUM, make, oe_strict_nuisance, set_mf_nuisance
+from src.benchmark import OE_STRICT_CUM, make, oe_strict_nuisance, overlay_order_pulse, set_mf_nuisance
 from src.data import GeneratorConfig, generate_splits
 
 
@@ -59,6 +59,17 @@ def test_endpoint_matched_controls_final_nuisance_leakage():
     assert final_acc <= 0.65
     assert motion_acc >= 0.85
     assert train.metadata["benchmark_variant"] == "endpoint_matched"
+
+
+def test_overlay_order_pulse_shape():
+    rng = np.random.default_rng(0)
+    xc = rng.normal(size=(20, 10, 50)).astype(np.float32)
+    y = np.array([0, 1] * 10)
+    xcs, nu, ys, d = overlay_order_pulse(xc, y, rng, 0.97, 8)
+    assert xcs.shape == (8, 10, 50)
+    assert nu.shape == (8, 10, 50)
+    assert ys.shape == (8,)
+    assert set(np.unique(d)).issubset({0, 1})
 
 
 def test_make_oe_strict_two_channel():

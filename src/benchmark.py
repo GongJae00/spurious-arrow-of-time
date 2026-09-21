@@ -2,7 +2,7 @@ from dataclasses import replace
 
 import numpy as np
 
-from src.data import GeneratorConfig, Split, SPLITS, generate_split, generate_splits
+from src.data import GeneratorConfig, Split, SPLITS, generate_splits
 
 
 PAPER = dict(
@@ -125,7 +125,9 @@ def make(benchmark: str, seed: int, sizes: dict | None = None, extra: dict | Non
         "oe_core_equalized": dict(nuisance_trail_decay=0.0, core_process="directional_pulse", core_direction_flip_prob=0.03),
         "sinusoid": dict(nuisance_trail_decay=0.0, overlay="sinusoid"),
     }[benchmark]
-    overlay = named.pop("overlay", None) or extra.get("overlay")
+    overlay = named.pop("overlay", None)
+    if "overlay" in extra:
+        overlay = extra["overlay"]
     data = {k: v for k, v in extra.items() if k != "overlay"}
     cfg = paper_config(seed, **sizes, **named, **data)
     splits = generate_splits(cfg)
