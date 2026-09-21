@@ -14,6 +14,8 @@ from src.data import GeneratorConfig, Split, generate_split
 from src.evaluate import accuracy, evaluate
 from src.models import build_model
 
+# sequence_erm is CNN+GRU ERM. Counterfactual / group / channel-dropout are
+# Table 7 invariance methods. train_robust / train_dual / train_irm are Table A6.
 
 METHODS = {
     "final_frame_mlp": {"model_type": "final_frame_mlp", "input_key": "mixed", "uses_counterfactual": False, "uses_group_balancing": False, "channel_dropout_prob": 0.0},
@@ -219,12 +221,11 @@ def train_one_method(method: str, splits: dict[str, Split], dataset_config: Gene
     }
 
 
-def train_sequence(xtr, ytr, xval, yval, seed, device, shuffle_frames=False, epochs=40, patience=12, grid_size=16, input_channels=None, model_type="sequence_cnn_gru"):
+def train_sequence(xtr, ytr, xval, yval, seed, device, shuffle_frames=False, epochs=40, patience=12, grid_size=16, model_type="sequence_cnn_gru"):
     torch.manual_seed(seed)
     np.random.seed(seed)
-    if input_channels is None:
-        input_channels = 1 if xtr.ndim == 4 else int(xtr.shape[2])
-    model = build_model(model_type, grid_size=grid_size, hidden_dim=64, num_layers=1, dropout=0.0, input_channels=input_channels).to(device)
+    channels = 1 if xtr.ndim == 4 else int(xtr.shape[2])
+    model = build_model(model_type, grid_size=grid_size, hidden_dim=64, num_layers=1, dropout=0.0, input_channels=channels).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
     best_acc, best_state, bad = -1.0, None, 0
     xval_d, yval_d = xval.to(device), yval.to(device)
@@ -278,7 +279,8 @@ def tensors(split: Split, mu: float, sd: float):
     )
 
 
-def train_robust(method: str, splits: dict[str, Split], seed: int, device: torch.device, epochs=40, patience=12, lr=1e-3, wd=1e-4, bs=128, irm_lambda=1000.0, eta=0.01, balanced_sampler=False):
+def train_robust(method: str, splits: dict[str, Split], seed: int, device: torch.device, epochs=40, patience=12, lr=1e-3, wd=1e-4, bs=128, eta=0.01, balanced_sampler=False):
+    # Table A6 GroupDRO / DANN / JTT / frame-rand. GroupDRO uses (y, direction) groups.
     mu = float(np.asarray(splits["train"].mixed).mean())
     sd = float(np.asarray(splits["train"].mixed).std()) or 1.0
     xtr, ytr, dtr = tensors(splits["train"], mu, sd)
@@ -372,6 +374,7 @@ def train_robust(method: str, splits: dict[str, Split], seed: int, device: torch
 
 
 def shifted_val(seed: int, mu: float, sd: float):
+    # Table A6 sel_shift: a second val draw at correlation 0.50.
     cfg = paper_config(seed, **SIZES, nuisance_correlation=0.50)
     sp = generate_split(cfg, "val_iid")
     x = (np.asarray(sp.mixed) - mu) / sd
@@ -379,6 +382,7 @@ def shifted_val(seed: int, mu: float, sd: float):
 
 
 def train_dual(method: str, arch_key: str, seed: int, splits: dict[str, Split], device: torch.device, epochs=40, lr=1e-3, wd=1e-4, bs=128):
+    # Table A6: one run, two selection rules (sel_iid, sel_shift).
     mu = float(np.asarray(splits["train"].mixed).mean())
     sd = float(np.asarray(splits["train"].mixed).std()) or 1.0
     xtr, ytr, dtr = tensors(splits["train"], mu, sd)
@@ -500,6 +504,7 @@ def train_dual(method: str, arch_key: str, seed: int, splits: dict[str, Split], 
 
 
 def train_irm(splits0: dict[str, Split], splits1: dict[str, Split], seed: int, device: torch.device, epochs=40, patience=12, irm_lambda=1000.0, bs=128, lr=1e-3, wd=1e-4):
+    # IRMv1 on two Simple-OE environments (ρ=0.97 and ρ=0.85).
     allx = np.concatenate([np.asarray(splits0["train"].mixed), np.asarray(splits1["train"].mixed)])
     mu, sd = float(allx.mean()), float(allx.std()) or 1.0
     xe, ye = [], []

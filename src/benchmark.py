@@ -4,6 +4,9 @@ import numpy as np
 
 from src.data import GeneratorConfig, Split, SPLITS, generate_splits
 
+# Paper constructions. Trail-FL uses trail residue γ=0.78; Simple OE is the
+# same generator with γ=0. OE-Strict / Set-MF / sinusoid replace the nuisance
+# channel after generation. Overlay RNG is seed * salt + 1009 * split index.
 
 PAPER = dict(
     grid_size=16,
@@ -27,6 +30,7 @@ SIZES = dict(n_train=8192, n_val_iid=2048, n_iid_test=4096, n_ood_test=4096)
 
 MF_CORE = dict(diffusion_start_step=8, diffusion_steps_between_frames=2, core_noise_std=0.045, core_noise_growth_power=0.0, observation_noise_std=0.01, nuisance_trail_decay=0.0)
 
+# Closed-path column offsets, mod 16: first and last frames coincide.
 OE_STRICT_CUM = np.array([0, 1, 2, 4, 7, 10, 13, 0])
 
 
@@ -107,19 +111,22 @@ def overlay_nuisance(splits: dict[str, Split], overlay: str, seed: int, corr_tra
     return out
 
 
+CONSTRUCTIONS = {
+    "trail_fl": dict(nuisance_trail_decay=0.78),
+    "simple_oe": dict(nuisance_trail_decay=0.0),
+    "oe_strict": dict(nuisance_trail_decay=0.0, overlay="oe_strict"),
+    "set_mf": dict(nuisance_trail_decay=0.0, overlay="set_mf"),
+    "mf_core": dict(**MF_CORE),
+    "oe_core": dict(nuisance_trail_decay=0.0, core_process="directional_pulse"),
+    "oe_core_equalized": dict(nuisance_trail_decay=0.0, core_process="directional_pulse", core_direction_flip_prob=0.03),
+    "sinusoid": dict(nuisance_trail_decay=0.0, overlay="sinusoid"),
+}
+
+
 def make(benchmark: str, seed: int, sizes: dict | None = None, extra: dict | None = None, corr_train: float = 0.97) -> dict[str, Split]:
     extra = extra or {}
     sizes = sizes or SIZES
-    named = {
-        "trail_fl": dict(nuisance_trail_decay=0.78),
-        "simple_oe": dict(nuisance_trail_decay=0.0),
-        "oe_strict": dict(nuisance_trail_decay=0.0, overlay="oe_strict"),
-        "set_mf": dict(nuisance_trail_decay=0.0, overlay="set_mf"),
-        "mf_core": dict(**MF_CORE),
-        "oe_core": dict(nuisance_trail_decay=0.0, core_process="directional_pulse"),
-        "oe_core_equalized": dict(nuisance_trail_decay=0.0, core_process="directional_pulse", core_direction_flip_prob=0.03),
-        "sinusoid": dict(nuisance_trail_decay=0.0, overlay="sinusoid"),
-    }[benchmark]
+    named = {**CONSTRUCTIONS[benchmark]}
     overlay = named.pop("overlay", None)
     if "overlay" in extra:
         overlay = extra["overlay"]
@@ -137,7 +144,7 @@ def graph_setup(name: str = "karate"):
         G = nx.karate_club_graph()
         club = nx.get_node_attributes(G, "club")
         faction = np.array([0 if club[i] == "Mr. Hi" else 1 for i in G.nodes()])
-    else:
+    if name == "lesmis":
         G = nx.convert_node_labels_to_integers(nx.les_miserables_graph())
         fiedler = nx.fiedler_vector(G, weight=None, seed=0)
         faction = (np.asarray(fiedler) > 0).astype(np.int64)

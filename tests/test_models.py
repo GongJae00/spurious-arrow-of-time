@@ -2,6 +2,8 @@ import torch
 
 from src.models import SequenceCNNGRU, build_model
 
+# Main CNN+GRU logits and the model roster.
+
 
 def test_sequence_cnn_gru_logits_shape():
     m = SequenceCNNGRU(grid_size=8, hidden_dim=16, input_channels=2)

@@ -2,6 +2,8 @@ import torch
 
 from src.audit import g6_locality, per_sample_shuffle
 
+# G6 locality classes and the per-sample shuffle used in Table 5.
+
 
 def test_per_sample_shuffle_preserves_multiset():
     x = torch.arange(8).float().view(1, 8, 1, 1, 1).expand(5, 8, 1, 1, 1).contiguous()

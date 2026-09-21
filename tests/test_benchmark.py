@@ -6,6 +6,8 @@ from sklearn.preprocessing import StandardScaler
 from src.benchmark import OE_STRICT_CUM, make, oe_strict_nuisance, overlay_order_pulse, set_mf_nuisance
 from src.data import GeneratorConfig, generate_splits
 
+# OE-Strict closed path, Set-MF parity, endpoint-matched leakage, named make().
+
 
 def _probe_accuracy(x_train, y_train, x_test, y_test) -> float:
     probe = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000, solver="liblinear", random_state=0))

@@ -6,6 +6,10 @@ table5_oe_strict:
   kind: shortcut
   benchmark: oe_strict
   seeds: 30
+  nospurious: false
+  epochs: 40
+  patience: 12
+  probe_seeds: 5
   out: results/main/oe_strict.json
 table5_oe_strict_certify:
   kind: certify
@@ -22,6 +26,9 @@ table5_oe_strict_nospur:
   benchmark: oe_strict
   seeds: 10
   nospurious: true
+  epochs: 100
+  patience: 30
+  probe_seeds: 0
   out: results/main/oe_strict_nospur.json
 table6_trail_fl:
   kind: temporal
@@ -86,6 +93,10 @@ set_mf:
   kind: shortcut
   benchmark: set_mf
   seeds: 10
+  nospurious: false
+  epochs: 40
+  patience: 12
+  probe_seeds: 5
   out: results/main/set_mf.json
 table9_forda:
   kind: ucr
@@ -227,6 +238,10 @@ sinusoid:
   kind: shortcut
   benchmark: sinusoid
   seeds: 10
+  nospurious: false
+  epochs: 40
+  patience: 12
+  probe_seeds: 5
   out: results/ablation/sinusoid.json
 graph_karate:
   kind: graph

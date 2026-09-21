@@ -3,6 +3,10 @@ from dataclasses import dataclass
 import torch
 from torch import nn
 
+# SequenceCNNGRU is the main CNN+GRU. LSTM / TCN / Transformer / temporal pool
+# are Table A4–A5. SegGRU is Table 9. The GRU frame encoder is separate from
+# CNNFrameEncoder so the main-model init order stays the logged one.
+
 
 @dataclass(frozen=True)
 class ModelOutput:
@@ -136,8 +140,7 @@ class SequenceCNNTransformer(nn.Module):
         self.encoder = CNNFrameEncoder(hidden_dim, input_channels)
         self.pos_embedding = nn.Parameter(torch.zeros(1, max_len, hidden_dim))
         nn.init.trunc_normal_(self.pos_embedding, std=0.02)
-        heads = num_heads if hidden_dim % num_heads == 0 else 1
-        layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=heads, dim_feedforward=2 * hidden_dim, dropout=dropout, batch_first=True)
+        layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=num_heads, dim_feedforward=2 * hidden_dim, dropout=dropout, batch_first=True)
         self.transformer = nn.TransformerEncoder(layer, num_layers=max(2, num_layers + 1))
         self.dropout = nn.Dropout(dropout)
         self.classifier = nn.Linear(hidden_dim, 2)

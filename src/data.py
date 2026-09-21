@@ -5,6 +5,9 @@ from pathlib import Path
 
 import numpy as np
 
+# Core: orientation-conditioned diffusion or directional pulse.
+# Nuisance: directional field, trail residue γ, or real-video crops.
+# OOD reverses the nuisance–label correlation; the core–label map is fixed.
 
 SPLITS = ("train", "val_iid", "iid_test", "ood_test")
 
@@ -95,6 +98,7 @@ def generate_split(config: GeneratorConfig, split: str) -> Split:
         core = build_nuisance_sequences(config, core_direction, rng)
     else:
         core = build_core_sequences(config, source_center, source_orientation, rng)
+
     nuisance_direction = sample_nuisance_direction(config, y, split, rng)
     nuisance = build_nuisance_sequences(config, nuisance_direction, rng)
     cf_direction = sample_counterfactual_direction(config, nuisance_direction, rng)

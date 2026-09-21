@@ -1,4 +1,5 @@
 import argparse
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -14,6 +15,8 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
 
 from src.data import GeneratorConfig, generate_splits
 from src.evaluate import MetricStore
+
+# Figures 1–4 and A3. A1/A2 are logged rasters.
 
 
 TEXT = "#1F2933"
@@ -75,6 +78,7 @@ def style_axis(ax):
 
 
 def figure_audit_flow(out: Path):
+    # Figure 2. Algorithm 1 gate diagram.
     fig, ax = plt.subplots(figsize=(4.2, 6.4))
     ax.set_xlim(0, 10)
     ax.set_ylim(1.5, 21)
@@ -110,6 +114,7 @@ def figure_audit_flow(out: Path):
 
 
 def figure_conceptual(out: Path):
+    # Figure 1. Core path vs nuisance shortcut under OOD reversal.
     C_CORE, C_CORE_L = "#2F6F8F", "#E3EEF4"
     C_NUI, C_NUI_L = "#B85C38", "#F8ECE5"
     C_BAD = "#C0392B"
@@ -160,7 +165,7 @@ def figure_conceptual(out: Path):
     ax.plot([0.735, 0.735], [0.03, 0.97], color=PANEL_BORDER, lw=0.8)
     ax.text(0.868, 0.925, "model choice", fontsize=8.8, fontweight="bold", color=TEXT, ha="center")
     flat_node(0.748, 0.44, 0.105, 0.13, "mixed\nsequence", "#43505E", "#EDF0F3")
-    flat_node(0.885, 0.645, 0.098, 0.12, "robust\nOOD", C_CORE, C_CORE_L)
+    flat_node(0.885, 0.645, 0.098, 0.12, "core\nOOD", C_CORE, C_CORE_L)
     flat_node(0.885, 0.21, 0.098, 0.12, "OOD\ncollapse", C_NUI, C_NUI_L)
     flat_arrow((0.867, 0.55), (0.926, 0.628), C_CORE, lw=1.8, rad=0.22)
     flat_arrow((0.867, 0.46), (0.926, 0.352), C_NUI, lw=1.8, rad=-0.22)
@@ -210,8 +215,9 @@ def composite_frame(arr, t, core_vmax, nuisance_vmax):
 
 
 def figure_benchmark(out: Path, config_path: Path):
-    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-    data = raw["data"] if "data" in raw else raw
+    # Figure 3. Core, nuisance, mixed, counterfactual, OOD, and γ=0 nuisance.
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data = raw["data"]
     allowed = set(GeneratorConfig.__dataclass_fields__)
     config = GeneratorConfig(**{k: v for k, v in data.items() if k in allowed})
     config = replace(config, n_train=64, n_val_iid=16, n_iid_test=16, n_ood_test=64, seed=19)
@@ -262,7 +268,7 @@ def figure_benchmark(out: Path, config_path: Path):
 
 
 def figure_temporal(trail_path: Path, oe_path: Path, probe_path: Path, out_a: Path, out_b: Path):
-    import json
+    # Figure 4. Per-frame direction probes and nuisance-only order interventions.
     trail = json.loads(trail_path.read_text(encoding="utf-8"))
     oe = json.loads(oe_path.read_text(encoding="utf-8"))
     probe = json.loads(probe_path.read_text(encoding="utf-8"))
@@ -309,6 +315,7 @@ def figure_temporal(trail_path: Path, oe_path: Path, probe_path: Path, out_a: Pa
 
 
 def figure_scenario_audit(out: Path, store: MetricStore):
+    # Figure A3. OOD accuracy by scenario and method.
     scenarios = ["main_spurious_arrow", "no_spurious_correlation", "residue_visible_control", "ood_randomized", "ood_partial_shift"]
     columns = ["Main\nreversal", "No\nspurious", "Residue\nvisible", "OOD\nrandom", "Partial\nshift"]
     methods = ["sequence_erm", "final_frame_mlp", "nuisance_only_oracle", "counterfactual_invariance"]
@@ -327,7 +334,7 @@ def figure_scenario_audit(out: Path, store: MetricStore):
             color = AUDIT_CMAP(norm(val))
             ax.add_patch(Rectangle((j - 0.5, i - 0.5), 1, 1, facecolor=color, edgecolor="white", linewidth=1.0, zorder=1))
             txt_color = "white" if val >= 0.64 else TEXT
-            tag = "collapse" if val <= 0.20 else "near chance" if 0.40 <= val <= 0.60 else "robust" if val >= 0.80 else "partial"
+            tag = "collapse" if val <= 0.20 else "near chance" if 0.40 <= val <= 0.60 else "core" if val >= 0.80 else "partial"
             ax.text(j, i - 0.08, f"{val:.2f}", ha="center", va="center", fontsize=7.5, fontweight="bold", color=txt_color, zorder=3)
             ax.text(j, i + 0.18, tag, ha="center", va="center", fontsize=5.55, color=("white" if val >= 0.64 else MUTED_TEXT), zorder=3)
     ax.set_xticks(np.arange(len(scenarios)))
@@ -366,7 +373,7 @@ def render(name: str):
         ),
         "fig_a3": lambda: figure_scenario_audit(
             Path("figures/appendix/fig_a3_scenario_audit"),
-            MetricStore(Path("results/ablation/scenario/summary.json"), Path("results/ablation/scenario/metrics.jsonl")),
+            MetricStore(Path("results/ablation/scenario/summary.json")),
         ),
     }
     figures[name]()

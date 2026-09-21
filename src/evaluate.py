@@ -8,6 +8,8 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
+# IID/OOD accuracy, seed aggregates, and the collapse/core/chance regimes.
+
 
 def as_tensor(a: np.ndarray) -> torch.Tensor:
     return torch.from_numpy(np.ascontiguousarray(a.astype(np.float32)))
@@ -37,11 +39,11 @@ def evaluate(model: nn.Module, loader: DataLoader, device: torch.device, has_cou
             total += batch_size
             loss_sum += float(loss.item()) * batch_size
             correct += int((out.logits.argmax(dim=1) == y).sum().item())
-            if has_counterfactual and len(batch) >= 3:
+            if has_counterfactual:
                 cf_correct += int((model(batch[2].to(device)).logits.argmax(dim=1) == y).sum().item())
-    metrics = {"loss": loss_sum / max(total, 1), "accuracy": correct / max(total, 1)}
+    metrics = {"loss": loss_sum / total, "accuracy": correct / total}
     if has_counterfactual:
-        metrics["accuracy_on_x_cf"] = cf_correct / max(total, 1)
+        metrics["accuracy_on_x_cf"] = cf_correct / total
     return metrics
 
 
@@ -68,6 +70,7 @@ def input_gradient_saliency(model: nn.Module, x: torch.Tensor, device: torch.dev
 
 
 def regime(iid: float, ood: float) -> str:
+    # Core: IID and OOD ≥ 0.8. Collapse: IID ≥ 0.8 and OOD ≤ 0.2.
     if iid >= 0.8 and ood >= 0.8:
         return "core"
     if iid >= 0.8 and ood <= 0.2:
@@ -76,7 +79,7 @@ def regime(iid: float, ood: float) -> str:
 
 
 def summarize_results(results: list[dict], primary_scenario: str) -> dict:
-    primary = [r for r in results if r["scenario"] == primary_scenario] or results
+    primary = [r for r in results if r["scenario"] == primary_scenario]
     by_method: dict[str, list] = {}
     for r in primary:
         by_method.setdefault(str(r["method"]), []).append(r)
@@ -117,24 +120,14 @@ class Aggregate:
 
 
 class MetricStore:
-    def __init__(self, summary_path: Path, metrics_path: Path):
+    def __init__(self, summary_path: Path):
         self.summary = json.loads(summary_path.read_text(encoding="utf-8"))
         self.primary_scenario = str(self.summary["primary_scenario"])
-        self.rows = [json.loads(line) for line in metrics_path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
     def aggregate(self, method: str, metric: str, scenario: str | None = None) -> Aggregate:
-        scenario = scenario or self.primary_scenario
+        scenario = self.primary_scenario if scenario is None else scenario
         if scenario == self.primary_scenario and method in self.summary["methods"] and metric in self.summary["methods"][method]:
             source = self.summary["methods"][method][metric]
             return Aggregate(mean=float(source["mean"]), std=float(source["std"]), n=int(source["n"]))
         source = self.summary["scenarios"][scenario][method][metric]
         return Aggregate(mean=float(source["mean"]), std=float(source["std"]), n=int(source["n"]))
-
-    def values(self, method: str, metric: str, scenario: str | None = None) -> np.ndarray:
-        scenario = scenario or self.primary_scenario
-        matched = [row for row in self.rows if row["scenario"] == scenario and row["method"] == method and metric in row]
-        if matched:
-            matched = sorted(matched, key=lambda row: int(row["seed"]))
-            return np.asarray([float(row[metric]) for row in matched], dtype=float)
-        source = self.summary["methods"][method][metric]
-        return np.asarray(source["values"], dtype=float)

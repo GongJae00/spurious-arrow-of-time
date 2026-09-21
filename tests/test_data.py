@@ -7,6 +7,8 @@ from sklearn.preprocessing import StandardScaler
 
 from src.data import GeneratorConfig, generate_splits
 
+# Generator shapes, split RNG, OOD reversal, two-channel layout, counterfactual.
+
 
 def _probe_accuracy(x_train, y_train, x_test, y_test) -> float:
     probe = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000, solver="liblinear", random_state=0))

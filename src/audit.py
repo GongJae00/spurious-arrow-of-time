@@ -7,6 +7,10 @@ from src.data import Split
 from src.evaluate import as_tensor
 from src.train import train_sequence, eval_sequence
 
+# Algorithm 1. G1 core learnable, G2 nuisance predictive, G3 endpoint,
+# G4 no-spurious recovery at certification budget 100/30, G5 reversal
+# signature, G6 cue locality (frame-local / set / order-encoded).
+
 
 def train_mlp_probe(xtr, ytr, xte_list, seed: int, device, epochs: int = 40):
     mean, std = xtr.mean(), xtr.std().clamp_min(1e-6)
@@ -48,6 +52,7 @@ def probe(xtr, ttr, xte, tte, device, epochs=30):
 
 
 def per_frame_probes(splits: dict[str, Split], seed: int, device, field: str = "mixed"):
+    # G6 single-frame probes: label and direction from frame t.
     L = getattr(splits["train"], field).shape[1]
     out = {"frame": list(range(L)), "label_iid": [], "label_ood": [], "dir_iid": [], "dir_ood": [], "core_label_iid": [], "core_label_ood": []}
     tr, it, ot = splits["train"], splits["iid_test"], splits["ood_test"]
@@ -101,6 +106,7 @@ def summary_probes(splits: dict[str, Split], seed: int, device):
 
 
 def order_tests(splits: dict[str, Split], seed: int, device):
+    # G5 mixed ERM, then shuffle / reverse at test; also train-on-shuffled.
     tr, va, it, ot = splits["train"], splits["val_iid"], splits["iid_test"], splits["ood_test"]
     xtr, xva = as_tensor(tr.mixed), as_tensor(va.mixed)
     ytr, yva = torch.from_numpy(tr.y), torch.from_numpy(va.y)
@@ -151,6 +157,7 @@ class SetProbe(nn.Module):
 
 
 def set_probe_direction(splits: dict[str, Split], seed: int, device, epochs: int = 40):
+    # G6 permutation-invariant set probe on the nuisance channel.
     tr, it = splits["train"], splits["iid_test"]
 
     def prep(sp):
@@ -256,6 +263,7 @@ def nuisance_order(splits: dict[str, Split], seed: int, device):
 
 
 def g6_locality(single_frame: float, set_acc: float, ordered: float, shuffled: float, route_a: bool) -> str:
+    # Cutoffs 0.8 / 0.6 are the paper's G6 rule.
     if single_frame >= 0.8:
         return "frame-local"
     if set_acc >= 0.8:
@@ -267,16 +275,25 @@ def g6_locality(single_frame: float, set_acc: float, ordered: float, shuffled: f
 
 def run_audit(splits: dict[str, Split], seed: int, device, route_a: bool = False, nospur_splits: dict[str, Split] | None = None) -> dict:
     tr, va, it, ot = (splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
+
     def seq(sp, key):
         a = np.asarray(getattr(sp, key))
         if a.ndim == 4:
             a = a[:, :, None]
         return as_tensor(a)
+
+    # G1: core-only sequence ERM.
     core = train_sequence(seq(tr, "core_only"), torch.from_numpy(tr.y), seq(va, "core_only"), torch.from_numpy(va.y), seed * 31 + 1, device)
     g1 = eval_sequence(core, seq(it, "core_only"), torch.from_numpy(it.y), device)
+
+    # G2: nuisance-only sequence ERM.
     nuis = train_sequence(seq(tr, "nuisance_only"), torch.from_numpy(tr.y), seq(va, "nuisance_only"), torch.from_numpy(va.y), seed * 31 + 2, device)
     g2 = eval_sequence(nuis, seq(it, "nuisance_only"), torch.from_numpy(it.y), device)
+
+    # G3: final-frame direction. Endpoint-matched constructions stay near chance.
     g3 = final_frame_direction_accuracy(splits, seed, device)
+
+    # G4: mixed ERM on a no-spurious draw, certification budget 100/30.
     g4 = None
     if nospur_splits is not None:
         ntr, nva, nit, not_sp = (nospur_splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
@@ -285,10 +302,15 @@ def run_audit(splits: dict[str, Split], seed: int, device, route_a: bool = False
             "iid": eval_sequence(rec, seq(nit, "mixed"), torch.from_numpy(nit.y), device),
             "ood": eval_sequence(rec, seq(not_sp, "mixed"), torch.from_numpy(not_sp.y), device),
         }
+
     frames = per_frame_probes(splits, seed, device)
     single = max(frames["dir_iid"])
     set_acc = set_probe_direction(splits, seed, device)
+
+    # G5: mixed ERM under order interventions (shuffle, reverse).
     order = order_tests(splits, seed, device)
+
+    # G6: locality from single-frame, permutation-invariant set, and ordered readout.
     locality = g6_locality(single, set_acc, order["erm_iid"], order["erm_iid_shuffled"], route_a)
     return {
         "g1_core": g1,
