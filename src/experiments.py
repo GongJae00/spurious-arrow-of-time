@@ -216,10 +216,12 @@ def run_temporal(spec: dict, default: dict) -> dict:
     per_frame_runs, summary_runs, order_runs = [], [], []
     n = int(spec["seeds"])
     for s in range(n):
-        out = Audit(make(spec["benchmark"], s), s, device).gate6()
+        a = Audit(make(spec["benchmark"], s), s, device)
+        order = a.gate5()
+        out = a.gate6(order)
         per_frame_runs.append(out["per_frame"])
         summary_runs.append(out["summary"])
-        order_runs.append(out["order"])
+        order_runs.append(order)
     L = len(per_frame_runs[0]["dir_iid"])
     result = {
         "per_frame": {k: [aggregate([r[k][t] for r in per_frame_runs]) for t in range(L)] for k in ["label_iid", "label_ood", "dir_iid", "dir_ood", "core_label_iid", "core_label_ood"]},
@@ -239,7 +241,7 @@ def run_strict_order(spec: dict, default: dict) -> dict:
         for s in range(int(spec["seeds"])):
             a = Audit(make(bench, s), s, device)
             ch_runs.append(a.channel_probes())
-            set_runs.append(a.gate6()["set"])
+            set_runs.append(a.gate6(a.gate5())["set"])
             if name == "simple_oe":
                 erm_runs.append(a.mixed_channel())
         L = len(ch_runs[0]["dir_nuis_only"])

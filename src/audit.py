@@ -163,8 +163,8 @@ class Audit:
         res["shuftrain_ood_ordered"] = eval_sequence(sh, xot, yot, device)
         return res
 
-    def gate6(self) -> dict:
-        # Gate 6. Cue locality.
+    def gate6(self, order) -> dict:
+        # Gate 6. Cue locality. `order` is Gate 5.
         tr, it, ot = self.splits["train"], self.splits["iid_test"], self.splits["ood_test"]
         seed, device = self.seed, self.device
         ytr, yit, yot = map(lambda s: torch.from_numpy(s.y), (tr, it, ot))
@@ -240,7 +240,6 @@ class Audit:
             set_acc = float((net(xit).argmax(1) == dit_d).float().mean().item())
 
         # Ordered readout: Gate 5 shuffle and reverse.
-        order = self.gate5()
         single = max(frames["dir_iid"])
 
         # frame-local
@@ -264,7 +263,6 @@ class Audit:
             "summary": summary,
             "set": set_acc,
             "locality": loc,
-            "order": order,
         }
 
     def channel_probes(self) -> dict:
@@ -322,19 +320,18 @@ class Audit:
         }
 
     def run(self) -> dict:
-        # Algorithm 1. Gate 6 includes Gate 5 ordered readout.
+        # Algorithm 1.
         gate1 = self.gate1()
         gate2 = self.gate2()
         gate3 = self.gate3()
         gate4 = self.gate4()
-        out = self.gate6()
+        gate5 = self.gate5()
+        gate6 = self.gate6(gate5)
         return {
             "gate1": gate1,
             "gate2": gate2,
             "gate3": gate3,
             "gate4": gate4,
-            "gate5": out["order"],
-            "gate6": out["locality"],
-            "per_frame": out["per_frame"],
-            "order": out["order"],
+            "gate5": gate5,
+            "gate6": gate6,
         }
