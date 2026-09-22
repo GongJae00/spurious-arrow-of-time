@@ -151,57 +151,57 @@ def graph_setup(name: str = "karate"):
         G = nx.convert_node_labels_to_integers(nx.les_miserables_graph())
         fiedler = nx.fiedler_vector(G, weight=None, seed=0)
         faction = (np.asarray(fiedler) > 0).astype(np.int64)
-    n = G.number_of_nodes()
-    A = nx.to_numpy_array(G, weight=None)
-    P = A / np.clip(A.sum(1, keepdims=True), 1, None)
-    order = np.argsort([-G.degree(i) for i in range(n)])
-    return P.astype(np.float32), faction, order, n
+    n_nodes = G.number_of_nodes()
+    adjacency = nx.to_numpy_array(G, weight=None)
+    transition = adjacency / np.clip(adjacency.sum(1, keepdims=True), 1, None)
+    order = np.argsort([-G.degree(i) for i in range(n_nodes)])
+    return transition.astype(np.float32), faction, order, n_nodes
 
 
-def graph_split(P, faction, order, n_nodes, n, split_seed, mode, length=8, alpha=0.22, steps_between=4, diff_start=0, core_noise=0.006, obs_noise=0.04, nu_sigma=1.15, nu_speed=2.0, corr=0.97):
+def graph_split(transition, faction, order, n_nodes, n, split_seed, mode, length=8, diffusion_alpha=0.22, steps_between=4, diffusion_start=0, core_noise_std=0.006, observation_noise=0.04, nuisance_sigma=1.15, nuisance_speed=2.0, alignment=0.97):
     # Table A11. Graph diffusion core, directional nuisance on the node order.
     rng = np.random.default_rng(split_seed)
     y = np.zeros(n, dtype=np.int64)
     y[n // 2 :] = 1
     rng.shuffle(y)
     core = np.zeros((n, length, n_nodes), dtype=np.float32)
-    nodes_by_f = [np.where(faction == f)[0] for f in (0, 1)]
-    src = np.array([rng.choice(nodes_by_f[label]) for label in y])
+    nodes_by_faction = [np.where(faction == faction_id)[0] for faction_id in (0, 1)]
+    source = np.array([rng.choice(nodes_by_faction[label]) for label in y])
     state = np.zeros((n, n_nodes), dtype=np.float32)
-    state[np.arange(n), src] = 1.0
-    for _ in range(diff_start):
-        state = (1 - alpha) * state + alpha * (state @ P.T)
+    state[np.arange(n), source] = 1.0
+    for _ in range(diffusion_start):
+        state = (1 - diffusion_alpha) * state + diffusion_alpha * (state @ transition.T)
     k = 0
     for step in range(length * steps_between):
         if step % steps_between == 0:
             core[:, k] = state
             k += 1
-        state = (1 - alpha) * state + alpha * (state @ P.T)
-    core += rng.normal(0, core_noise, core.shape).astype(np.float32)
+        state = (1 - diffusion_alpha) * state + diffusion_alpha * (state @ transition.T)
+    core += rng.normal(0, core_noise_std, core.shape).astype(np.float32)
     randomized = mode.startswith("ns_")
     base_mode = mode.replace("ns_", "")
     if randomized:
-        p_align = 0.5
+        alignment_probability = 0.5
     elif base_mode == "ood":
-        p_align = 1 - corr
+        alignment_probability = 1 - alignment
     else:
-        p_align = corr
-    aligned = rng.random(n) < p_align
+        alignment_probability = alignment
+    aligned = rng.random(n) < alignment_probability
     base = np.where(y == 1, 1, -1)
     direction = np.where(aligned, base, -base).astype(np.int64)
     inv_order = np.empty(n_nodes, dtype=np.int64)
     inv_order[order] = np.arange(n_nodes)
     coord = inv_order.astype(np.float32)
     final = rng.uniform(0, n_nodes, size=n).astype(np.float32)
-    phase = (final - direction * nu_speed * (length - 1)) % n_nodes
+    phase = (final - direction * nuisance_speed * (length - 1)) % n_nodes
     nuisance = np.zeros((n, length, n_nodes), dtype=np.float32)
     for t in range(length):
-        c = (phase + direction * nu_speed * t) % n_nodes
-        dist = np.abs(coord[None, :] - c[:, None])
+        column = (phase + direction * nuisance_speed * t) % n_nodes
+        dist = np.abs(coord[None, :] - column[:, None])
         dist = np.minimum(dist, n_nodes - dist)
-        nuisance[:, t] = np.exp(-0.5 * (dist / nu_sigma) ** 2)
+        nuisance[:, t] = np.exp(-0.5 * (dist / nuisance_sigma) ** 2)
     mixed = np.stack([core, 1.2 * nuisance], axis=2)[:, :, :, None, :]
-    mixed = mixed + rng.normal(0, obs_noise, mixed.shape).astype(np.float32)
+    mixed = mixed + rng.normal(0, observation_noise, mixed.shape).astype(np.float32)
     return dict(
         mixed=mixed.astype(np.float32),
         core=core[:, :, None, None, :].astype(np.float32),
