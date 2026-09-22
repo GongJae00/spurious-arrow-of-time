@@ -103,7 +103,7 @@ def train_sequence(x_train, y_train, x_val, y_val, seed, device, shuffle_frames=
     np.random.seed(seed)
     channels = 1 if x_train.ndim == 4 else int(x_train.shape[2])
     model = build_model(model_type, grid_size=grid_size, hidden_dim=64, num_layers=1, dropout=0.0, input_channels=channels).to(device)
-    opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
     best_acc, best_state, bad = -1.0, None, 0
     x_val_device, y_val_device = x_val.to(device), y_val.to(device)
     for _ in range(epochs):
@@ -114,10 +114,10 @@ def train_sequence(x_train, y_train, x_val, y_val, seed, device, shuffle_frames=
             batch = x_train[idx].to(device)
             if shuffle_frames:
                 batch = batch[:, torch.randperm(batch.shape[1], device=device)]
-            opt.zero_grad(set_to_none=True)
+            optimizer.zero_grad(set_to_none=True)
             F.cross_entropy(model(batch).logits, y_train[idx].to(device)).backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            opt.step()
+            optimizer.step()
         model.eval()
         with torch.no_grad():
             x_eval = x_val_device[:, torch.randperm(x_val_device.shape[1], device=device)] if shuffle_frames else x_val_device
@@ -215,7 +215,7 @@ def train_one_method(method: str, splits: dict[str, Split], dataset_config: Gene
             if uses_group:
                 group = batch[-1].to(device)
                 sample_loss = F.cross_entropy(out.logits, y, reduction="none")
-                group_losses = [sample_loss[group == gid].mean() for gid in torch.unique(group)]
+                group_losses = [sample_loss[group == group_id].mean() for group_id in torch.unique(group)]
                 task_loss = torch.stack(group_losses).mean()
             else:
                 # ERM
@@ -267,13 +267,13 @@ def train_one_method(method: str, splits: dict[str, Split], dataset_config: Gene
 class GradReverse(torch.autograd.Function):
     # Table A6. DANN reverses the direction-adversary gradient.
     @staticmethod
-    def forward(ctx, x, lam):
-        ctx.lam = lam
+    def forward(ctx, x, scale):
+        ctx.scale = scale
         return x.view_as(x)
 
     @staticmethod
-    def backward(ctx, g):
-        return -ctx.lam * g, None
+    def backward(ctx, grad):
+        return -ctx.scale * grad, None
 
 
 def frame_shuffle(batch: torch.Tensor) -> torch.Tensor:
@@ -293,7 +293,7 @@ def tensors(split: Split, mean: float, std: float):
     )
 
 
-def train_robust(method: str, splits: dict[str, Split], seed: int, device: torch.device, epochs=40, patience=12, lr=1e-3, wd=1e-4, bs=128, eta=0.01, balanced_sampler=False):
+def train_robust(method: str, splits: dict[str, Split], seed: int, device: torch.device, epochs=40, patience=12, lr=1e-3, weight_decay=1e-4, batch_size=128, eta=0.01, balanced_sampler=False):
     # Table A6. GroupDRO / DANN / JTT / frame-rand. GroupDRO uses (y, direction) groups.
     mean = float(np.asarray(splits["train"].mixed).mean())
     std = float(np.asarray(splits["train"].mixed).std()) or 1.0
@@ -303,27 +303,27 @@ def train_robust(method: str, splits: dict[str, Split], seed: int, device: torch
     x_ood, y_ood, _ = tensors(splits["ood_test"], mean, std)
     torch.manual_seed(seed * 31 + 11)
     model = build_model("sequence_cnn_gru", grid_size=splits["train"].core_only.shape[-1], hidden_dim=64, input_channels=infer_input_channels(np.asarray(splits["train"].mixed))).to(device)
-    opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
-    adv = adv_opt = None
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    adversary = adversary_optimizer = None
     if method == "dann_dir":
         torch.manual_seed(seed * 31 + 12)
-        adv = nn.Sequential(nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
-        adv_opt = torch.optim.AdamW(adv.parameters(), lr=lr, weight_decay=wd)
+        adversary = nn.Sequential(nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
+        adversary_optimizer = torch.optim.AdamW(adversary.parameters(), lr=lr, weight_decay=weight_decay)
     group = y_train * 2 + d_train
     group_weight = torch.ones(4, device=device) / 4
-    index_by_group = [torch.where(group == g)[0] for g in range(4)]
+    index_by_group = [torch.where(group == group_id)[0] for group_id in range(4)]
     sample_w = torch.ones(len(y_train))
     if method == "jtt":
         torch.manual_seed(seed * 31 + 13)
         stage1 = build_model("sequence_cnn_gru", grid_size=splits["train"].core_only.shape[-1], hidden_dim=64, input_channels=infer_input_channels(np.asarray(splits["train"].mixed))).to(device)
-        stage1_opt = torch.optim.AdamW(stage1.parameters(), lr=lr, weight_decay=wd)
+        stage1_optimizer = torch.optim.AdamW(stage1.parameters(), lr=lr, weight_decay=weight_decay)
         for _ in range(5):
             perm = torch.randperm(len(x_train))
-            for i in range(0, len(x_train), bs):
-                idx = perm[i : i + bs]
-                stage1_opt.zero_grad(set_to_none=True)
+            for i in range(0, len(x_train), batch_size):
+                idx = perm[i : i + batch_size]
+                stage1_optimizer.zero_grad(set_to_none=True)
                 F.cross_entropy(stage1(x_train[idx].to(device)).logits, y_train[idx].to(device)).backward()
-                stage1_opt.step()
+                stage1_optimizer.step()
         stage1.eval()
         with torch.no_grad():
             errs = [stage1(x_train[i : i + 512].to(device)).logits.argmax(1).cpu() != y_train[i : i + 512] for i in range(0, len(x_train), 512)]
@@ -331,37 +331,37 @@ def train_robust(method: str, splits: dict[str, Split], seed: int, device: torch
         del stage1
     generator = torch.Generator().manual_seed(seed * 5 + 1)
     best_acc, best_state, bad = -1.0, None, 0
-    n_batches = len(x_train) // bs
+    n_batches = len(x_train) // batch_size
     for epoch in range(epochs):
         model.train()
-        lam_adv = 2.0 / (1.0 + np.exp(-10 * epoch / epochs)) - 1.0
+        adversary_scale = 2.0 / (1.0 + np.exp(-10 * epoch / epochs)) - 1.0
         perm = torch.randperm(len(x_train), generator=generator)
         for b in range(n_batches):
             if method.startswith("groupdro") and balanced_sampler:
-                per_g = bs // 4
+                per_g = batch_size // 4
                 idx = torch.cat([ig[torch.randint(len(ig), (per_g,), generator=generator)] for ig in index_by_group])
             else:
-                idx = perm[b * bs : (b + 1) * bs]
+                idx = perm[b * batch_size : (b + 1) * batch_size]
             batch_x, batch_y = x_train[idx].to(device), y_train[idx].to(device)
             if method == "frame_rand":
                 batch_x = frame_shuffle(batch_x)
-            opt.zero_grad(set_to_none=True)
+            optimizer.zero_grad(set_to_none=True)
             out = model(batch_x)
             if method.startswith("groupdro"):
                 group_batch = group[idx].to(device)
                 per_sample = F.cross_entropy(out.logits, batch_y, reduction="none")
                 losses = torch.zeros(4, device=device)
-                for g in range(4):
-                    m = group_batch == g
+                for group_id in range(4):
+                    m = group_batch == group_id
                     if m.any():
-                        losses[g] = per_sample[m].mean()
+                        losses[group_id] = per_sample[m].mean()
                 with torch.no_grad():
                     updated_weight = group_weight * torch.exp(eta * losses)
                     group_weight.copy_(updated_weight / updated_weight.sum())
                 loss = (group_weight * losses).sum()
             elif method == "dann_dir":
-                adv_opt.zero_grad(set_to_none=True)
-                loss = F.cross_entropy(out.logits, batch_y) + F.cross_entropy(adv(GradReverse.apply(out.representation, lam_adv)), d_train[idx].to(device))
+                adversary_optimizer.zero_grad(set_to_none=True)
+                loss = F.cross_entropy(out.logits, batch_y) + F.cross_entropy(adversary(GradReverse.apply(out.representation, adversary_scale)), d_train[idx].to(device))
             elif method == "jtt":
                 sample_weight = sample_w[idx].to(device)
                 per_sample = F.cross_entropy(out.logits, batch_y, reduction="none")
@@ -370,9 +370,9 @@ def train_robust(method: str, splits: dict[str, Split], seed: int, device: torch
                 loss = F.cross_entropy(out.logits, batch_y)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            opt.step()
-            if adv_opt is not None:
-                adv_opt.step()
+            optimizer.step()
+            if adversary_optimizer is not None:
+                adversary_optimizer.step()
         model.eval()
         acc = accuracy(model, x_val, y_val, device)
         if acc > best_acc:
@@ -395,7 +395,7 @@ def shifted_val(seed: int, mean: float, std: float):
     return torch.from_numpy(x.astype(np.float32)), torch.from_numpy(split.y)
 
 
-def train_dual(method: str, arch_key: str, seed: int, splits: dict[str, Split], device: torch.device, epochs=40, lr=1e-3, wd=1e-4, bs=128):
+def train_dual(method: str, arch_key: str, seed: int, splits: dict[str, Split], device: torch.device, epochs=40, lr=1e-3, weight_decay=1e-4, batch_size=128):
     # Table A6. One run, two selection rules (sel_iid, sel_shift).
     mean = float(np.asarray(splits["train"].mixed).mean())
     std = float(np.asarray(splits["train"].mixed).std()) or 1.0
@@ -406,26 +406,26 @@ def train_dual(method: str, arch_key: str, seed: int, splits: dict[str, Split], 
     x_shift, y_shift = shifted_val(seed, mean, std)
     torch.manual_seed(seed)
     model = build_model(ARCHS[arch_key], grid_size=16, hidden_dim=64, num_layers=1, dropout=0.0, input_channels=2).to(device)
-    opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
-    adv = adv_opt = None
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    adversary = adversary_optimizer = None
     if method == "dann_dir":
         torch.manual_seed(seed * 31 + 12)
-        adv = nn.Sequential(nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
-        adv_opt = torch.optim.AdamW(adv.parameters(), lr=lr, weight_decay=wd)
+        adversary = nn.Sequential(nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
+        adversary_optimizer = torch.optim.AdamW(adversary.parameters(), lr=lr, weight_decay=weight_decay)
     group = y_train * 2 + d_train
     group_weight = torch.ones(4, device=device) / 4
     sample_w = torch.ones(len(y_train))
     if method == "jtt":
         torch.manual_seed(seed + 10007)
         stage1 = build_model(ARCHS[arch_key], grid_size=16, hidden_dim=64, input_channels=2).to(device)
-        stage1_opt = torch.optim.AdamW(stage1.parameters(), lr=lr, weight_decay=wd)
+        stage1_optimizer = torch.optim.AdamW(stage1.parameters(), lr=lr, weight_decay=weight_decay)
         for _ in range(5):
             perm = torch.randperm(len(x_train))
-            for i in range(0, len(x_train), bs):
-                idx = perm[i : i + bs]
-                stage1_opt.zero_grad(set_to_none=True)
+            for i in range(0, len(x_train), batch_size):
+                idx = perm[i : i + batch_size]
+                stage1_optimizer.zero_grad(set_to_none=True)
                 F.cross_entropy(stage1(x_train[idx].to(device)).logits, y_train[idx].to(device)).backward()
-                stage1_opt.step()
+                stage1_optimizer.step()
         stage1.eval()
         with torch.no_grad():
             errs = [stage1(x_train[i : i + 512].to(device)).logits.argmax(1).cpu() != y_train[i : i + 512] for i in range(0, len(x_train), 512)]
@@ -448,50 +448,50 @@ def train_dual(method: str, arch_key: str, seed: int, splits: dict[str, Split], 
     best = {"sel_iid": (-1.0, None), "sel_shift": (-1.0, None)}
     for epoch in range(epochs):
         model.train()
-        lam_adv = 2.0 / (1.0 + np.exp(-10 * epoch / epochs)) - 1.0
+        adversary_scale = 2.0 / (1.0 + np.exp(-10 * epoch / epochs)) - 1.0
         if method == "irmv1":
-            lam = 1.0 if epoch < 5 else 1000.0
+            irm_penalty = 1.0 if epoch < 5 else 1000.0
             perms = [torch.randperm(len(x)) for x in env_x]
-            for b in range(min(len(x) for x in env_x) // bs):
-                opt.zero_grad(set_to_none=True)
+            for b in range(min(len(x) for x in env_x) // batch_size):
+                optimizer.zero_grad(set_to_none=True)
                 total = 0.0
                 for e in range(2):
-                    idx = perms[e][b * bs : (b + 1) * bs]
+                    idx = perms[e][b * batch_size : (b + 1) * batch_size]
                     batch_x, batch_y = env_x[e][idx].to(device), env_y[e][idx].to(device)
                     w = torch.ones(1, device=device, requires_grad=True)
                     risk = F.cross_entropy(model(batch_x).logits * w, batch_y)
-                    g = torch.autograd.grad(risk, w, create_graph=True)[0]
-                    total = total + risk + lam * (g ** 2).sum()
+                    grad = torch.autograd.grad(risk, w, create_graph=True)[0]
+                    total = total + risk + irm_penalty * (grad ** 2).sum()
                 loss = total / 2
-                if lam > 1:
-                    loss = loss / lam
+                if irm_penalty > 1:
+                    loss = loss / irm_penalty
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                opt.step()
+                optimizer.step()
         else:
             perm = torch.randperm(len(x_train))
-            for i in range(0, len(x_train), bs):
-                idx = perm[i : i + bs]
+            for i in range(0, len(x_train), batch_size):
+                idx = perm[i : i + batch_size]
                 batch_x, batch_y = x_train[idx].to(device), y_train[idx].to(device)
                 if method == "frame_rand":
                     batch_x = frame_shuffle(batch_x)
-                opt.zero_grad(set_to_none=True)
+                optimizer.zero_grad(set_to_none=True)
                 out = model(batch_x)
                 if method == "groupdro_joint":
                     group_batch = group[idx].to(device)
                     per_sample = F.cross_entropy(out.logits, batch_y, reduction="none")
                     losses = torch.zeros(4, device=device)
-                    for g in range(4):
-                        msk = group_batch == g
+                    for group_id in range(4):
+                        msk = group_batch == group_id
                         if msk.any():
-                            losses[g] = per_sample[msk].mean()
+                            losses[group_id] = per_sample[msk].mean()
                     with torch.no_grad():
                         updated_weight = group_weight * torch.exp(0.01 * losses)
                         group_weight.copy_(updated_weight / updated_weight.sum())
                     loss = (group_weight * losses).sum()
                 elif method == "dann_dir":
-                    adv_opt.zero_grad(set_to_none=True)
-                    loss = F.cross_entropy(out.logits, batch_y) + F.cross_entropy(adv(GradReverse.apply(out.representation, lam_adv)), d_train[idx].to(device))
+                    adversary_optimizer.zero_grad(set_to_none=True)
+                    loss = F.cross_entropy(out.logits, batch_y) + F.cross_entropy(adversary(GradReverse.apply(out.representation, adversary_scale)), d_train[idx].to(device))
                 elif method == "jtt":
                     sample_weight = sample_w[idx].to(device)
                     per_sample = F.cross_entropy(out.logits, batch_y, reduction="none")
@@ -500,9 +500,9 @@ def train_dual(method: str, arch_key: str, seed: int, splits: dict[str, Split], 
                     loss = F.cross_entropy(out.logits, batch_y)
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                opt.step()
-                if adv_opt is not None:
-                    adv_opt.step()
+                optimizer.step()
+                if adversary_optimizer is not None:
+                    adversary_optimizer.step()
         model.eval()
         for sel, (xv, yv) in [("sel_iid", (x_val, y_val)), ("sel_shift", (x_shift, y_shift))]:
             acc = accuracy(model, xv, yv, device)
@@ -517,7 +517,7 @@ def train_dual(method: str, arch_key: str, seed: int, splits: dict[str, Split], 
     return out
 
 
-def train_irm(splits0: dict[str, Split], splits1: dict[str, Split], seed: int, device: torch.device, epochs=40, patience=12, irm_lambda=1000.0, bs=128, lr=1e-3, wd=1e-4):
+def train_irm(splits0: dict[str, Split], splits1: dict[str, Split], seed: int, device: torch.device, epochs=40, patience=12, irm_lambda=1000.0, batch_size=128, lr=1e-3, weight_decay=1e-4):
     # Table A6. IRMv1 on two Simple-OE environments (ρ=0.97 and ρ=0.85).
     both_train = np.concatenate([np.asarray(splits0["train"].mixed), np.asarray(splits1["train"].mixed)])
     mean, std = float(both_train.mean()), float(both_train.std()) or 1.0
@@ -531,29 +531,29 @@ def train_irm(splits0: dict[str, Split], splits1: dict[str, Split], seed: int, d
     x_ood, y_ood, _ = tensors(splits0["ood_test"], mean, std)
     torch.manual_seed(seed * 31 + 14)
     model = build_model("sequence_cnn_gru", grid_size=splits0["train"].core_only.shape[-1], hidden_dim=64, input_channels=infer_input_channels(np.asarray(splits0["train"].mixed))).to(device)
-    opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     best_acc, best_state, bad = -1.0, None, 0
     for epoch in range(epochs):
         model.train()
-        lam = 1.0 if epoch < 5 else irm_lambda
+        irm_penalty = 1.0 if epoch < 5 else irm_lambda
         perms = [torch.randperm(len(x)) for x in env_x]
-        n_batches = min(len(x) for x in env_x) // bs
+        n_batches = min(len(x) for x in env_x) // batch_size
         for b in range(n_batches):
-            opt.zero_grad(set_to_none=True)
+            optimizer.zero_grad(set_to_none=True)
             total = 0.0
             for e in range(2):
-                idx = perms[e][b * bs : (b + 1) * bs]
+                idx = perms[e][b * batch_size : (b + 1) * batch_size]
                 batch_x, batch_y = env_x[e][idx].to(device), env_y[e][idx].to(device)
                 w = torch.ones(1, device=device, requires_grad=True)
                 risk = F.cross_entropy(model(batch_x).logits * w, batch_y)
                 grad = torch.autograd.grad(risk, w, create_graph=True)[0]
-                total = total + risk + lam * (grad ** 2).sum()
+                total = total + risk + irm_penalty * (grad ** 2).sum()
             loss = total / 2
-            if lam > 1:
-                loss = loss / lam
+            if irm_penalty > 1:
+                loss = loss / irm_penalty
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            opt.step()
+            optimizer.step()
         model.eval()
         acc = accuracy(model, x_val, y_val, device)
         if acc > best_acc:

@@ -406,7 +406,7 @@ def run_ucr(spec: dict, default: dict) -> dict:
         def fit(channels, mode):
             torch.manual_seed(seed)
             model = SegGRU(channels).to(device)
-            opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
+            optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
             x_train, y_train, _ = tensors("train", mode)
             x_val, y_val, _ = tensors("val", mode)
             best, state, bad = -1, None, 0
@@ -415,9 +415,9 @@ def run_ucr(spec: dict, default: dict) -> dict:
                 perm = torch.randperm(len(x_train))
                 for i in range(0, len(x_train), 128):
                     j = perm[i:i + 128]
-                    opt.zero_grad(set_to_none=True)
+                    optimizer.zero_grad(set_to_none=True)
                     F.cross_entropy(model(x_train[j].to(device)).logits, y_train[j].to(device)).backward()
-                    opt.step()
+                    optimizer.step()
                 model.eval()
                 with torch.no_grad():
                     acc = (model(x_val.to(device)).logits.argmax(1).cpu() == y_val).float().mean().item()
@@ -437,8 +437,8 @@ def run_ucr(spec: dict, default: dict) -> dict:
         row = {}
         model = fit(1, "core")
         row["core_only"] = [accuracy_of(model, *tensors("iid", "core")[:2]), accuracy_of(model, *tensors("ood", "core")[:2])]
-        model = fit(1, "nu")
-        row["nuisance_only"] = [accuracy_of(model, *tensors("iid", "nu")[:2]), accuracy_of(model, *tensors("ood", "nu")[:2])]
+        model = fit(1, "nuisance")
+        row["nuisance_only"] = [accuracy_of(model, *tensors("iid", "nuisance")[:2]), accuracy_of(model, *tensors("ood", "nuisance")[:2])]
         erm = fit(2, "mixed")
         x_iid, y_iid, _ = tensors("iid", "mixed")
         x_ood, y_ood, _ = tensors("ood", "mixed")
@@ -466,20 +466,20 @@ def run_ucr(spec: dict, default: dict) -> dict:
         def linear_probe(x, t, target):
             frame = x[:, :, :] if t is None else x[:, t]
             probe_model = nn.Sequential(nn.Linear(frame.reshape(len(frame), -1).shape[1], 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
-            opt = torch.optim.AdamW(probe_model.parameters(), lr=1e-3)
+            optimizer = torch.optim.AdamW(probe_model.parameters(), lr=1e-3)
             x_train = frame.reshape(len(frame), -1)
             for _ in range(30):
                 perm = torch.randperm(len(x_train))
                 for i in range(0, len(x_train), 256):
                     j = perm[i : i + 256]
-                    opt.zero_grad(set_to_none=True)
+                    optimizer.zero_grad(set_to_none=True)
                     F.cross_entropy(probe_model(x_train[j].to(device)), target[j].to(device)).backward()
-                    opt.step()
+                    optimizer.step()
             probe_model.eval()
             return probe_model
 
-        nuisance_train, _, d_train = tensors("train", "nu")
-        nuisance_iid, _, d_iid = tensors("iid", "nu")
+        nuisance_train, _, d_train = tensors("train", "nuisance")
+        nuisance_iid, _, d_iid = tensors("iid", "nuisance")
         best_single = 0.0
         for t in range(length):
             probe_model = linear_probe(nuisance_train, t, d_train)
@@ -530,16 +530,16 @@ def run_graph(spec: dict, default: dict) -> dict:
                 y_train = torch.from_numpy(train["y"]).to(device)
                 x_val = torch.from_numpy(norm(val[key])).to(device)
                 y_val = torch.from_numpy(val["y"]).to(device)
-                opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
+                optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
                 best, best_state, stale = -1, None, 0
                 for _ in range(40):
                     model.train()
                     perm = torch.randperm(len(x_train), device=device)
                     for i in range(0, len(x_train), 128):
                         idx = perm[i:i + 128]
-                        opt.zero_grad(set_to_none=True)
+                        optimizer.zero_grad(set_to_none=True)
                         torch.nn.functional.cross_entropy(model(x_train[idx]).logits, y_train[idx]).backward()
-                        opt.step()
+                        optimizer.step()
                     model.eval()
                     with torch.no_grad():
                         acc = float((model(x_val).logits.argmax(1) == y_val).float().mean())
@@ -615,7 +615,7 @@ def run_accessibility(spec: dict, default: dict) -> dict:
                 y = lambda name: torch.from_numpy(splits[name].y)
                 torch.manual_seed(seed * 31 + 7)
                 model = build_model("sequence_cnn_gru", grid_size=16, hidden_dim=64).to(device)
-                opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
+                optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
                 crit, hit, best, best_state = 0.95 * ceiling, None, -1.0, None
                 x_train, x_val, y_train, y_val = x("train"), x("val_iid"), y("train"), y("val_iid")
                 for epoch in range(1, 101):
@@ -623,9 +623,9 @@ def run_accessibility(spec: dict, default: dict) -> dict:
                     perm = torch.randperm(len(x_train))
                     for i in range(0, len(x_train), 128):
                         idx = perm[i:i + 128]
-                        opt.zero_grad(set_to_none=True)
+                        optimizer.zero_grad(set_to_none=True)
                         F.cross_entropy(model(x_train[idx].to(device)).logits, y_train[idx].to(device)).backward()
-                        opt.step()
+                        optimizer.step()
                     model.eval()
                     with torch.no_grad():
                         acc = float((model(x_val.to(device)).logits.argmax(1) == y_val.to(device)).float().mean())
@@ -683,14 +683,14 @@ def run_oe_core_controls(spec: dict, default: dict) -> dict:
         iid, ood, _ = train_robust("erm", splits, s, device)
         rows.append({"seed": s, "iid": round(iid, 4), "ood": round(ood, 4)})
     out["paired_erm"] = rows
-    for lam in [100.0, 10000.0]:
+    for irm_penalty in [100.0, 10000.0]:
         rows = []
         for s in range(int(spec["seeds"])):
             splits0 = make("simple_oe", s)
             splits1 = make("simple_oe", s + 7919, extra={"nuisance_correlation": 0.85}, sizes={**SIZES, "n_train": 4096})
-            iid, ood, _ = train_irm(splits0, splits1, s, device, irm_lambda=lam)
+            iid, ood, _ = train_irm(splits0, splits1, s, device, irm_lambda=irm_penalty)
             rows.append({"seed": s, "iid": round(iid, 4), "ood": round(ood, 4)})
-        out[f"irm_lam{int(lam)}"] = rows
+        out[f"irm_lam{int(irm_penalty)}"] = rows
     write_json(Path(spec["out"]), out)
     return out
 
@@ -813,14 +813,14 @@ def run_video_search(spec: dict, default: dict) -> dict:
             y = {n: torch.from_numpy(splits[n].y) for n in splits}
             torch.manual_seed(seed * 31 + 14)
             head = nn.Sequential(nn.Linear(xlast["train"].shape[1], 128), nn.ReLU(), nn.Linear(128, 2)).to(device)
-            opt = torch.optim.AdamW(head.parameters(), lr=1e-3, weight_decay=1e-4)
+            optimizer = torch.optim.AdamW(head.parameters(), lr=1e-3, weight_decay=1e-4)
             for _ in range(20):
                 perm = torch.randperm(len(xlast["train"]))
                 for i in range(0, len(perm), 256):
                     idx = perm[i : i + 256]
-                    opt.zero_grad(set_to_none=True)
+                    optimizer.zero_grad(set_to_none=True)
                     F.cross_entropy(head(xlast["train"][idx].to(device)), y["train"][idx].to(device)).backward()
-                    opt.step()
+                    optimizer.step()
             head.eval()
             with torch.no_grad():
                 out[f"{base}/final_frame"] = [

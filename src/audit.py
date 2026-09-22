@@ -17,15 +17,15 @@ def train_mlp_probe(x_train, y_train, test_pairs, seed: int, device, epochs: int
     y_train = y_train.to(device)
     torch.manual_seed(seed)
     net = nn.Sequential(nn.Linear(x_train.shape[1], 64), nn.ReLU(), nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
-    opt = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-4)
+    optimizer = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-4)
     for _ in range(epochs):
         net.train()
         perm = torch.randperm(len(x_train), device=device)
         for i in range(0, len(x_train), 128):
             idx = perm[i : i + 128]
-            opt.zero_grad(set_to_none=True)
+            optimizer.zero_grad(set_to_none=True)
             F.cross_entropy(net(x_train[idx]), y_train[idx]).backward()
-            opt.step()
+            optimizer.step()
     net.eval()
     accs = []
     with torch.no_grad():
@@ -38,14 +38,14 @@ def train_mlp_probe(x_train, y_train, test_pairs, seed: int, device, epochs: int
 def probe(x_train, target_train, x_test, target_test, device, epochs=30):
     # Table 5.
     net = nn.Sequential(nn.Linear(x_train.shape[1], 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
-    opt = torch.optim.AdamW(net.parameters(), lr=1e-3)
+    optimizer = torch.optim.AdamW(net.parameters(), lr=1e-3)
     for _ in range(epochs):
         perm = torch.randperm(len(x_train))
         for i in range(0, len(x_train), 256):
             j = perm[i : i + 256]
-            opt.zero_grad(set_to_none=True)
+            optimizer.zero_grad(set_to_none=True)
             F.cross_entropy(net(x_train[j].to(device)), target_train[j].to(device)).backward()
-            opt.step()
+            optimizer.step()
     net.eval()
     with torch.no_grad():
         return float((net(x_test.to(device)).argmax(1).cpu() == target_test).float().mean())
@@ -88,12 +88,12 @@ def eval_channel_intervention(model, x, y, device, channel: int, mode: str, seed
 class Audit:
     # Algorithm 1. Privileged access: core-only, nuisance-only, mixed, direction.
 
-    def __init__(self, splits: dict[str, Split], seed: int, device, route_a: bool = False, nospur_splits: dict[str, Split] | None = None):
+    def __init__(self, splits: dict[str, Split], seed: int, device, construction_certified: bool = False, no_spurious_splits: dict[str, Split] | None = None):
         self.splits = splits
         self.seed = seed
         self.device = device
-        self.route_a = route_a
-        self.nospur_splits = nospur_splits
+        self.construction_certified = construction_certified
+        self.no_spurious_splits = no_spurious_splits
 
     def sequence(self, split, key):
         array = np.asarray(getattr(split, key))
@@ -134,9 +134,9 @@ class Audit:
 
     def gate4(self):
         # Gate 4. Core recoverable: no-spurious mixed ERM, certification budget 100/30.
-        if self.nospur_splits is None:
+        if self.no_spurious_splits is None:
             return None
-        train, val, iid, ood = (self.nospur_splits[name] for name in ("train", "val_iid", "iid_test", "ood_test"))
+        train, val, iid, ood = (self.no_spurious_splits[name] for name in ("train", "val_iid", "iid_test", "ood_test"))
         recovered = train_sequence(self.sequence(train, "mixed"), torch.from_numpy(train.y), self.sequence(val, "mixed"), torch.from_numpy(val.y), self.seed * 31 + 3, self.device, epochs=100, patience=30)
         return {
             "iid": eval_sequence(recovered, self.sequence(iid, "mixed"), torch.from_numpy(iid.y), self.device),
@@ -213,7 +213,7 @@ class Audit:
         d_train_device, d_iid_device = d_train.to(self.device), d_iid.to(self.device)
         torch.manual_seed(self.seed * 17 + 5)
         net = SetProbe(nuisance_train.shape[-1]).to(self.device)
-        opt = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-4)
+        optimizer = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-4)
         generator = torch.Generator(device="cpu")
         generator.manual_seed(self.seed)
         for _ in range(40):
@@ -223,9 +223,9 @@ class Audit:
                 idx = perm[i : i + 128]
                 batch = nuisance_train[idx]
                 batch = batch[:, torch.randperm(batch.shape[1], generator=generator)]
-                opt.zero_grad(set_to_none=True)
+                optimizer.zero_grad(set_to_none=True)
                 F.cross_entropy(net(batch), d_train_device[idx]).backward()
-                opt.step()
+                optimizer.step()
         net.eval()
         with torch.no_grad():
             set_acc = float((net(nuisance_iid).argmax(1) == d_iid_device).float().mean().item())
@@ -252,12 +252,12 @@ class Audit:
 
         single = max(frames["dir_iid"])
 
-        # Route A is the constructor flag. Route B is shuffle ≤ 0.6.
+        # Route A is construction-certified. Route B is shuffle ≤ 0.6.
         if single >= 0.8:
             locality = "frame-local"
         elif set_acc >= 0.8:
             locality = "order-invariant multi-frame"
-        elif order["erm_iid"] >= 0.8 and (self.route_a or order["erm_iid_shuffled"] <= 0.6):
+        elif order["erm_iid"] >= 0.8 and (self.construction_certified or order["erm_iid_shuffled"] <= 0.6):
             locality = "order-encoded"
         else:
             locality = "inconclusive"

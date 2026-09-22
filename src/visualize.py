@@ -98,17 +98,17 @@ def fig1(out: Path):
     X0, X1, X2 = 0.10, 0.295, 0.49
     PAD = 0.012
 
-    def panel(pb, header, names, nuisance_label, valid):
-        ax.plot([0.012, 0.70], [pb + 0.44, pb + 0.44], color=PANEL_BORDER, lw=0.8)
-        ax.text(0.012, pb + 0.385, header, fontsize=8.8, fontweight="bold", color=TEXT)
-        yc = pb + 0.185
+    def panel(panel_bottom, header, names, nuisance_label, valid):
+        ax.plot([0.012, 0.70], [panel_bottom + 0.44, panel_bottom + 0.44], color=PANEL_BORDER, lw=0.8)
+        ax.text(0.012, panel_bottom + 0.385, header, fontsize=8.8, fontweight="bold", color=TEXT)
+        yc = panel_bottom + 0.185
         for x, name in zip((X0, X1, X2), names):
             flat_node(x, yc, NW, NH, name, C_CORE, C_CORE_L)
         ym = yc + NH / 2
         flat_arrow((X0 + NW + PAD, ym), (X1 - PAD, ym), C_CORE, lw=1.9)
         flat_arrow((X1 + NW + PAD, ym), (X2 - PAD, ym), C_CORE, lw=1.9)
         nx, nw2 = 0.10, 0.265
-        ny = pb - 0.005
+        ny = panel_bottom - 0.005
         ax.add_patch(FancyBboxPatch((nx, ny), nw2, NH, boxstyle="round,pad=0.010,rounding_size=0.028", linewidth=1.0, edgecolor=C_NUI, facecolor=C_NUI_L, zorder=3))
         ymid = ny + NH / 2
         ax.text(nx + nw2 / 2, ymid + 0.024, nuisance_label, ha="center", va="center", fontsize=7.2, color=TEXT, zorder=4)
