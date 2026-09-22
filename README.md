@@ -32,7 +32,7 @@ Logged numbers are under `results/main/`, `results/ablation/`, and `results/revi
 
 Algorithm 2 is `generate_split` in `src/data.py`: y, core (Eq. 6), ds (Eq. 4), nuisance (Eqs. 7–8), observation (Eq. 9). Table 3 constructions are `make` in `src/benchmark.py`: OE-Strict, Trail-FL, Set-MF, MF-Core, OE-Core.
 
-The sequence model is `SequenceCNNGRU` in `src/models.py` (Eq. 10), trained by `train_sequence` in `src/train.py`.
+The sequence model is `SequenceCNNGRU` in `src/models.py`. Eq. 10 is the predictor, Eq. 11 is ERM, and Eq. 12 is the counterfactual loss. `train_sequence` in `src/train.py` is the reference learner.
 
 Algorithm 1 is class `Audit` in `src/audit.py`:
 

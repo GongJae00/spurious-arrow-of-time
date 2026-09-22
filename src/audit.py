@@ -11,6 +11,7 @@ from src.train import eval_sequence, train_sequence
 
 
 def train_mlp_probe(xtr, ytr, xte_list, seed: int, device, epochs: int = 40):
+    # Gates 3 and 6.
     mean, std = xtr.mean(), xtr.std().clamp_min(1e-6)
     xtr = ((xtr - mean) / std).to(device)
     ytr = ytr.to(device)
@@ -35,6 +36,7 @@ def train_mlp_probe(xtr, ytr, xte_list, seed: int, device, epochs: int = 40):
 
 
 def probe(xtr, ttr, xte, tte, device, epochs=30):
+    # Table 5.
     md = nn.Sequential(nn.Linear(xtr.shape[1], 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
     opt = torch.optim.AdamW(md.parameters(), lr=1e-3)
     for _ in range(epochs):
@@ -242,7 +244,6 @@ class Audit:
             "erm_ood_reversed_order": eval_sequence(erm, xot, yot, device, "reversed_order"),
         }
 
-        # Section 5.5. Train on shuffled frames.
         sh = train_sequence(xtr, ytr, xva, yva, seed * 31 + 8, device, shuffle_frames=True)
         order["shuftrain_iid"] = eval_sequence(sh, xit, yit, device, "shuffled", seed + 1)
         order["shuftrain_ood"] = eval_sequence(sh, xot, yot, device, "shuffled", seed + 2)
@@ -251,19 +252,13 @@ class Audit:
 
         single = max(frames["dir_iid"])
 
-        # frame-local
+        # Route A is the constructor flag. Route B is shuffle ≤ 0.6.
         if single >= 0.8:
             loc = "frame-local"
-
-        # order-invariant multi-frame
         elif set_acc >= 0.8:
             loc = "order-invariant multi-frame"
-
-        # order-encoded: Route A, or Route B (shuffle ≤ 0.6)
         elif order["erm_iid"] >= 0.8 and (self.route_a or order["erm_iid_shuffled"] <= 0.6):
             loc = "order-encoded"
-
-        # inconclusive
         else:
             loc = "inconclusive"
 
@@ -276,7 +271,6 @@ class Audit:
         }
 
     def run(self) -> dict:
-        # Algorithm 1.
         # Phase 1 — admissibility of a shortcut reading (Gates 1–5)
         gate1 = self.gate1()
         gate2 = self.gate2()

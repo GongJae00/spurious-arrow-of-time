@@ -7,6 +7,7 @@ from src.data import GeneratorConfig, Split, SPLITS, generate_splits
 # Table 3 constructions. Trail-FL is γ=0.78; Simple OE is γ=0.
 # OE-Strict / Set-MF / sinusoid replace the nuisance channel after generation.
 # Overlay RNG is seed * salt + 1009 * split index.
+# Table 9 FordA/HAR and Table A11 graph are the loaders below make().
 
 PAPER = dict(
     grid_size=16,

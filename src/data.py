@@ -5,8 +5,8 @@ from pathlib import Path
 
 import numpy as np
 
-# Algorithm 2. Core (Eq. 6), nuisance (Eqs. 7–8), observation (Eq. 9).
-# OOD reverses P(d_s | y); the core–label map is fixed.
+# Algorithm 2. Core Eq. 6, nuisance Eqs. 7–8, observation Eq. 9. OOD reverses Eq. 4.
+# GeneratorConfig defaults are the lab grid. Paper settings are benchmark.PAPER and configs/default.yaml.
 
 SPLITS = ("train", "val_iid", "iid_test", "ood_test")
 
@@ -100,14 +100,12 @@ def generate_split(config: GeneratorConfig, split: str) -> Split:
     else:
         core = build_core_sequences(config, source_center, source_orientation, rng)
 
-    # Eqs. 7–8. Train correlated; OOD reversed / randomized / partial.
     nuisance_direction = sample_nuisance_direction(config, y, split, rng)
     nuisance = build_nuisance_sequences(config, nuisance_direction, rng)
 
     cf_direction = sample_counterfactual_direction(config, nuisance_direction, rng)
     nuisance_cf = build_nuisance_sequences(config, cf_direction, rng)
 
-    # Eq. 9.
     mixed, counterfactual = compose_observation_pair(config, core, nuisance, nuisance_cf, rng)
     metadata = split_metadata(config, y, nuisance_direction, cf_direction)
     return Split(
@@ -168,7 +166,7 @@ def build_core_sequences(config: GeneratorConfig, centers: np.ndarray, orientati
 
 
 def diffuse_once(state: np.ndarray, alpha: float) -> np.ndarray:
-    # Eq. 6. Four-neighbor update, α=0.22 in the paper setting.
+    # Eq. 6. Paper setting uses α=0.22.
     neighbors = (
         np.roll(state, 1, axis=1)
         + np.roll(state, -1, axis=1)
@@ -186,7 +184,7 @@ def evolve_core_once(state: np.ndarray, config: GeneratorConfig) -> np.ndarray:
 
 
 def compose_observation_pair(config: GeneratorConfig, core: np.ndarray, nuisance: np.ndarray, nuisance_cf: np.ndarray, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
-    # Eq. 9. Additive one-channel or two-channel [λ_c c, λ_s s].
+    # Eq. 9.
     if config.observation_layout == "additive":
         noise = rng.normal(0.0, config.observation_noise_std, size=core.shape).astype(np.float32)
         mixed = config.core_scale * core + config.nuisance_scale * nuisance + noise
