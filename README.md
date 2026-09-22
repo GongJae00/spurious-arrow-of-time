@@ -2,8 +2,6 @@
 
 YoungJae Cho, Do-Yup Kim, Youngjun Kim, Dae-Yeol Kim
 
-[Code](https://github.com/GongJae00/spurious-arrow-of-time)
-
 <p align="center">
   <img src="figures/main/fig1_conceptual_problem.png" alt="Figure 1. Spurious temporal shortcut: both cues predict the label at train/IID; OOD reverses only the nuisance–label relation." width="100%">
 </p>
@@ -48,7 +46,7 @@ python -m src.experiments
 python -m src.visualize
 ```
 
-`python -m src.experiments --run table5_oe_strict` runs one key in `configs/experiments.yaml`. A key is skipped when its output is already there; delete that output to write it again. Figures go to `figures/`. FordA, HAR, and `data/real_video/cache_g16_L8_s5.npz` stay on disk and are not in git. Graph and the video blur use the `transfer` extra.
+`python -m src.experiments --run table5_oe_strict` runs one key in `configs/experiments.yaml`. A key is skipped when its output is already there; delete that output to write it again. Figures go to `figures/`. FordA, HAR, and `data/real_video/cache_g16_L8_s5.npz` stay on disk and are not in git.
 
 ## Citation
 
