@@ -141,7 +141,7 @@ def make(benchmark: str, seed: int, sizes: dict | None = None, extra: dict | Non
 
 
 def graph_setup(name: str = "karate"):
-    # Table A11.
+    # Table A11. Karate or Les Misérables. Degree order is the nuisance axis.
     import networkx as nx
     if name == "karate":
         G = nx.karate_club_graph()

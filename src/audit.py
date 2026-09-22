@@ -11,7 +11,7 @@ from src.train import eval_sequence, train_sequence
 
 
 def train_mlp_probe(x_train, y_train, test_pairs, seed: int, device, epochs: int = 40):
-    # Gates 3 and 6.
+    # Gates 3 and 6. Two hidden layers, weight decay, 40 epochs.
     mean, std = x_train.mean(), x_train.std().clamp_min(1e-6)
     x_train = ((x_train - mean) / std).to(device)
     y_train = y_train.to(device)
@@ -36,7 +36,7 @@ def train_mlp_probe(x_train, y_train, test_pairs, seed: int, device, epochs: int
 
 
 def probe(x_train, target_train, x_test, target_test, device, epochs=30):
-    # Table 5.
+    # Table 5. One hidden layer, 30 epochs.
     net = nn.Sequential(nn.Linear(x_train.shape[1], 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
     optimizer = torch.optim.AdamW(net.parameters(), lr=1e-3)
     for _ in range(epochs):
@@ -271,13 +271,13 @@ class Audit:
         }
 
     def run(self) -> dict:
-        # Phase 1 — admissibility of a shortcut reading (Gates 1–5)
+        # Phase 1. Admissibility of a shortcut reading (Gates 1–5).
         gate1 = self.gate1()
         gate2 = self.gate2()
         gate3 = self.gate3()
         gate4 = self.gate4()
         gate5 = self.gate5()
-        # Phase 2 — locate the cue on the locality spectrum (Gate 6)
+        # Phase 2. Locate the cue on the locality spectrum (Gate 6).
         gate6 = self.gate6(gate5)
         return {
             "gate1": gate1,

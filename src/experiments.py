@@ -648,7 +648,7 @@ def run_accessibility(spec: dict, default: dict) -> dict:
 
 
 def run_oe_core_equalized(spec: dict, default: dict) -> dict:
-    # OE-Core. Core-direction flip 0.03.
+    # OE-Core equalization. The core direction flips with probability 0.03.
     device = torch_device(default["device"])
     rows = []
     for seed in range(int(spec["seeds"])):
@@ -664,7 +664,7 @@ def run_oe_core_equalized(spec: dict, default: dict) -> dict:
 
 
 def run_oe_core_controls(spec: dict, default: dict) -> dict:
-    # OE-Core. Frame-rand; paired ERM and IRM λ on Simple OE.
+    # OE-Core controls. Shuffled-frame training, then paired ERM and IRM on Simple OE.
     device = torch_device(default["device"])
     out = {}
     rows = []
@@ -728,7 +728,7 @@ def run_arch_cue(spec: dict, default: dict) -> dict:
 
 
 def run_groupdro(spec: dict, default: dict) -> dict:
-    # GroupDRO. η and balanced-sampler sweep.
+    # GroupDRO sweep. Group step 0.01, 0.1, and 0.001, with and without a balanced sampler.
     device = torch_device(default["device"])
     result = {}
     for name, kw in {"eta0.01_balanced": dict(group_step=0.01, balanced_sampler=True), "eta0.1_standard": dict(group_step=0.1, balanced_sampler=False), "eta0.001_standard": dict(group_step=0.001, balanced_sampler=False)}.items():
@@ -745,7 +745,7 @@ def run_groupdro(spec: dict, default: dict) -> dict:
 
 
 def run_gradsal(spec: dict, default: dict) -> dict:
-    # Input-gradient. Nuisance-channel share.
+    # Input gradient. Nuisance-channel share on trail and Simple OE.
     device = torch_device(default["device"])
     out = {}
     for variant, bench in [("trail", "trail_fl"), ("oe", "simple_oe")]:
