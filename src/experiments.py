@@ -221,7 +221,16 @@ def run_temporal(spec: dict, default: dict) -> dict:
         summary_runs.append(measured["summary"])
         order_runs.append(measured["order"])
     length = len(per_frame_runs[0]["dir_iid"])
+    named = {k: v for k, v in CONSTRUCTIONS[spec["benchmark"]].items() if k != "overlay"}
+    cfg = paper_config(0, **named)
+    config_keys = [
+        "grid_size", "length", "diffusion_alpha", "diffusion_start_step", "diffusion_steps_between_frames",
+        "core_noise_std", "observation_noise_std", "core_scale", "nuisance_scale", "nuisance_sigma",
+        "nuisance_speed", "nuisance_trail_decay", "nuisance_correlation", "observation_layout",
+        "benchmark_variant", "n_train", "n_val_iid", "n_iid_test", "n_ood_test",
+    ]
     result = {
+        "config": {**{k: getattr(cfg, k) for k in config_keys}, "seeds": int(spec["seeds"])},
         "per_frame": {k: [aggregate([run[k][t] for run in per_frame_runs]) for t in range(length)] for k in ["label_iid", "label_ood", "dir_iid", "dir_ood", "core_label_iid", "core_label_ood"]},
         "summary_probes": {name: {k: aggregate([run[name][k] for run in summary_runs]) for k in summary_runs[0][name]} for name in summary_runs[0]},
         "order_tests": {k: aggregate([run[k] for run in order_runs]) for k in order_runs[0]},
@@ -240,7 +249,7 @@ def run_strict_order(spec: dict, default: dict) -> dict:
             audit = Audit(make(bench, seed), seed, device)
             ch_runs.append(audit.channel_probes())
             set_runs.append(audit.gate6(audit.gate5())["set"])
-            if name == "simple_oe":
+            if bench == "simple_oe":
                 erm_runs.append(audit.mixed_channel())
         length = len(ch_runs[0]["dir_nuis_only"])
         result[name] = {

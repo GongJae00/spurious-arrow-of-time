@@ -40,7 +40,7 @@ The files follow the paper, in that order.
 
 `src/experiments.py` runs the tables. The `kind` field in `configs/experiments.yaml` selects the function: `shortcut`, `certify`, and `shuffle` are Table 5; `temporal`, `strict_order`, and `nuisance_order` are Table 6 and Figure 4; `train` is Table 7; `mf_core_probes` and `mf_core_perframe` are Table 8; `ucr` is Table 9. The other kinds are the appendix tables.
 
-`src/visualize.py` draws Figure 1–4 and Figure A3: `fig1`, `fig2`, `fig3`, `fig4`, `fig_a3`.
+`src/visualize.py` draws Figure 1–4, Figure A1–A2, and Figure A3: `fig1`, `fig2`, `fig3`, `fig4`, `fig_a1`, `fig_a2`, `fig_a3`.
 
 ```bash
 pip install -e ".[dev]"

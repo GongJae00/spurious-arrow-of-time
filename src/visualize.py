@@ -16,7 +16,7 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
 from src.data import GeneratorConfig, generate_splits
 from src.evaluate import MetricStore
 
-# Figure 1 concept, Figure 2 Algorithm 1, Figure 3 construction, Figure 4 locality, Figure A3.
+# Figure 1–4, Figure A1–A2 from the family and complexity summaries, Figure A3.
 
 
 TEXT = "#1F2933"
@@ -314,6 +314,47 @@ def fig4(trail_path: Path, oe_path: Path, probe_path: Path, out_a: Path, out_b: 
     save_figure(fig, out_b)
 
 
+def accuracy_bars(store: MetricStore, scenarios: list[str], labels: list[str], out: Path):
+    # Figure A1 / A2. IID bar, OOD bar, core-only diamond, final-frame mark.
+    xs = np.arange(len(scenarios))
+    iid = [store.aggregate("sequence_erm", "iid_test_accuracy", name) for name in scenarios]
+    ood = [store.aggregate("sequence_erm", "ood_test_accuracy", name) for name in scenarios]
+    core = [store.aggregate("core_only_oracle", "ood_test_accuracy", name) for name in scenarios]
+    final = [store.aggregate("final_frame_mlp", "ood_test_accuracy", name) for name in scenarios]
+    fig, ax = plt.subplots(figsize=(6.4, 3.15))
+    ax.bar(xs, [a.mean for a in iid], 0.62, yerr=[a.std for a in iid], capsize=2.0, color="#E7EEF2", edgecolor=SEQUENCE, linewidth=0.8, label="Sequence ERM (IID)", zorder=2)
+    ax.bar(xs, [a.mean for a in ood], 0.62, yerr=[a.std for a in ood], capsize=2.0, color="#F8E6DF", edgecolor=NUISANCE, linewidth=0.8, label="Sequence ERM (OOD)", zorder=3)
+    ax.errorbar(xs, [a.mean for a in core], yerr=[a.std for a in core], fmt="D", color="#0D8C80", markersize=5.5, capsize=2.0, linestyle="none", label="Core-only reference (OOD)", zorder=4)
+    ax.errorbar(xs, [a.mean for a in final], yerr=[a.std for a in final], fmt="_", color="#8A939C", markersize=14, markeredgewidth=2.0, capsize=2.0, linestyle="none", label="Final-frame (OOD)", zorder=4)
+    ax.axhline(0.5, color=MUTED_TEXT, linewidth=0.7, linestyle=(0, (1, 2)))
+    style_axis(ax)
+    ax.set_xticks(xs)
+    ax.set_xticklabels(labels)
+    ax.set_ylabel("Accuracy")
+    ax.set_ylim(0.0, 1.08)
+    ax.legend(ncol=2, loc="lower center", bbox_to_anchor=(0.5, 1.0), frameon=False)
+    fig.subplots_adjust(left=0.08, right=0.99, top=0.82, bottom=0.14)
+    save_figure(fig, out)
+
+
+def fig_a1(out: Path, store: MetricStore):
+    accuracy_bars(
+        store,
+        ["fam_diffusion_translate", "fam_diffusion_rotate", "fam_diffusion_diagonal", "fam_advection_translate"],
+        ["Diff+Translate", "Diff+Rotate", "Diff+Diagonal", "Advect+Translate"],
+        out,
+    )
+
+
+def fig_a2(out: Path, store: MetricStore):
+    accuracy_bars(
+        store,
+        ["cx_grid32", "cx_clutter", "cx_grid32_clutter"],
+        ["32x32", "Clutter", "32x32+Clutter+L10"],
+        out,
+    )
+
+
 def fig_a3(out: Path, store: MetricStore):
     # Figure A3. OOD accuracy by scenario and method.
     scenarios = ["main_spurious_arrow", "no_spurious_correlation", "residue_visible_control", "ood_randomized", "ood_partial_shift"]
@@ -364,6 +405,14 @@ def render(name: str):
         "fig1": lambda: fig1(Path("figures/main/fig1_conceptual_problem")),
         "fig2": lambda: fig2(Path("figures/main/fig2_audit_flow")),
         "fig3": lambda: fig3(Path("figures/main/fig3_benchmark_construction"), Path("configs/default.yaml")),
+        "fig_a1": lambda: fig_a1(
+            Path("figures/appendix/fig_a1_benchmark_family"),
+            MetricStore(Path("results/ablation/family/summary.json")),
+        ),
+        "fig_a2": lambda: fig_a2(
+            Path("figures/appendix/fig_a2_complexity_scaleup"),
+            MetricStore(Path("results/ablation/complexity/summary.json")),
+        ),
         "fig4": lambda: fig4(
             Path("results/main/trail_fl_audit.json"),
             Path("results/main/simple_oe_audit.json"),
@@ -383,7 +432,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--figure", default="")
     a = p.parse_args()
-    names = ["fig1", "fig2", "fig3", "fig4", "fig_a3"] if a.figure in ("", "all") else [a.figure]
+    names = ["fig1", "fig2", "fig3", "fig4", "fig_a1", "fig_a2", "fig_a3"] if a.figure in ("", "all") else [a.figure]
     for n in names:
         render(n)
 

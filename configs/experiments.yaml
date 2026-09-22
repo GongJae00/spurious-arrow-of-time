@@ -45,15 +45,15 @@ table6_probes:
   kind: strict_order
   seeds: 10
   benchmarks:
-    trail_fl: trail_fl
-    simple_oe: simple_oe
+    trail: trail_fl
+    order_encoded: simple_oe
   out: results/main/trail_fl_probes.json
 fig4b_nuisance_order:
   kind: nuisance_order
   seeds: 10
   benchmarks:
-    trail_fl: trail_fl
-    simple_oe: simple_oe
+    trail: trail_fl
+    order_encoded: simple_oe
   out: results/main/nuisance_order.json
 table7_trail_fl:
   kind: train
