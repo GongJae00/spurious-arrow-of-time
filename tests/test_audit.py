@@ -21,9 +21,9 @@ def test_per_sample_shuffle_preserves_multiset():
 def test_gate6_classes():
     src = inspect.getsource(Audit.gate6)
     assert "if single >= 0.8:" in src
-    assert 'loc = "frame-local"' in src
+    assert 'locality = "frame-local"' in src
     assert "elif set_acc >= 0.8:" in src
-    assert 'loc = "order-invariant multi-frame"' in src
+    assert 'locality = "order-invariant multi-frame"' in src
     assert "<= 0.6" in src
-    assert 'loc = "order-encoded"' in src
-    assert 'loc = "inconclusive"' in src
+    assert 'locality = "order-encoded"' in src
+    assert 'locality = "inconclusive"' in src

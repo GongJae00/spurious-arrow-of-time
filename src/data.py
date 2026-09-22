@@ -141,14 +141,14 @@ def build_core_sequences(config: GeneratorConfig, centers: np.ndarray, orientati
     rows = centers[:, 0]
     cols = centers[:, 1]
     for i, orientation in enumerate(orientations):
-        r = rows[i]
-        c = cols[i]
+        row = rows[i]
+        col = cols[i]
         if orientation == 0:
-            state[i, r, (c - 1) % grid] = 0.5
-            state[i, r, (c + 1) % grid] = 0.5
+            state[i, row, (col - 1) % grid] = 0.5
+            state[i, row, (col + 1) % grid] = 0.5
         else:
-            state[i, (r - 1) % grid, c] = 0.5
-            state[i, (r + 1) % grid, c] = 0.5
+            state[i, (row - 1) % grid, col] = 0.5
+            state[i, (row + 1) % grid, col] = 0.5
     frame_idx = 0
     for step in range(total_steps + 1):
         if step >= config.diffusion_start_step and (step - config.diffusion_start_step) % config.diffusion_steps_between_frames == 0:
@@ -288,27 +288,27 @@ def build_nuisance_sequences(config: GeneratorConfig, direction: np.ndarray, rng
     cols = np.arange(grid, dtype=np.float32)[None, None, :]
     speed = config.nuisance_speed
     L = config.length
-    ep = config.benchmark_variant == "endpoint_matched"
+    endpoint_matched = config.benchmark_variant == "endpoint_matched"
     motion = config.nuisance_motion
     center = (grid - 1) / 2.0
     row_phases = None
     if motion == "rotate":
         radius = grid * 0.32
         omega = 2.0 * np.pi * speed / grid
-        if ep:
+        if endpoint_matched:
             final_angle = rng.uniform(0.0, 2.0 * np.pi, size=n).astype(np.float32)
             angle0 = (final_angle - direction * omega * (L - 1)).astype(np.float32)
         else:
             angle0 = rng.uniform(0.0, 2.0 * np.pi, size=n).astype(np.float32)
     else:
         phases = rng.uniform(0.0, grid, size=n).astype(np.float32)
-        if ep:
+        if endpoint_matched:
             final_cols = rng.uniform(0.0, grid, size=n).astype(np.float32)
             phases = (final_cols - direction * speed * (L - 1)) % grid
         row_centers = rng.uniform(0.0, grid, size=n).astype(np.float32)
         if motion == "diagonal":
             row_phases = row_centers
-            if ep:
+            if endpoint_matched:
                 final_rows = rng.uniform(0.0, grid, size=n).astype(np.float32)
                 row_phases = (final_rows - direction * speed * (L - 1)) % grid
     row_sigma = config.nuisance_sigma * 2.0 if motion == "translate" else config.nuisance_sigma
@@ -329,7 +329,7 @@ def build_nuisance_sequences(config: GeneratorConfig, direction: np.ndarray, rng
         row_dist = circular_distance(rows, row_center[:, None, None], grid)
         pulse = np.exp(-0.5 * ((col_dist / config.nuisance_sigma) ** 2 + (row_dist / row_sigma) ** 2)).astype(np.float32)
         trail = config.nuisance_trail_decay * trail + pulse
-        sequences[:, t] = pulse if ep and t == L - 1 else trail
+        sequences[:, t] = pulse if endpoint_matched and t == L - 1 else trail
     max_per_sample = sequences.reshape(n, -1).max(axis=1).clip(min=1e-8)
     return (sequences / max_per_sample[:, None, None, None]).astype(np.float32)
 

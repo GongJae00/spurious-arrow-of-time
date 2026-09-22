@@ -91,25 +91,25 @@ OVERLAY = {
 
 
 def overlay_nuisance(splits: dict[str, Split], overlay: str, seed: int, corr_train: float = 0.97) -> dict[str, Split]:
-    fn, salt = OVERLAY[overlay]
-    out = {}
+    nuisance_fn, salt = OVERLAY[overlay]
+    overlaid = {}
     for i, name in enumerate(SPLITS):
         corr = 1 - corr_train if name == "ood_test" else corr_train
         rng = np.random.default_rng(seed * salt + 1009 * i)
-        sp = splits[name]
-        d = np.where(rng.random(len(sp.y)) < corr, sp.y, 1 - sp.y) * 2 - 1
-        core = np.asarray(sp.core_only)[:, :, None]
-        nu = fn(d, rng)[:, :, None]
-        mixed = np.concatenate([core, nu], 2).astype(np.float32)
-        out[name] = replace(
-            sp,
-            nuisance_only=nu[:, :, 0],
+        split = splits[name]
+        direction = np.where(rng.random(len(split.y)) < corr, split.y, 1 - split.y) * 2 - 1
+        core = np.asarray(split.core_only)[:, :, None]
+        nuisance = nuisance_fn(direction, rng)[:, :, None]
+        mixed = np.concatenate([core, nuisance], 2).astype(np.float32)
+        overlaid[name] = replace(
+            split,
+            nuisance_only=nuisance[:, :, 0],
             mixed=mixed,
             counterfactual=mixed,
-            nuisance_direction=d.astype(np.int64),
-            counterfactual_direction=d.astype(np.int64),
+            nuisance_direction=direction.astype(np.int64),
+            counterfactual_direction=direction.astype(np.int64),
         )
-    return out
+    return overlaid
 
 
 CONSTRUCTIONS = {
@@ -132,9 +132,9 @@ def make(benchmark: str, seed: int, sizes: dict | None = None, extra: dict | Non
     overlay = named.pop("overlay", None)
     if "overlay" in extra:
         overlay = extra["overlay"]
-    data = {k: v for k, v in extra.items() if k != "overlay"}
-    cfg = paper_config(seed, **{**sizes, **named, **data})
-    splits = generate_splits(cfg)
+    fields = {k: v for k, v in extra.items() if k != "overlay"}
+    config = paper_config(seed, **{**sizes, **named, **fields})
+    splits = generate_splits(config)
     if overlay:
         return overlay_nuisance(splits, overlay, seed, corr_train=corr_train)
     return splits
