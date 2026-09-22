@@ -253,6 +253,7 @@ def _load_real_video_crops(path: str) -> np.ndarray:
 
 
 def build_real_video_nuisance(config: GeneratorConfig, direction: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    # Table A12. Cached crops. Negative direction plays the clip backward.
     crops = _load_real_video_crops(config.real_video_cache)
     idx = rng.integers(0, len(crops), size=len(direction))
     seq = crops[idx].astype(np.float32) / 255.0
@@ -392,6 +393,7 @@ def extract_crops(frames: np.ndarray, grid: int, length: int, t_stride: int, sho
 
 
 def build_real_video_cache(src: Path, out: Path, grid: int = 16, length: int = 8, t_stride: int = 3, short_side: int = 48, per_clip: int = 3000, min_motion: float = 4.0, seed: int = 1234) -> np.ndarray:
+    # Table A12. Writes the crop cache `build_real_video_nuisance` reads.
     rng = np.random.default_rng(seed)
     all_crops, meta = [], []
     for path in sorted(src.glob("clip*.webm")) + sorted(src.glob("clip*.mp4")):

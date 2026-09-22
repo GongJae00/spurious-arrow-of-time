@@ -51,10 +51,11 @@ def probe(x_train, target_train, x_test, target_test, device, epochs=30):
         return float((net(x_test.to(device)).argmax(1).cpu() == target_test).float().mean())
 
 
-def per_sample_shuffle(x, gen):
-    L = x.shape[1]
-    idx = torch.argsort(torch.rand(x.shape[0], L, generator=gen), dim=1)
-    view = idx.view(x.shape[0], L, *([1] * (x.dim() - 2)))
+def per_sample_shuffle(x, generator):
+    # Table 5. Each sample is permuted on its own. The frame multiset stays.
+    length = x.shape[1]
+    idx = torch.argsort(torch.rand(x.shape[0], length, generator=generator), dim=1)
+    view = idx.view(x.shape[0], length, *([1] * (x.dim() - 2)))
     return torch.gather(x, 1, view.expand_as(x))
 
 
@@ -71,12 +72,13 @@ class SetProbe(nn.Module):
 
 @torch.no_grad()
 def eval_channel_intervention(model, x, y, device, channel: int, mode: str, seed: int = 0):
+    # Table 5. Shuffle or reverse one channel of the mixed input.
     x = x.clone()
     if mode == "shuffled":
-        g = torch.Generator().manual_seed(seed)
+        generator = torch.Generator().manual_seed(seed)
         for i in range(len(x)):
-            fp = torch.randperm(x.shape[1], generator=g)
-            x[i, :, channel] = x[i, fp, channel]
+            frame_perm = torch.randperm(x.shape[1], generator=generator)
+            x[i, :, channel] = x[i, frame_perm, channel]
     elif mode == "reversed_order":
         x[:, :, channel] = x.flip(1)[:, :, channel]
     preds = [model(x[i : i + 512].to(device)).logits.argmax(1) for i in range(0, len(x), 512)]

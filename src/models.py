@@ -166,6 +166,7 @@ class SequenceCNNTemporalPool(nn.Module):
 
 
 class SegGRU(nn.Module):
+    # Table 9. Linear frame encoder and a GRU over L=10 segments.
     def __init__(self, channels: int, width: int = 50, hidden_dim: int = 64):
         super().__init__()
         self.enc = nn.Sequential(nn.Linear(channels * width, hidden_dim), nn.ReLU())

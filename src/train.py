@@ -14,7 +14,7 @@ from src.data import GeneratorConfig, Split, generate_split
 from src.evaluate import accuracy, evaluate
 from src.models import build_model
 
-# Table 7 sequence ERM and invariance methods. Table A6: GroupDRO, DANN, JTT, IRM.
+# Reference learner, then Table 7, then Table A6: GroupDRO, DANN, JTT, IRM.
 
 METHODS = {
     "final_frame_mlp": {"model_type": "final_frame_mlp", "input_key": "mixed", "uses_counterfactual": False, "uses_group_balancing": False, "channel_dropout_prob": 0.0},
@@ -97,21 +97,55 @@ def field_array(split: Split, input_key: str) -> np.ndarray:
     return a
 
 
-class GradReverse(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, x, lam):
-        ctx.lam = lam
-        return x.view_as(x)
+def train_sequence(x_train, y_train, x_val, y_val, seed, device, shuffle_frames=False, epochs=40, patience=12, grid_size=16, model_type="sequence_cnn_gru"):
+    # Reference learner. CNN+GRU, standard budget 40/12 (Table A20).
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    channels = 1 if x_train.ndim == 4 else int(x_train.shape[2])
+    model = build_model(model_type, grid_size=grid_size, hidden_dim=64, num_layers=1, dropout=0.0, input_channels=channels).to(device)
+    opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
+    best_acc, best_state, bad = -1.0, None, 0
+    x_val_device, y_val_device = x_val.to(device), y_val.to(device)
+    for _ in range(epochs):
+        model.train()
+        perm = torch.randperm(len(x_train))
+        for i in range(0, len(x_train), 128):
+            idx = perm[i : i + 128]
+            batch = x_train[idx].to(device)
+            if shuffle_frames:
+                batch = batch[:, torch.randperm(batch.shape[1], device=device)]
+            opt.zero_grad(set_to_none=True)
+            F.cross_entropy(model(batch).logits, y_train[idx].to(device)).backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            opt.step()
+        model.eval()
+        with torch.no_grad():
+            x_eval = x_val_device[:, torch.randperm(x_val_device.shape[1], device=device)] if shuffle_frames else x_val_device
+            acc = float((model(x_eval).logits.argmax(1) == y_val_device).float().mean().item())
+        if acc > best_acc:
+            best_acc, bad = acc, 0
+            best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+        else:
+            bad += 1
+            if bad >= patience:
+                break
+    model.load_state_dict(best_state)
+    model.eval()
+    return model
 
-    @staticmethod
-    def backward(ctx, g):
-        return -ctx.lam * g, None
 
-
-def frame_shuffle(xb: torch.Tensor) -> torch.Tensor:
-    perm = torch.rand(xb.shape[0], xb.shape[1], device=xb.device).argsort(1)
-    idx = perm.view(xb.shape[0], xb.shape[1], *([1] * (xb.dim() - 2))).expand_as(xb)
-    return torch.gather(xb, 1, idx)
+@torch.no_grad()
+def eval_sequence(model, x, y, device, mode: str = "ordered", seed: int = 0) -> float:
+    # ordered, or Gate 6 shuffled / reversed_order.
+    x = x.clone()
+    if mode == "shuffled":
+        generator = torch.Generator().manual_seed(seed)
+        for i in range(len(x)):
+            x[i] = x[i][torch.randperm(x.shape[1], generator=generator)]
+    elif mode == "reversed_order":
+        x = x.flip(1)
+    preds = [model(x[i : i + 512].to(device)).logits.argmax(1) for i in range(0, len(x), 512)]
+    return float((torch.cat(preds) == y.to(device)).float().mean().item())
 
 
 def train_one_method(method: str, splits: dict[str, Split], dataset_config: GeneratorConfig, training: dict, model_config: dict, seed: int, run_seed: int, device: torch.device) -> dict:
@@ -230,59 +264,28 @@ def train_one_method(method: str, splits: dict[str, Split], dataset_config: Gene
     }
 
 
-def train_sequence(x_train, y_train, x_val, y_val, seed, device, shuffle_frames=False, epochs=40, patience=12, grid_size=16, model_type="sequence_cnn_gru"):
-    # Reference learner. CNN+GRU, standard budget 40/12 (Table A20).
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    channels = 1 if x_train.ndim == 4 else int(x_train.shape[2])
-    model = build_model(model_type, grid_size=grid_size, hidden_dim=64, num_layers=1, dropout=0.0, input_channels=channels).to(device)
-    opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
-    best_acc, best_state, bad = -1.0, None, 0
-    x_val_device, y_val_device = x_val.to(device), y_val.to(device)
-    for _ in range(epochs):
-        model.train()
-        perm = torch.randperm(len(x_train))
-        for i in range(0, len(x_train), 128):
-            idx = perm[i : i + 128]
-            batch = x_train[idx].to(device)
-            if shuffle_frames:
-                batch = batch[:, torch.randperm(batch.shape[1], device=device)]
-            opt.zero_grad(set_to_none=True)
-            F.cross_entropy(model(batch).logits, y_train[idx].to(device)).backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            opt.step()
-        model.eval()
-        with torch.no_grad():
-            x_eval = x_val_device[:, torch.randperm(x_val_device.shape[1], device=device)] if shuffle_frames else x_val_device
-            acc = float((model(x_eval).logits.argmax(1) == y_val_device).float().mean().item())
-        if acc > best_acc:
-            best_acc, bad = acc, 0
-            best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
-        else:
-            bad += 1
-            if bad >= patience:
-                break
-    model.load_state_dict(best_state)
-    model.eval()
-    return model
+class GradReverse(torch.autograd.Function):
+    # Table A6. DANN reverses the direction-adversary gradient.
+    @staticmethod
+    def forward(ctx, x, lam):
+        ctx.lam = lam
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, g):
+        return -ctx.lam * g, None
 
 
-@torch.no_grad()
-def eval_sequence(model, x, y, device, mode: str = "ordered", seed: int = 0) -> float:
-    # ordered, or Gate 6 shuffled / reversed_order.
-    x = x.clone()
-    if mode == "shuffled":
-        generator = torch.Generator().manual_seed(seed)
-        for i in range(len(x)):
-            x[i] = x[i][torch.randperm(x.shape[1], generator=generator)]
-    elif mode == "reversed_order":
-        x = x.flip(1)
-    preds = [model(x[i : i + 512].to(device)).logits.argmax(1) for i in range(0, len(x), 512)]
-    return float((torch.cat(preds) == y.to(device)).float().mean().item())
+def frame_shuffle(batch: torch.Tensor) -> torch.Tensor:
+    # Table A6. One permutation of each sample's frames.
+    perm = torch.rand(batch.shape[0], batch.shape[1], device=batch.device).argsort(1)
+    idx = perm.view(batch.shape[0], batch.shape[1], *([1] * (batch.dim() - 2))).expand_as(batch)
+    return torch.gather(batch, 1, idx)
 
 
-def tensors(split: Split, mu: float, sd: float):
-    x = (np.asarray(split.mixed) - mu) / sd
+def tensors(split: Split, mean: float, std: float):
+    # Table A6. Train-normalized mixed input, label, and direction.
+    x = (np.asarray(split.mixed) - mean) / std
     return (
         torch.from_numpy(x.astype(np.float32)),
         torch.from_numpy(split.y),
@@ -292,12 +295,12 @@ def tensors(split: Split, mu: float, sd: float):
 
 def train_robust(method: str, splits: dict[str, Split], seed: int, device: torch.device, epochs=40, patience=12, lr=1e-3, wd=1e-4, bs=128, eta=0.01, balanced_sampler=False):
     # Table A6. GroupDRO / DANN / JTT / frame-rand. GroupDRO uses (y, direction) groups.
-    mu = float(np.asarray(splits["train"].mixed).mean())
-    sd = float(np.asarray(splits["train"].mixed).std()) or 1.0
-    xtr, ytr, dtr = tensors(splits["train"], mu, sd)
-    xva, yva, _ = tensors(splits["val_iid"], mu, sd)
-    xit, yit, _ = tensors(splits["iid_test"], mu, sd)
-    xot, yot, _ = tensors(splits["ood_test"], mu, sd)
+    mean = float(np.asarray(splits["train"].mixed).mean())
+    std = float(np.asarray(splits["train"].mixed).std()) or 1.0
+    x_train, y_train, d_train = tensors(splits["train"], mean, std)
+    x_val, y_val, _ = tensors(splits["val_iid"], mean, std)
+    x_iid, y_iid, _ = tensors(splits["iid_test"], mean, std)
+    x_ood, y_ood, _ = tensors(splits["ood_test"], mean, std)
     torch.manual_seed(seed * 31 + 11)
     model = build_model("sequence_cnn_gru", grid_size=splits["train"].core_only.shape[-1], hidden_dim=64, input_channels=infer_input_channels(np.asarray(splits["train"].mixed))).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
@@ -306,72 +309,72 @@ def train_robust(method: str, splits: dict[str, Split], seed: int, device: torch
         torch.manual_seed(seed * 31 + 12)
         adv = nn.Sequential(nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
         adv_opt = torch.optim.AdamW(adv.parameters(), lr=lr, weight_decay=wd)
-    group = ytr * 2 + dtr
-    gw = torch.ones(4, device=device) / 4
-    idx_by_g = [torch.where(group == g)[0] for g in range(4)]
-    sample_w = torch.ones(len(ytr))
+    group = y_train * 2 + d_train
+    group_weight = torch.ones(4, device=device) / 4
+    index_by_group = [torch.where(group == g)[0] for g in range(4)]
+    sample_w = torch.ones(len(y_train))
     if method == "jtt":
         torch.manual_seed(seed * 31 + 13)
-        m1 = build_model("sequence_cnn_gru", grid_size=splits["train"].core_only.shape[-1], hidden_dim=64, input_channels=infer_input_channels(np.asarray(splits["train"].mixed))).to(device)
-        o1 = torch.optim.AdamW(m1.parameters(), lr=lr, weight_decay=wd)
+        stage1 = build_model("sequence_cnn_gru", grid_size=splits["train"].core_only.shape[-1], hidden_dim=64, input_channels=infer_input_channels(np.asarray(splits["train"].mixed))).to(device)
+        stage1_opt = torch.optim.AdamW(stage1.parameters(), lr=lr, weight_decay=wd)
         for _ in range(5):
-            perm = torch.randperm(len(xtr))
-            for i in range(0, len(xtr), bs):
+            perm = torch.randperm(len(x_train))
+            for i in range(0, len(x_train), bs):
                 idx = perm[i : i + bs]
-                o1.zero_grad(set_to_none=True)
-                F.cross_entropy(m1(xtr[idx].to(device)).logits, ytr[idx].to(device)).backward()
-                o1.step()
-        m1.eval()
+                stage1_opt.zero_grad(set_to_none=True)
+                F.cross_entropy(stage1(x_train[idx].to(device)).logits, y_train[idx].to(device)).backward()
+                stage1_opt.step()
+        stage1.eval()
         with torch.no_grad():
-            errs = [m1(xtr[i : i + 512].to(device)).logits.argmax(1).cpu() != ytr[i : i + 512] for i in range(0, len(xtr), 512)]
+            errs = [stage1(x_train[i : i + 512].to(device)).logits.argmax(1).cpu() != y_train[i : i + 512] for i in range(0, len(x_train), 512)]
         sample_w[torch.cat(errs)] = 5.0
-        del m1
-    g_cpu = torch.Generator().manual_seed(seed * 5 + 1)
+        del stage1
+    generator = torch.Generator().manual_seed(seed * 5 + 1)
     best_acc, best_state, bad = -1.0, None, 0
-    n_batches = len(xtr) // bs
+    n_batches = len(x_train) // bs
     for epoch in range(epochs):
         model.train()
         lam_adv = 2.0 / (1.0 + np.exp(-10 * epoch / epochs)) - 1.0
-        perm = torch.randperm(len(xtr), generator=g_cpu)
+        perm = torch.randperm(len(x_train), generator=generator)
         for b in range(n_batches):
             if method.startswith("groupdro") and balanced_sampler:
                 per_g = bs // 4
-                idx = torch.cat([ig[torch.randint(len(ig), (per_g,), generator=g_cpu)] for ig in idx_by_g])
+                idx = torch.cat([ig[torch.randint(len(ig), (per_g,), generator=generator)] for ig in index_by_group])
             else:
                 idx = perm[b * bs : (b + 1) * bs]
-            xb, yb = xtr[idx].to(device), ytr[idx].to(device)
+            batch_x, batch_y = x_train[idx].to(device), y_train[idx].to(device)
             if method == "frame_rand":
-                xb = frame_shuffle(xb)
+                batch_x = frame_shuffle(batch_x)
             opt.zero_grad(set_to_none=True)
-            out = model(xb)
+            out = model(batch_x)
             if method.startswith("groupdro"):
-                gb = group[idx].to(device)
-                per = F.cross_entropy(out.logits, yb, reduction="none")
+                group_batch = group[idx].to(device)
+                per_sample = F.cross_entropy(out.logits, batch_y, reduction="none")
                 losses = torch.zeros(4, device=device)
                 for g in range(4):
-                    m = gb == g
+                    m = group_batch == g
                     if m.any():
-                        losses[g] = per[m].mean()
+                        losses[g] = per_sample[m].mean()
                 with torch.no_grad():
-                    gw2 = gw * torch.exp(eta * losses)
-                    gw.copy_(gw2 / gw2.sum())
-                loss = (gw * losses).sum()
+                    updated_weight = group_weight * torch.exp(eta * losses)
+                    group_weight.copy_(updated_weight / updated_weight.sum())
+                loss = (group_weight * losses).sum()
             elif method == "dann_dir":
                 adv_opt.zero_grad(set_to_none=True)
-                loss = F.cross_entropy(out.logits, yb) + F.cross_entropy(adv(GradReverse.apply(out.representation, lam_adv)), dtr[idx].to(device))
+                loss = F.cross_entropy(out.logits, batch_y) + F.cross_entropy(adv(GradReverse.apply(out.representation, lam_adv)), d_train[idx].to(device))
             elif method == "jtt":
-                wb = sample_w[idx].to(device)
-                per = F.cross_entropy(out.logits, yb, reduction="none")
-                loss = (wb * per).sum() / wb.sum()
+                sample_weight = sample_w[idx].to(device)
+                per_sample = F.cross_entropy(out.logits, batch_y, reduction="none")
+                loss = (sample_weight * per_sample).sum() / sample_weight.sum()
             else:
-                loss = F.cross_entropy(out.logits, yb)
+                loss = F.cross_entropy(out.logits, batch_y)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
             if adv_opt is not None:
                 adv_opt.step()
         model.eval()
-        acc = accuracy(model, xva, yva, device)
+        acc = accuracy(model, x_val, y_val, device)
         if acc > best_acc:
             best_acc, bad = acc, 0
             best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
@@ -381,26 +384,26 @@ def train_robust(method: str, splits: dict[str, Split], seed: int, device: torch
                 break
     model.load_state_dict(best_state)
     model.eval()
-    return accuracy(model, xit, yit, device), accuracy(model, xot, yot, device), model
+    return accuracy(model, x_iid, y_iid, device), accuracy(model, x_ood, y_ood, device), model
 
 
-def shifted_val(seed: int, mu: float, sd: float):
+def shifted_val(seed: int, mean: float, std: float):
     # Table A6. sel_shift: a second val draw at correlation 0.50.
-    cfg = paper_config(seed, **SIZES, nuisance_correlation=0.50)
-    sp = generate_split(cfg, "val_iid")
-    x = (np.asarray(sp.mixed) - mu) / sd
-    return torch.from_numpy(x.astype(np.float32)), torch.from_numpy(sp.y)
+    config = paper_config(seed, **SIZES, nuisance_correlation=0.50)
+    split = generate_split(config, "val_iid")
+    x = (np.asarray(split.mixed) - mean) / std
+    return torch.from_numpy(x.astype(np.float32)), torch.from_numpy(split.y)
 
 
 def train_dual(method: str, arch_key: str, seed: int, splits: dict[str, Split], device: torch.device, epochs=40, lr=1e-3, wd=1e-4, bs=128):
     # Table A6. One run, two selection rules (sel_iid, sel_shift).
-    mu = float(np.asarray(splits["train"].mixed).mean())
-    sd = float(np.asarray(splits["train"].mixed).std()) or 1.0
-    xtr, ytr, dtr = tensors(splits["train"], mu, sd)
-    xva, yva, _ = tensors(splits["val_iid"], mu, sd)
-    xit, yit, _ = tensors(splits["iid_test"], mu, sd)
-    xot, yot, _ = tensors(splits["ood_test"], mu, sd)
-    xsv, ysv = shifted_val(seed, mu, sd)
+    mean = float(np.asarray(splits["train"].mixed).mean())
+    std = float(np.asarray(splits["train"].mixed).std()) or 1.0
+    x_train, y_train, d_train = tensors(splits["train"], mean, std)
+    x_val, y_val, _ = tensors(splits["val_iid"], mean, std)
+    x_iid, y_iid, _ = tensors(splits["iid_test"], mean, std)
+    x_ood, y_ood, _ = tensors(splits["ood_test"], mean, std)
+    x_shift, y_shift = shifted_val(seed, mean, std)
     torch.manual_seed(seed)
     model = build_model(ARCHS[arch_key], grid_size=16, hidden_dim=64, num_layers=1, dropout=0.0, input_channels=2).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
@@ -409,54 +412,54 @@ def train_dual(method: str, arch_key: str, seed: int, splits: dict[str, Split], 
         torch.manual_seed(seed * 31 + 12)
         adv = nn.Sequential(nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
         adv_opt = torch.optim.AdamW(adv.parameters(), lr=lr, weight_decay=wd)
-    group = ytr * 2 + dtr
-    gw = torch.ones(4, device=device) / 4
-    sample_w = torch.ones(len(ytr))
+    group = y_train * 2 + d_train
+    group_weight = torch.ones(4, device=device) / 4
+    sample_w = torch.ones(len(y_train))
     if method == "jtt":
         torch.manual_seed(seed + 10007)
-        m1 = build_model(ARCHS[arch_key], grid_size=16, hidden_dim=64, input_channels=2).to(device)
-        o1 = torch.optim.AdamW(m1.parameters(), lr=lr, weight_decay=wd)
+        stage1 = build_model(ARCHS[arch_key], grid_size=16, hidden_dim=64, input_channels=2).to(device)
+        stage1_opt = torch.optim.AdamW(stage1.parameters(), lr=lr, weight_decay=wd)
         for _ in range(5):
-            perm = torch.randperm(len(xtr))
-            for i in range(0, len(xtr), bs):
+            perm = torch.randperm(len(x_train))
+            for i in range(0, len(x_train), bs):
                 idx = perm[i : i + bs]
-                o1.zero_grad(set_to_none=True)
-                F.cross_entropy(m1(xtr[idx].to(device)).logits, ytr[idx].to(device)).backward()
-                o1.step()
-        m1.eval()
+                stage1_opt.zero_grad(set_to_none=True)
+                F.cross_entropy(stage1(x_train[idx].to(device)).logits, y_train[idx].to(device)).backward()
+                stage1_opt.step()
+        stage1.eval()
         with torch.no_grad():
-            errs = [m1(xtr[i : i + 512].to(device)).logits.argmax(1).cpu() != ytr[i : i + 512] for i in range(0, len(xtr), 512)]
+            errs = [stage1(x_train[i : i + 512].to(device)).logits.argmax(1).cpu() != y_train[i : i + 512] for i in range(0, len(x_train), 512)]
         sample_w[torch.cat(errs)] = 5.0
-        del m1
-    xe = ye = None
+        del stage1
+    env_x = env_y = None
     if method == "irmv1":
         env1 = make("simple_oe", seed + 7919, extra={"nuisance_correlation": 0.85}, sizes={**SIZES, "n_train": 4096})
-        allx = np.concatenate([np.asarray(splits["train"].mixed)[:4096], np.asarray(env1["train"].mixed)])
-        mu2, sd2 = float(allx.mean()), float(allx.std()) or 1.0
-        xe, ye = [], []
-        for sp in (splits["train"], env1["train"]):
-            x = (np.asarray(sp.mixed)[:4096] - mu2) / sd2
-            xe.append(torch.from_numpy(x.astype(np.float32)))
-            ye.append(torch.from_numpy(sp.y[:4096]))
-        xva, yva, _ = tensors(splits["val_iid"], mu2, sd2)
-        xit, yit, _ = tensors(splits["iid_test"], mu2, sd2)
-        xot, yot, _ = tensors(splits["ood_test"], mu2, sd2)
-        xsv, ysv = shifted_val(seed, mu2, sd2)
+        both_train = np.concatenate([np.asarray(splits["train"].mixed)[:4096], np.asarray(env1["train"].mixed)])
+        mean_env, std_env = float(both_train.mean()), float(both_train.std()) or 1.0
+        env_x, env_y = [], []
+        for split in (splits["train"], env1["train"]):
+            x = (np.asarray(split.mixed)[:4096] - mean_env) / std_env
+            env_x.append(torch.from_numpy(x.astype(np.float32)))
+            env_y.append(torch.from_numpy(split.y[:4096]))
+        x_val, y_val, _ = tensors(splits["val_iid"], mean_env, std_env)
+        x_iid, y_iid, _ = tensors(splits["iid_test"], mean_env, std_env)
+        x_ood, y_ood, _ = tensors(splits["ood_test"], mean_env, std_env)
+        x_shift, y_shift = shifted_val(seed, mean_env, std_env)
     best = {"sel_iid": (-1.0, None), "sel_shift": (-1.0, None)}
     for epoch in range(epochs):
         model.train()
         lam_adv = 2.0 / (1.0 + np.exp(-10 * epoch / epochs)) - 1.0
         if method == "irmv1":
             lam = 1.0 if epoch < 5 else 1000.0
-            perms = [torch.randperm(len(x)) for x in xe]
-            for b in range(min(len(x) for x in xe) // bs):
+            perms = [torch.randperm(len(x)) for x in env_x]
+            for b in range(min(len(x) for x in env_x) // bs):
                 opt.zero_grad(set_to_none=True)
                 total = 0.0
                 for e in range(2):
                     idx = perms[e][b * bs : (b + 1) * bs]
-                    xb, yb = xe[e][idx].to(device), ye[e][idx].to(device)
+                    batch_x, batch_y = env_x[e][idx].to(device), env_y[e][idx].to(device)
                     w = torch.ones(1, device=device, requires_grad=True)
-                    risk = F.cross_entropy(model(xb).logits * w, yb)
+                    risk = F.cross_entropy(model(batch_x).logits * w, batch_y)
                     g = torch.autograd.grad(risk, w, create_graph=True)[0]
                     total = total + risk + lam * (g ** 2).sum()
                 loss = total / 2
@@ -466,42 +469,42 @@ def train_dual(method: str, arch_key: str, seed: int, splits: dict[str, Split], 
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 opt.step()
         else:
-            perm = torch.randperm(len(xtr))
-            for i in range(0, len(xtr), bs):
+            perm = torch.randperm(len(x_train))
+            for i in range(0, len(x_train), bs):
                 idx = perm[i : i + bs]
-                xb, yb = xtr[idx].to(device), ytr[idx].to(device)
+                batch_x, batch_y = x_train[idx].to(device), y_train[idx].to(device)
                 if method == "frame_rand":
-                    xb = frame_shuffle(xb)
+                    batch_x = frame_shuffle(batch_x)
                 opt.zero_grad(set_to_none=True)
-                out = model(xb)
+                out = model(batch_x)
                 if method == "groupdro_joint":
-                    gb = group[idx].to(device)
-                    per = F.cross_entropy(out.logits, yb, reduction="none")
+                    group_batch = group[idx].to(device)
+                    per_sample = F.cross_entropy(out.logits, batch_y, reduction="none")
                     losses = torch.zeros(4, device=device)
                     for g in range(4):
-                        msk = gb == g
+                        msk = group_batch == g
                         if msk.any():
-                            losses[g] = per[msk].mean()
+                            losses[g] = per_sample[msk].mean()
                     with torch.no_grad():
-                        gw2 = gw * torch.exp(0.01 * losses)
-                        gw.copy_(gw2 / gw2.sum())
-                    loss = (gw * losses).sum()
+                        updated_weight = group_weight * torch.exp(0.01 * losses)
+                        group_weight.copy_(updated_weight / updated_weight.sum())
+                    loss = (group_weight * losses).sum()
                 elif method == "dann_dir":
                     adv_opt.zero_grad(set_to_none=True)
-                    loss = F.cross_entropy(out.logits, yb) + F.cross_entropy(adv(GradReverse.apply(out.representation, lam_adv)), dtr[idx].to(device))
+                    loss = F.cross_entropy(out.logits, batch_y) + F.cross_entropy(adv(GradReverse.apply(out.representation, lam_adv)), d_train[idx].to(device))
                 elif method == "jtt":
-                    wb = sample_w[idx].to(device)
-                    per = F.cross_entropy(out.logits, yb, reduction="none")
-                    loss = (wb * per).sum() / wb.sum()
+                    sample_weight = sample_w[idx].to(device)
+                    per_sample = F.cross_entropy(out.logits, batch_y, reduction="none")
+                    loss = (sample_weight * per_sample).sum() / sample_weight.sum()
                 else:
-                    loss = F.cross_entropy(out.logits, yb)
+                    loss = F.cross_entropy(out.logits, batch_y)
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 opt.step()
                 if adv_opt is not None:
                     adv_opt.step()
         model.eval()
-        for sel, (xv, yv) in [("sel_iid", (xva, yva)), ("sel_shift", (xsv, ysv))]:
+        for sel, (xv, yv) in [("sel_iid", (x_val, y_val)), ("sel_shift", (x_shift, y_shift))]:
             acc = accuracy(model, xv, yv, device)
             if acc > best[sel][0]:
                 state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
@@ -510,22 +513,22 @@ def train_dual(method: str, arch_key: str, seed: int, splits: dict[str, Split], 
     for sel in best:
         model.load_state_dict(best[sel][1])
         model.eval()
-        out[sel] = (accuracy(model, xit, yit, device), accuracy(model, xot, yot, device))
+        out[sel] = (accuracy(model, x_iid, y_iid, device), accuracy(model, x_ood, y_ood, device))
     return out
 
 
 def train_irm(splits0: dict[str, Split], splits1: dict[str, Split], seed: int, device: torch.device, epochs=40, patience=12, irm_lambda=1000.0, bs=128, lr=1e-3, wd=1e-4):
     # Table A6. IRMv1 on two Simple-OE environments (ρ=0.97 and ρ=0.85).
-    allx = np.concatenate([np.asarray(splits0["train"].mixed), np.asarray(splits1["train"].mixed)])
-    mu, sd = float(allx.mean()), float(allx.std()) or 1.0
-    xe, ye = [], []
+    both_train = np.concatenate([np.asarray(splits0["train"].mixed), np.asarray(splits1["train"].mixed)])
+    mean, std = float(both_train.mean()), float(both_train.std()) or 1.0
+    env_x, env_y = [], []
     for env in (splits0, splits1):
-        x, y, _ = tensors(env["train"], mu, sd)
-        xe.append(x)
-        ye.append(y)
-    xva, yva, _ = tensors(splits0["val_iid"], mu, sd)
-    xit, yit, _ = tensors(splits0["iid_test"], mu, sd)
-    xot, yot, _ = tensors(splits0["ood_test"], mu, sd)
+        x, y, _ = tensors(env["train"], mean, std)
+        env_x.append(x)
+        env_y.append(y)
+    x_val, y_val, _ = tensors(splits0["val_iid"], mean, std)
+    x_iid, y_iid, _ = tensors(splits0["iid_test"], mean, std)
+    x_ood, y_ood, _ = tensors(splits0["ood_test"], mean, std)
     torch.manual_seed(seed * 31 + 14)
     model = build_model("sequence_cnn_gru", grid_size=splits0["train"].core_only.shape[-1], hidden_dim=64, input_channels=infer_input_channels(np.asarray(splits0["train"].mixed))).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=wd)
@@ -533,16 +536,16 @@ def train_irm(splits0: dict[str, Split], splits1: dict[str, Split], seed: int, d
     for epoch in range(epochs):
         model.train()
         lam = 1.0 if epoch < 5 else irm_lambda
-        perms = [torch.randperm(len(x)) for x in xe]
-        n_batches = min(len(x) for x in xe) // bs
+        perms = [torch.randperm(len(x)) for x in env_x]
+        n_batches = min(len(x) for x in env_x) // bs
         for b in range(n_batches):
             opt.zero_grad(set_to_none=True)
             total = 0.0
             for e in range(2):
                 idx = perms[e][b * bs : (b + 1) * bs]
-                xb, yb = xe[e][idx].to(device), ye[e][idx].to(device)
+                batch_x, batch_y = env_x[e][idx].to(device), env_y[e][idx].to(device)
                 w = torch.ones(1, device=device, requires_grad=True)
-                risk = F.cross_entropy(model(xb).logits * w, yb)
+                risk = F.cross_entropy(model(batch_x).logits * w, batch_y)
                 grad = torch.autograd.grad(risk, w, create_graph=True)[0]
                 total = total + risk + lam * (grad ** 2).sum()
             loss = total / 2
@@ -552,7 +555,7 @@ def train_irm(splits0: dict[str, Split], splits1: dict[str, Split], seed: int, d
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
         model.eval()
-        acc = accuracy(model, xva, yva, device)
+        acc = accuracy(model, x_val, y_val, device)
         if acc > best_acc:
             best_acc, bad = acc, 0
             best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
@@ -562,4 +565,4 @@ def train_irm(splits0: dict[str, Split], splits1: dict[str, Split], seed: int, d
                 break
     model.load_state_dict(best_state)
     model.eval()
-    return accuracy(model, xit, yit, device), accuracy(model, xot, yot, device), model
+    return accuracy(model, x_iid, y_iid, device), accuracy(model, x_ood, y_ood, device), model

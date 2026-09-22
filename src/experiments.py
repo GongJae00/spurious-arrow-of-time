@@ -28,7 +28,7 @@ from src.train import (
     train_sequence,
 )
 
-# Table 5–9 then appendix. `python -m src.experiments` runs every yaml key.
+# Table 5–9, then the appendix kinds. `kind` in configs/experiments.yaml selects the function.
 
 
 def load_yaml(path: Path) -> dict:
@@ -597,43 +597,43 @@ def run_accessibility(spec: dict, default: dict) -> dict:
     for cue, (over, field, ceiling) in cues.items():
         for n_train in [1024, 8192]:
             rows = []
-            for s in range(int(spec["seeds"])):
-                cfg = paper_config(s, n_train=n_train, n_val_iid=2048, n_iid_test=4096, n_ood_test=256, **over)
-                sp = {k: generate_split(cfg, k) for k in ["train", "val_iid", "iid_test"]}
-                mu = float(np.asarray(getattr(sp["train"], field)).mean())
-                sd = float(np.asarray(getattr(sp["train"], field)).std()) or 1.0
-                x = lambda name: as_tensor(((np.asarray(getattr(sp[name], field)) - mu) / sd)[:, :, None])
-                y = lambda name: torch.from_numpy(sp[name].y)
-                torch.manual_seed(s * 31 + 7)
-                m = build_model("sequence_cnn_gru", grid_size=16, hidden_dim=64).to(device)
-                opt = torch.optim.AdamW(m.parameters(), lr=1e-3, weight_decay=1e-4)
+            for seed in range(int(spec["seeds"])):
+                config = paper_config(seed, n_train=n_train, n_val_iid=2048, n_iid_test=4096, n_ood_test=256, **over)
+                splits = {k: generate_split(config, k) for k in ["train", "val_iid", "iid_test"]}
+                mean = float(np.asarray(getattr(splits["train"], field)).mean())
+                std = float(np.asarray(getattr(splits["train"], field)).std()) or 1.0
+                x = lambda name: as_tensor(((np.asarray(getattr(splits[name], field)) - mean) / std)[:, :, None])
+                y = lambda name: torch.from_numpy(splits[name].y)
+                torch.manual_seed(seed * 31 + 7)
+                model = build_model("sequence_cnn_gru", grid_size=16, hidden_dim=64).to(device)
+                opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
                 crit, hit, best, best_state = 0.95 * ceiling, None, -1.0, None
                 x_train, x_val, y_train, y_val = x("train"), x("val_iid"), y("train"), y("val_iid")
-                for ep in range(1, 101):
-                    m.train()
+                for epoch in range(1, 101):
+                    model.train()
                     perm = torch.randperm(len(x_train))
                     for i in range(0, len(x_train), 128):
                         idx = perm[i:i + 128]
                         opt.zero_grad(set_to_none=True)
-                        F.cross_entropy(m(x_train[idx].to(device)).logits, y_train[idx].to(device)).backward()
+                        F.cross_entropy(model(x_train[idx].to(device)).logits, y_train[idx].to(device)).backward()
                         opt.step()
-                    m.eval()
+                    model.eval()
                     with torch.no_grad():
-                        acc = float((m(x_val.to(device)).logits.argmax(1) == y_val.to(device)).float().mean())
+                        acc = float((model(x_val.to(device)).logits.argmax(1) == y_val.to(device)).float().mean())
                     if acc > best:
-                        best, best_state = acc, {k: v.cpu().clone() for k, v in m.state_dict().items()}
+                        best, best_state = acc, {k: v.cpu().clone() for k, v in model.state_dict().items()}
                     if hit is None and acc >= crit:
-                        hit = ep
-                    if hit is not None and ep >= hit + 5:
+                        hit = epoch
+                    if hit is not None and epoch >= hit + 5:
                         break
-                m.load_state_dict(best_state)
-                m.eval()
+                model.load_state_dict(best_state)
+                model.eval()
                 with torch.no_grad():
-                    iid = float((m(x("iid_test").to(device)).logits.argmax(1) == y("iid_test").to(device)).float().mean())
+                    iid = float((model(x("iid_test").to(device)).logits.argmax(1) == y("iid_test").to(device)).float().mean())
                 rows.append((iid, hit if hit is not None else 101))
-            accs = np.array([r[0] for r in rows])
-            eps = np.array([r[1] for r in rows])
-            out[f"{cue}/n{n_train}"] = {"iid_mean": float(accs.mean()), "iid_std": float(accs.std(ddof=1)), "epochs_to_95pct_ceiling": [int(e) for e in eps], "epochs_median": float(np.median(eps))}
+            accuracies = np.array([row[0] for row in rows])
+            epochs_hit = np.array([row[1] for row in rows])
+            out[f"{cue}/n{n_train}"] = {"iid_mean": float(accuracies.mean()), "iid_std": float(accuracies.std(ddof=1)), "epochs_to_95pct_ceiling": [int(e) for e in epochs_hit], "epochs_median": float(np.median(epochs_hit))}
     write_json(Path(spec["out"]), out)
     return out
 
@@ -740,18 +740,18 @@ def run_gradsal(spec: dict, default: dict) -> dict:
     device = torch_device(default["device"])
     out = {}
     for variant, bench in [("trail", "trail_fl"), ("oe", "simple_oe")]:
-        shares, profs = [], []
-        for s in range(int(spec["seeds"])):
-            splits = make(bench, s)
-            mu = float(np.asarray(splits["train"].mixed).mean())
-            sd = float(np.asarray(splits["train"].mixed).std()) or 1.0
-            x = lambda n: as_tensor((np.asarray(splits[n].mixed) - mu) / sd)
-            y = lambda n: torch.from_numpy(splits[n].y)
-            m = train_sequence(x("train"), y("train"), x("val_iid"), y("val_iid"), s, device)
-            share, prof = input_gradient_saliency(m, x("iid_test")[:512], device)
+        shares, profiles = [], []
+        for seed in range(int(spec["seeds"])):
+            splits = make(bench, seed)
+            mean = float(np.asarray(splits["train"].mixed).mean())
+            std = float(np.asarray(splits["train"].mixed).std()) or 1.0
+            x = lambda name: as_tensor((np.asarray(splits[name].mixed) - mean) / std)
+            y = lambda name: torch.from_numpy(splits[name].y)
+            model = train_sequence(x("train"), y("train"), x("val_iid"), y("val_iid"), seed, device)
+            share, profile = input_gradient_saliency(model, x("iid_test")[:512], device)
             shares.append(share)
-            profs.append(np.asarray(prof).round(4).tolist())
-        out[variant] = {"nuis_share_mean": round(float(np.mean(shares)), 4), "nuis_share_std": round(float(np.std(shares)), 4), "frame_profile_mean": np.mean(profs, axis=0).round(4).tolist()}
+            profiles.append(np.asarray(profile).round(4).tolist())
+        out[variant] = {"nuis_share_mean": round(float(np.mean(shares)), 4), "nuis_share_std": round(float(np.std(shares)), 4), "frame_profile_mean": np.mean(profiles, axis=0).round(4).tolist()}
     write_json(Path(spec["out"]), out)
     return out
 
@@ -779,20 +779,20 @@ def run_video_search(spec: dict, default: dict) -> dict:
                 continue
             extra = {**over, "nuisance_motion": "real_video", "real_video_cache": "data/real_video/cache_g16_L8_s5.npz"}
             splits = make("trail_fl", seed, sizes=sizes, extra=extra)
-            def run_field(field, s):
-                a0 = np.asarray(getattr(splits["train"], field))
-                if a0.ndim == 4:
-                    a0 = a0[:, :, None]
-                mu = float(a0.mean())
-                sd = float(a0.std()) or 1.0
-                def x(n):
-                    a = np.asarray(getattr(splits[n], field))
-                    if a.ndim == 4:
-                        a = a[:, :, None]
-                    return as_tensor((a - mu) / sd)
-                y = lambda n: torch.from_numpy(splits[n].y)
-                m = train_sequence(x("train"), y("train"), x("val_iid"), y("val_iid"), s, device)
-                return [round(eval_sequence(m, x("iid_test"), y("iid_test"), device), 4), round(eval_sequence(m, x("ood_test"), y("ood_test"), device), 4)]
+            def run_field(field, run_seed):
+                train_field = np.asarray(getattr(splits["train"], field))
+                if train_field.ndim == 4:
+                    train_field = train_field[:, :, None]
+                mean = float(train_field.mean())
+                std = float(train_field.std()) or 1.0
+                def normalized(name):
+                    array = np.asarray(getattr(splits[name], field))
+                    if array.ndim == 4:
+                        array = array[:, :, None]
+                    return as_tensor((array - mean) / std)
+                labels = lambda name: torch.from_numpy(splits[name].y)
+                model = train_sequence(normalized("train"), labels("train"), normalized("val_iid"), labels("val_iid"), run_seed, device)
+                return [round(eval_sequence(model, normalized("iid_test"), labels("iid_test"), device), 4), round(eval_sequence(model, normalized("ood_test"), labels("ood_test"), device), 4)]
             out[f"{base}/erm"] = run_field("mixed", seed * 31 + 11)
             out[f"{base}/core_only"] = run_field("core_only", seed * 31 + 12)
             out[f"{base}/nuis_only"] = run_field("nuisance_only", seed * 31 + 13)

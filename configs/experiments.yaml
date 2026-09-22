@@ -117,6 +117,7 @@ table9_har2:
   official: true
   seeds: 5
   out: results/main/har2.json
+# Appendix tables, then reviewer runs. Keys stay in this order.
 family:
   kind: train
   out: results/ablation/family

@@ -245,14 +245,14 @@ def load_har(mode="har"):
     return x.reshape(len(x), 10, 50), y, int(is_train.sum())
 
 
-def overlay_order_pulse(xc, y, rng, corr, n, length=10, width=50):
+def overlay_order_pulse(core, y, rng, corr, n, length=10, width=50):
     # Table 9. Order-encoded pulse on a real core; visited-position multiset is direction-independent.
     idx = rng.choice(len(y), size=n, replace=False)
-    xcs, ys = xc[idx], y[idx]
-    d = np.where(rng.random(n) < corr, ys, 1 - ys)
+    core_rows, labels = core[idx], y[idx]
+    direction = np.where(rng.random(n) < corr, labels, 1 - labels)
     p0 = rng.integers(0, width, size=n)
     t = np.arange(length)
-    pos = (p0[:, None] + (2 * d[:, None] - 1) * 5 * t[None, :]) % width
+    pos = (p0[:, None] + (2 * direction[:, None] - 1) * 5 * t[None, :]) % width
     grid = np.arange(width)[None, None, :]
-    nu = np.exp(-0.5 * ((grid - pos[:, :, None]) ** 2) / (3.0 ** 2)).astype(np.float32) * 1.5
-    return xcs, nu, ys, d.astype(np.int64)
+    nuisance = np.exp(-0.5 * ((grid - pos[:, :, None]) ** 2) / (3.0 ** 2)).astype(np.float32) * 1.5
+    return core_rows, nuisance, labels, direction.astype(np.int64)

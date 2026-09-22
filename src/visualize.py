@@ -98,7 +98,7 @@ def fig1(out: Path):
     X0, X1, X2 = 0.10, 0.295, 0.49
     PAD = 0.012
 
-    def panel(pb, header, names, nuis, valid):
+    def panel(pb, header, names, nuisance_label, valid):
         ax.plot([0.012, 0.70], [pb + 0.44, pb + 0.44], color=PANEL_BORDER, lw=0.8)
         ax.text(0.012, pb + 0.385, header, fontsize=8.8, fontweight="bold", color=TEXT)
         yc = pb + 0.185
@@ -111,7 +111,7 @@ def fig1(out: Path):
         ny = pb - 0.005
         ax.add_patch(FancyBboxPatch((nx, ny), nw2, NH, boxstyle="round,pad=0.010,rounding_size=0.028", linewidth=1.0, edgecolor=C_NUI, facecolor=C_NUI_L, zorder=3))
         ymid = ny + NH / 2
-        ax.text(nx + nw2 / 2, ymid + 0.024, nuis, ha="center", va="center", fontsize=7.2, color=TEXT, zorder=4)
+        ax.text(nx + nw2 / 2, ymid + 0.024, nuisance_label, ha="center", va="center", fontsize=7.2, color=TEXT, zorder=4)
         order = ("$s_0 \\rightarrow s_1 \\rightarrow \\cdots \\rightarrow s_{L-1}$" if valid else "$s_0 \\leftarrow s_1 \\leftarrow \\cdots \\leftarrow s_{L-1}$")
         ax.text(nx + nw2 / 2, ymid - 0.028, order, ha="center", va="center", fontsize=7.0, color=C_NUI, zorder=4)
         xr = X2 + 0.065

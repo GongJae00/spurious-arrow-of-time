@@ -35,12 +35,12 @@ def test_split_shapes_and_fields():
 
 
 def test_reproducible_generation():
-    cfg = small_config()
-    a = generate_splits(cfg)["train"]
-    b = generate_splits(cfg)["train"]
-    np.testing.assert_allclose(a.core_only, b.core_only)
-    np.testing.assert_allclose(a.nuisance_only, b.nuisance_only)
-    np.testing.assert_array_equal(a.y, b.y)
+    config = small_config()
+    first = generate_splits(config)["train"]
+    second = generate_splits(config)["train"]
+    np.testing.assert_allclose(first.core_only, second.core_only)
+    np.testing.assert_allclose(first.nuisance_only, second.nuisance_only)
+    np.testing.assert_array_equal(first.y, second.y)
 
 
 def test_nuisance_direction_reverses_ood():
