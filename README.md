@@ -43,12 +43,12 @@ The files follow the paper, in that order.
 `src/visualize.py` draws Figure 1–4, Figure A1–A2, and Figure A3: `fig1`, `fig2`, `fig3`, `fig4`, `fig_a1`, `fig_a2`, `fig_a3`.
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev,transfer]"
 python -m src.experiments
 python -m src.visualize
 ```
 
-`python -m src.experiments --run table5_oe_strict` runs one table. Logged paper numbers are already in `results/`. Figures go to `figures/`.
+`python -m src.experiments --run table5_oe_strict` runs one key in `configs/experiments.yaml`. A key is skipped when its output is already there; delete that output to write it again. Figures go to `figures/`. FordA, HAR, and `data/real_video/cache_g16_L8_s5.npz` stay on disk and are not in git. Graph and the video blur use the `transfer` extra.
 
 ## Citation
 
