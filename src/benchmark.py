@@ -188,38 +188,38 @@ def graph_split(P, faction, order, n_nodes, n, split_seed, mode, length=8, alpha
         p_align = corr
     aligned = rng.random(n) < p_align
     base = np.where(y == 1, 1, -1)
-    d = np.where(aligned, base, -base).astype(np.int64)
+    direction = np.where(aligned, base, -base).astype(np.int64)
     inv_order = np.empty(n_nodes, dtype=np.int64)
     inv_order[order] = np.arange(n_nodes)
     coord = inv_order.astype(np.float32)
     final = rng.uniform(0, n_nodes, size=n).astype(np.float32)
-    phase = (final - d * nu_speed * (length - 1)) % n_nodes
-    nus = np.zeros((n, length, n_nodes), dtype=np.float32)
+    phase = (final - direction * nu_speed * (length - 1)) % n_nodes
+    nuisance = np.zeros((n, length, n_nodes), dtype=np.float32)
     for t in range(length):
-        c = (phase + d * nu_speed * t) % n_nodes
+        c = (phase + direction * nu_speed * t) % n_nodes
         dist = np.abs(coord[None, :] - c[:, None])
         dist = np.minimum(dist, n_nodes - dist)
-        nus[:, t] = np.exp(-0.5 * (dist / nu_sigma) ** 2)
-    obs = np.stack([core, 1.2 * nus], axis=2)[:, :, :, None, :]
-    obs = obs + rng.normal(0, obs_noise, obs.shape).astype(np.float32)
+        nuisance[:, t] = np.exp(-0.5 * (dist / nu_sigma) ** 2)
+    mixed = np.stack([core, 1.2 * nuisance], axis=2)[:, :, :, None, :]
+    mixed = mixed + rng.normal(0, obs_noise, mixed.shape).astype(np.float32)
     return dict(
-        mixed=obs.astype(np.float32),
+        mixed=mixed.astype(np.float32),
         core=core[:, :, None, None, :].astype(np.float32),
-        nuis=nus[:, :, None, None, :].astype(np.float32),
+        nuisance=nuisance[:, :, None, None, :].astype(np.float32),
         y=y,
-        d=d,
+        direction=direction,
     )
 
 
 def load_forda():
     # Table 9. Official FordA train/test, L=10 segments of 50.
     rows = [np.loadtxt(f) for f in ["data/ucr/FordA_TRAIN.tsv", "data/ucr/FordA_TEST.tsv"]]
-    ntr = len(rows[0])
-    a = np.concatenate(rows)
-    y = (a[:, 0] > 0).astype(np.int64)
-    x = a[:, 1:].astype(np.float32)
+    n_train = len(rows[0])
+    table = np.concatenate(rows)
+    y = (table[:, 0] > 0).astype(np.int64)
+    x = table[:, 1:].astype(np.float32)
     x = (x - x.mean(1, keepdims=True)) / (x.std(1, keepdims=True) + 1e-8)
-    return x.reshape(len(x), 10, 50), y, ntr
+    return x.reshape(len(x), 10, 50), y, n_train
 
 
 def load_har(mode="har"):
@@ -230,19 +230,19 @@ def load_har(mode="har"):
         xs.append(np.loadtxt(f"{base}/{split}/Inertial Signals/body_acc_x_{split}.txt"))
         ys.append(np.loadtxt(f"{base}/{split}/y_{split}.txt"))
     x = np.concatenate(xs).astype(np.float32)
-    yy = np.concatenate(ys)
-    is_tr = np.arange(len(yy)) < len(ys[0])
+    activity = np.concatenate(ys)
+    is_train = np.arange(len(activity)) < len(ys[0])
     if mode == "har2":
-        keep = yy <= 2
-        x, yy, is_tr = x[keep], yy[keep], is_tr[keep]
-        y = (yy == 1).astype(np.int64)
+        keep = activity <= 2
+        x, activity, is_train = x[keep], activity[keep], is_train[keep]
+        y = (activity == 1).astype(np.int64)
     else:
-        y = (yy <= 3).astype(np.int64)
+        y = (activity <= 3).astype(np.int64)
     x = (x - x.mean(1, keepdims=True)) / (x.std(1, keepdims=True) + 1e-8)
     t_old = np.linspace(0, 1, x.shape[1])
     t_new = np.linspace(0, 1, 10 * 50)
     x = np.stack([np.interp(t_new, t_old, r) for r in x]).astype(np.float32)
-    return x.reshape(len(x), 10, 50), y, int(is_tr.sum())
+    return x.reshape(len(x), 10, 50), y, int(is_train.sum())
 
 
 def overlay_order_pulse(xc, y, rng, corr, n, length=10, width=50):

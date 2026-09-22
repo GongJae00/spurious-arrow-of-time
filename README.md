@@ -30,19 +30,17 @@ Logged numbers are under `results/main/`, `results/ablation/`, and `results/revi
 
 ## Code
 
-Algorithm 2 is `generate_split` in `src/data.py`: y, core (Eq. 6), ds (Eq. 4), nuisance (Eqs. 7–8), observation (Eq. 9). Table 3 constructions are `make` in `src/benchmark.py`: OE-Strict, Trail-FL, Set-MF, MF-Core, OE-Core.
+The files follow the paper, in that order.
 
-The sequence model is `SequenceCNNGRU` in `src/models.py`. Eq. 10 is the predictor, Eq. 11 is ERM, and Eq. 12 is the counterfactual loss. `train_sequence` in `src/train.py` is the reference learner.
+`generate_split` in `src/data.py` is Algorithm 2: y, core (Eq. 6), ds (Eq. 4), nuisance (Eqs. 7–8), observation (Eq. 9). `make` in `src/benchmark.py` is Table 3: OE-Strict, Trail-FL, Set-MF, MF-Core, OE-Core. FordA, HAR, and the graph loaders are the Table 9 and Table A11 inputs in the same file.
 
-Algorithm 1 is class `Audit` in `src/audit.py`:
+`SequenceCNNGRU` in `src/models.py` is the main sequence model. Eq. 10 is the predictor, Eq. 11 is ERM, and Eq. 12 is the counterfactual loss. LSTM, TCN, Transformer, and temporal pooling are Tables A4–A5. `SegGRU` is Table 9. `train_sequence` in `src/train.py` is the reference learner (Table A20). `train_one_method` is Table 7. `train_robust`, `train_dual`, and `train_irm` are Table A6.
 
-- `gate1` Core accessible
-- `gate2` Nuisance predictive
-- `gate3` Endpoint controlled
-- `gate4` Core recoverable
-- `gate5` Reversal attribution (OOD reverses P(ds|y))
-- `gate6` Cue locality
-- `run` Phase 1, then `gate6(gate5)`
+`Audit` in `src/audit.py` is Algorithm 1. `gate1` through `gate5` are Phase 1. `gate6` is Phase 2, called as `gate6(gate5)`. `regime` in `src/evaluate.py` is the Table 2 cut, 0.8 / 0.2.
+
+`src/experiments.py` runs the tables. The `kind` field in `configs/experiments.yaml` selects the function: `shortcut`, `certify`, and `shuffle` are Table 5; `temporal`, `strict_order`, and `nuisance_order` are Table 6 and Figure 4; `train` is Table 7; `mf_core_probes` and `mf_core_perframe` are Table 8; `ucr` is Table 9. The other kinds are the appendix tables.
+
+`src/visualize.py` draws Figure 1–4 and Figure A3: `fig1`, `fig2`, `fig3`, `fig4`, `fig_a3`.
 
 ```bash
 pip install -e ".[dev]"

@@ -48,100 +48,100 @@ def write_json(path: Path, obj):
 
 
 def seed_list(spec):
-    s = spec["seeds"]
-    return range(s) if type(s) is int else [int(x) for x in s]
+    seeds = spec["seeds"]
+    return range(seeds) if type(seeds) is int else [int(seed) for seed in seeds]
 
 
-def rounded(r):
-    return {k: round(v, 4) if type(v) is float else [round(t, 4) for t in v] for k, v in r.items()}
+def rounded(row):
+    return {k: round(v, 4) if type(v) is float else [round(t, 4) for t in v] for k, v in row.items()}
 
 
 def run_shortcut_eval(spec: dict, default: dict) -> dict:
-    # Table 5. OE-Strict mixed ERM, channel interventions, Gate 6.
+    # Table 5. OE-Strict mixed ERM, channel interventions, Gate 6 probes.
     device = torch_device(default["device"])
     outpath = Path(spec["out"])
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
     benchmark = spec["benchmark"]
-    nospur = spec["nospurious"]
-    corr = 0.5 if nospur else 0.97
+    no_spurious = spec["nospurious"]
+    corr = 0.5 if no_spurious else 0.97
     epochs = spec["epochs"]
     patience = spec["patience"]
-    L = 8
+    length = 8
     for seed in seed_list(spec):
         key = f"seed{seed}"
         if key in out:
             continue
         splits = make(benchmark, seed, corr_train=corr)
-        ytr = torch.from_numpy(splits["train"].y)
-        yva = torch.from_numpy(splits["val_iid"].y)
-        mu = float(splits["train"].mixed.mean())
-        sd = float(splits["train"].mixed.std()) or 1.0
+        y_train = torch.from_numpy(splits["train"].y)
+        y_val = torch.from_numpy(splits["val_iid"].y)
+        mean = float(splits["train"].mixed.mean())
+        std = float(splits["train"].mixed.std()) or 1.0
 
-        def x(name, field=None):
-            a = np.asarray(splits[name].mixed)
+        def normalized(name, field=None):
+            array = np.asarray(splits[name].mixed)
             if field is not None:
-                a = a[:, :, field : field + 1]
-            return as_tensor((a - mu) / sd)
+                array = array[:, :, field : field + 1]
+            return as_tensor((array - mean) / std)
 
-        r = {}
+        row = {}
 
         # no-spurious mixed ERM
-        if nospur:
-            m = train_sequence(x("train"), ytr, x("val_iid"), yva, seed, device, epochs=epochs, patience=patience)
-            r["nospur"] = (eval_sequence(m, x("iid_test"), torch.from_numpy(splits["iid_test"].y), device), eval_sequence(m, x("ood_test"), torch.from_numpy(splits["ood_test"].y), device))
-            out[key] = {k: [round(t, 4) for t in v] for k, v in r.items()}
+        if no_spurious:
+            model = train_sequence(normalized("train"), y_train, normalized("val_iid"), y_val, seed, device, epochs=epochs, patience=patience)
+            row["nospur"] = (eval_sequence(model, normalized("iid_test"), torch.from_numpy(splits["iid_test"].y), device), eval_sequence(model, normalized("ood_test"), torch.from_numpy(splits["ood_test"].y), device))
+            out[key] = {k: [round(t, 4) for t in v] for k, v in row.items()}
             write_json(outpath, out)
             continue
 
         # mixed ERM
-        m = train_sequence(x("train"), ytr, x("val_iid"), yva, seed, device, epochs=epochs, patience=patience)
-        yo = torch.from_numpy(splits["ood_test"].y)
-        xo = x("ood_test")
-        r["erm"] = (eval_sequence(m, x("iid_test"), torch.from_numpy(splits["iid_test"].y), device), eval_sequence(m, xo, yo, device))
+        model = train_sequence(normalized("train"), y_train, normalized("val_iid"), y_val, seed, device, epochs=epochs, patience=patience)
+        y_ood = torch.from_numpy(splits["ood_test"].y)
+        x_ood = normalized("ood_test")
+        row["erm"] = (eval_sequence(model, normalized("iid_test"), torch.from_numpy(splits["iid_test"].y), device), eval_sequence(model, x_ood, y_ood, device))
 
         # nuisance shuffle
-        perm = torch.randperm(L)
-        xs = xo.clone()
-        xs[:, :, 1] = xs[:, perm, 1]
-        r["shuffle_nuis"] = accuracy(m, xs, yo, device)
+        perm = torch.randperm(length)
+        shuffled = x_ood.clone()
+        shuffled[:, :, 1] = shuffled[:, perm, 1]
+        row["shuffle_nuis"] = accuracy(model, shuffled, y_ood, device)
 
         # nuisance reverse
-        xr = xo.clone()
-        xr[:, :, 1] = torch.flip(xr[:, :, 1], dims=[1])
-        r["reverse_nuis"] = accuracy(m, xr, yo, device)
+        reversed_nuisance = x_ood.clone()
+        reversed_nuisance[:, :, 1] = torch.flip(reversed_nuisance[:, :, 1], dims=[1])
+        row["reverse_nuis"] = accuracy(model, reversed_nuisance, y_ood, device)
 
         # core reverse
-        xc = xo.clone()
-        xc[:, :, 0] = torch.flip(xc[:, :, 0], dims=[1])
-        r["reverse_core"] = accuracy(m, xc, yo, device)
+        reversed_core = x_ood.clone()
+        reversed_core[:, :, 0] = torch.flip(reversed_core[:, :, 0], dims=[1])
+        row["reverse_core"] = accuracy(model, reversed_core, y_ood, device)
 
         # nuisance-only ERM
-        nu_m = train_sequence(x("train", 1), ytr, x("val_iid", 1), yva, seed + 5000, device, epochs=epochs, patience=patience)
-        r["nuisance_only"] = (eval_sequence(nu_m, x("iid_test", 1), torch.from_numpy(splits["iid_test"].y), device), eval_sequence(nu_m, x("ood_test", 1), yo, device))
+        nuisance_model = train_sequence(normalized("train", 1), y_train, normalized("val_iid", 1), y_val, seed + 5000, device, epochs=epochs, patience=patience)
+        row["nuisance_only"] = (eval_sequence(nuisance_model, normalized("iid_test", 1), torch.from_numpy(splits["iid_test"].y), device), eval_sequence(nuisance_model, normalized("ood_test", 1), y_ood, device))
 
         # first-last pair, best single frame, unordered set
         if seed < spec["probe_seeds"]:
-            nu_tr = torch.from_numpy(np.asarray(splits["train"].mixed)[:, :, 1])
-            nu_te = torch.from_numpy(np.asarray(splits["iid_test"].mixed)[:, :, 1])
-            dtr = torch.from_numpy((splits["train"].nuisance_direction > 0).astype(np.int64))
-            dte = torch.from_numpy((splits["iid_test"].nuisance_direction > 0).astype(np.int64))
-            r["firstlast_pair_dir"] = probe(nu_tr[:, [0, L - 1]].reshape(len(nu_tr), -1), dtr, nu_te[:, [0, L - 1]].reshape(len(nu_te), -1), dte, device)
+            nuisance_train = torch.from_numpy(np.asarray(splits["train"].mixed)[:, :, 1])
+            nuisance_iid = torch.from_numpy(np.asarray(splits["iid_test"].mixed)[:, :, 1])
+            d_train = torch.from_numpy((splits["train"].nuisance_direction > 0).astype(np.int64))
+            d_iid = torch.from_numpy((splits["iid_test"].nuisance_direction > 0).astype(np.int64))
+            row["firstlast_pair_dir"] = probe(nuisance_train[:, [0, length - 1]].reshape(len(nuisance_train), -1), d_train, nuisance_iid[:, [0, length - 1]].reshape(len(nuisance_iid), -1), d_iid, device)
             best = 0.0
-            for t in range(L):
-                best = max(best, probe(nu_tr[:, t].reshape(len(nu_tr), -1), dtr, nu_te[:, t].reshape(len(nu_te), -1), dte, device, 15))
-            r["best_single_frame_dir"] = best
-            srt_tr = torch.sort(nu_tr.reshape(len(nu_tr), L, -1), dim=1)[0]
-            srt_te = torch.sort(nu_te.reshape(len(nu_te), L, -1), dim=1)[0]
-            r["set_dir"] = probe(srt_tr.reshape(len(srt_tr), -1), dtr, srt_te.reshape(len(srt_te), -1), dte, device)
+            for t in range(length):
+                best = max(best, probe(nuisance_train[:, t].reshape(len(nuisance_train), -1), d_train, nuisance_iid[:, t].reshape(len(nuisance_iid), -1), d_iid, device, 15))
+            row["best_single_frame_dir"] = best
+            sorted_train = torch.sort(nuisance_train.reshape(len(nuisance_train), length, -1), dim=1)[0]
+            sorted_iid = torch.sort(nuisance_iid.reshape(len(nuisance_iid), length, -1), dim=1)[0]
+            row["set_dir"] = probe(sorted_train.reshape(len(sorted_train), -1), d_train, sorted_iid.reshape(len(sorted_iid), -1), d_iid, device)
 
             # OE-Strict adjacent interior pair (frames 3, 4)
             if benchmark == "oe_strict":
-                r["adjacent_pair_dir"] = probe(nu_tr[:, [3, 4]].reshape(len(nu_tr), -1), dtr, nu_te[:, [3, 4]].reshape(len(nu_te), -1), dte, device)
+                row["adjacent_pair_dir"] = probe(nuisance_train[:, [3, 4]].reshape(len(nuisance_train), -1), d_train, nuisance_iid[:, [3, 4]].reshape(len(nuisance_iid), -1), d_iid, device)
 
             # Set-MF temporal mean
             if benchmark == "set_mf":
-                r["temporal_mean_dir"] = probe(nu_tr.mean(1).reshape(len(nu_tr), -1), dtr, nu_te.mean(1).reshape(len(nu_te), -1), dte, device)
-        out[key] = rounded(r)
+                row["temporal_mean_dir"] = probe(nuisance_train.mean(1).reshape(len(nuisance_train), -1), d_train, nuisance_iid.mean(1).reshape(len(nuisance_iid), -1), d_iid, device)
+        out[key] = rounded(row)
         write_json(outpath, out)
     return out
 
@@ -152,28 +152,28 @@ def run_certify(spec: dict, default: dict) -> dict:
     outpath = Path(spec["out"])
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
     seeds = range(int(spec["seeds"]))
-    L = 8
+    length = 8
     for seed in seeds:
         key = f"seed{seed}"
         if key in out:
             continue
         splits = make(spec["benchmark"], seed)
-        mu = float(np.asarray(splits["train"].mixed).mean())
-        sd = float(np.asarray(splits["train"].mixed).std()) or 1.0
-        def x(name, field=1):
-            a = np.asarray(splits[name].mixed)[:, :, field : field + 1]
-            return as_tensor((a - mu) / sd)
-        ytr = torch.from_numpy(splits["train"].y)
-        m = train_sequence(x("train"), ytr, x("val_iid"), torch.from_numpy(splits["val_iid"].y), seed + 5000, device)
-        yo = torch.from_numpy(splits["ood_test"].y)
-        xo = x("ood_test")
-        r = {
-            "ordered_iid": eval_sequence(m, x("iid_test"), torch.from_numpy(splits["iid_test"].y), device),
-            "ordered_ood": eval_sequence(m, xo, yo, device),
-            "shuffled_ood": accuracy(m, xo[:, torch.randperm(L)], yo, device),
-            "reversed_ood": accuracy(m, torch.flip(xo, dims=[1]), yo, device),
+        mean = float(np.asarray(splits["train"].mixed).mean())
+        std = float(np.asarray(splits["train"].mixed).std()) or 1.0
+        def normalized(name, field=1):
+            array = np.asarray(splits[name].mixed)[:, :, field : field + 1]
+            return as_tensor((array - mean) / std)
+        y_train = torch.from_numpy(splits["train"].y)
+        model = train_sequence(normalized("train"), y_train, normalized("val_iid"), torch.from_numpy(splits["val_iid"].y), seed + 5000, device)
+        y_ood = torch.from_numpy(splits["ood_test"].y)
+        x_ood = normalized("ood_test")
+        row = {
+            "ordered_iid": eval_sequence(model, normalized("iid_test"), torch.from_numpy(splits["iid_test"].y), device),
+            "ordered_ood": eval_sequence(model, x_ood, y_ood, device),
+            "shuffled_ood": accuracy(model, x_ood[:, torch.randperm(length)], y_ood, device),
+            "reversed_ood": accuracy(model, torch.flip(x_ood, dims=[1]), y_ood, device),
         }
-        out[key] = {k: round(v, 4) for k, v in r.items()}
+        out[key] = {k: round(v, 4) for k, v in row.items()}
         write_json(outpath, out)
     return out
 
@@ -188,23 +188,23 @@ def run_shuffle(spec: dict, default: dict) -> dict:
         if key in out:
             continue
         splits = make(spec["benchmark"], seed)
-        mu = float(np.asarray(splits["train"].mixed).mean())
-        sd = float(np.asarray(splits["train"].mixed).std()) or 1.0
-        gen = torch.Generator().manual_seed(seed + 777)
-        y = torch.from_numpy(splits["ood_test"].y)
-        def xn(name, sl=None):
-            a = np.asarray(splits[name].mixed)
-            if sl is not None:
-                a = a[:, :, sl]
-            return as_tensor((a - mu) / sd)
-        m = train_sequence(xn("train", slice(1, 2)), torch.from_numpy(splits["train"].y), xn("val_iid", slice(1, 2)), torch.from_numpy(splits["val_iid"].y), seed + 5000, device)
-        r = {"reader_persample_shuffle_ood": accuracy(m, per_sample_shuffle(xn("ood_test", slice(1, 2)), gen), y, device)}
-        m2 = train_sequence(xn("train"), torch.from_numpy(splits["train"].y), xn("val_iid"), torch.from_numpy(splits["val_iid"].y), seed, device)
-        xm = xn("ood_test")
-        xs = xm.clone()
-        xs[:, :, 1] = per_sample_shuffle(xm[:, :, 1], gen)
-        r["mixed_persample_shuffle_nuis_ood"] = accuracy(m2, xs, y, device)
-        out[key] = {k: round(v, 4) for k, v in r.items()}
+        mean = float(np.asarray(splits["train"].mixed).mean())
+        std = float(np.asarray(splits["train"].mixed).std()) or 1.0
+        generator = torch.Generator().manual_seed(seed + 777)
+        y_ood = torch.from_numpy(splits["ood_test"].y)
+        def normalized(name, channel=None):
+            array = np.asarray(splits[name].mixed)
+            if channel is not None:
+                array = array[:, :, channel]
+            return as_tensor((array - mean) / std)
+        reader = train_sequence(normalized("train", slice(1, 2)), torch.from_numpy(splits["train"].y), normalized("val_iid", slice(1, 2)), torch.from_numpy(splits["val_iid"].y), seed + 5000, device)
+        row = {"reader_persample_shuffle_ood": accuracy(reader, per_sample_shuffle(normalized("ood_test", slice(1, 2)), generator), y_ood, device)}
+        mixed_model = train_sequence(normalized("train"), torch.from_numpy(splits["train"].y), normalized("val_iid"), torch.from_numpy(splits["val_iid"].y), seed, device)
+        x_ood = normalized("ood_test")
+        shuffled = x_ood.clone()
+        shuffled[:, :, 1] = per_sample_shuffle(x_ood[:, :, 1], generator)
+        row["mixed_persample_shuffle_nuis_ood"] = accuracy(mixed_model, shuffled, y_ood, device)
+        out[key] = {k: round(v, 4) for k, v in row.items()}
         write_json(outpath, out)
     return out
 
@@ -214,17 +214,17 @@ def run_temporal(spec: dict, default: dict) -> dict:
     device = torch_device(default["device"])
     per_frame_runs, summary_runs, order_runs = [], [], []
     n = int(spec["seeds"])
-    for s in range(n):
-        a = Audit(make(spec["benchmark"], s), s, device)
-        out = a.gate6(a.gate5())
-        per_frame_runs.append(out["per_frame"])
-        summary_runs.append(out["summary"])
-        order_runs.append(out["order"])
-    L = len(per_frame_runs[0]["dir_iid"])
+    for seed in range(n):
+        audit = Audit(make(spec["benchmark"], seed), seed, device)
+        measured = audit.gate6(audit.gate5())
+        per_frame_runs.append(measured["per_frame"])
+        summary_runs.append(measured["summary"])
+        order_runs.append(measured["order"])
+    length = len(per_frame_runs[0]["dir_iid"])
     result = {
-        "per_frame": {k: [aggregate([r[k][t] for r in per_frame_runs]) for t in range(L)] for k in ["label_iid", "label_ood", "dir_iid", "dir_ood", "core_label_iid", "core_label_ood"]},
-        "summary_probes": {name: {k: aggregate([r[name][k] for r in summary_runs]) for k in summary_runs[0][name]} for name in summary_runs[0]},
-        "order_tests": {k: aggregate([r[k] for r in order_runs]) for k in order_runs[0]},
+        "per_frame": {k: [aggregate([run[k][t] for run in per_frame_runs]) for t in range(length)] for k in ["label_iid", "label_ood", "dir_iid", "dir_ood", "core_label_iid", "core_label_ood"]},
+        "summary_probes": {name: {k: aggregate([run[name][k] for run in summary_runs]) for k in summary_runs[0][name]} for name in summary_runs[0]},
+        "order_tests": {k: aggregate([run[k] for run in order_runs]) for k in order_runs[0]},
     }
     write_json(Path(spec["out"]), result)
     return result
@@ -236,20 +236,20 @@ def run_strict_order(spec: dict, default: dict) -> dict:
     result = {}
     for name, bench in spec["benchmarks"].items():
         ch_runs, set_runs, erm_runs = [], [], []
-        for s in range(int(spec["seeds"])):
-            a = Audit(make(bench, s), s, device)
-            ch_runs.append(a.channel_probes())
-            set_runs.append(a.gate6(a.gate5())["set"])
+        for seed in range(int(spec["seeds"])):
+            audit = Audit(make(bench, seed), seed, device)
+            ch_runs.append(audit.channel_probes())
+            set_runs.append(audit.gate6(audit.gate5())["set"])
             if name == "simple_oe":
-                erm_runs.append(a.mixed_channel())
-        L = len(ch_runs[0]["dir_nuis_only"])
+                erm_runs.append(audit.mixed_channel())
+        length = len(ch_runs[0]["dir_nuis_only"])
         result[name] = {
-            "dir_nuis_only": [aggregate([r["dir_nuis_only"][t] for r in ch_runs]) for t in range(L)],
-            "dir_core_only": [aggregate([r["dir_core_only"][t] for r in ch_runs]) for t in range(L)],
+            "dir_nuis_only": [aggregate([run["dir_nuis_only"][t] for run in ch_runs]) for t in range(length)],
+            "dir_core_only": [aggregate([run["dir_core_only"][t] for run in ch_runs]) for t in range(length)],
             "set_probe_direction": aggregate(set_runs),
         }
         if erm_runs:
-            result[name]["mixed_erm_channel"] = {k: aggregate([r[k] for r in erm_runs]) for k in erm_runs[0]}
+            result[name]["mixed_erm_channel"] = {k: aggregate([run[k] for run in erm_runs]) for k in erm_runs[0]}
     write_json(Path(spec["out"]), result)
     return result
 
@@ -259,8 +259,8 @@ def run_nuisance_order(spec: dict, default: dict) -> dict:
     device = torch_device(default["device"])
     result = {}
     for name, bench in spec["benchmarks"].items():
-        runs = [Audit(make(bench, s), s, device).nuisance_order() for s in range(int(spec["seeds"]))]
-        result[name] = {k: aggregate([r[k] for r in runs]) for k in runs[0]}
+        runs = [Audit(make(bench, seed), seed, device).nuisance_order() for seed in range(int(spec["seeds"]))]
+        result[name] = {k: aggregate([run[k] for run in runs]) for k in runs[0]}
     write_json(Path(spec["out"]), result)
     return result
 
@@ -271,10 +271,10 @@ def run_endpoint(spec: dict, default: dict) -> dict:
     result = {}
     for variant in ["endpoint_matched", "residue_visible"]:
         accs = []
-        for s in range(int(spec["seeds"])):
-            cfg = paper_config(s, n_train=4096, n_val_iid=512, n_iid_test=2048, n_ood_test=512, benchmark_variant=variant)
-            splits = {"train": generate_split(cfg, "train"), "iid_test": generate_split(cfg, "iid_test")}
-            accs.append(Audit(splits, s, device).gate3())
+        for seed in range(int(spec["seeds"])):
+            config = paper_config(seed, n_train=4096, n_val_iid=512, n_iid_test=2048, n_ood_test=512, benchmark_variant=variant)
+            splits = {"train": generate_split(config, "train"), "iid_test": generate_split(config, "iid_test")}
+            accs.append(Audit(splits, seed, device).gate3())
         result[variant] = aggregate(accs)
     write_json(Path(spec["out"]), result)
     return result
@@ -332,18 +332,18 @@ def run_mf_core_probes(spec: dict, default: dict) -> dict:
     # Table 8. Temporal-mean probe vs core-only GRU.
     device = torch_device(default["device"])
     runs = []
-    for s in range(int(spec["seeds"])):
-        splits = make("mf_core", s)
-        tr, va, it, ot = (splits[k] for k in ["train", "val_iid", "iid_test", "ood_test"])
-        ytr, yit = torch.from_numpy(tr.y), torch.from_numpy(it.y)
-        mean_feat = lambda x: as_tensor(np.asarray(x.core_only).mean(axis=1).reshape(len(x.y), -1))
-        mean_acc = train_mlp_probe(mean_feat(tr), ytr, [(mean_feat(it), yit)], s * 7 + 3, device)[0]
-        mu = float(np.asarray(tr.core_only).mean())
-        sd = float(np.asarray(tr.core_only).std()) or 1.0
-        seq = lambda x: as_tensor(((np.asarray(x.core_only) - mu) / sd)[:, :, None])
-        m = train_sequence(seq(tr), ytr, seq(va), torch.from_numpy(va.y), s * 31 + 7, device, epochs=100, patience=30)
-        runs.append({"mean_probe": mean_acc, "gru_iid": eval_sequence(m, seq(it), yit, device), "gru_ood": eval_sequence(m, seq(ot), torch.from_numpy(ot.y), device)})
-    result = {k: aggregate([r[k] for r in runs]) for k in runs[0]}
+    for seed in range(int(spec["seeds"])):
+        splits = make("mf_core", seed)
+        train, val, iid, ood = (splits[name] for name in ("train", "val_iid", "iid_test", "ood_test"))
+        y_train, y_iid = torch.from_numpy(train.y), torch.from_numpy(iid.y)
+        mean_feat = lambda split: as_tensor(np.asarray(split.core_only).mean(axis=1).reshape(len(split.y), -1))
+        mean_acc = train_mlp_probe(mean_feat(train), y_train, [(mean_feat(iid), y_iid)], seed * 7 + 3, device)[0]
+        mean = float(np.asarray(train.core_only).mean())
+        std = float(np.asarray(train.core_only).std()) or 1.0
+        core = lambda split: as_tensor(((np.asarray(split.core_only) - mean) / std)[:, :, None])
+        model = train_sequence(core(train), y_train, core(val), torch.from_numpy(val.y), seed * 31 + 7, device, epochs=100, patience=30)
+        runs.append({"mean_probe": mean_acc, "gru_iid": eval_sequence(model, core(iid), y_iid, device), "gru_ood": eval_sequence(model, core(ood), torch.from_numpy(ood.y), device)})
+    result = {k: aggregate([run[k] for run in runs]) for k in runs[0]}
     write_json(Path(spec["out"]), result)
     return result
 
@@ -352,15 +352,15 @@ def run_mf_core_perframe(spec: dict, default: dict) -> dict:
     # Table 8. Per-frame core-only label probes.
     device = torch_device(default["device"])
     runs = []
-    for s in range(int(spec["seeds"])):
-        splits = make("mf_core", s)
-        tr, it = splits["train"], splits["iid_test"]
-        ytr, yit = torch.from_numpy(tr.y), torch.from_numpy(it.y)
+    for seed in range(int(spec["seeds"])):
+        splits = make("mf_core", seed)
+        train, iid = splits["train"], splits["iid_test"]
+        y_train, y_iid = torch.from_numpy(train.y), torch.from_numpy(iid.y)
         accs = []
-        for t in range(tr.core_only.shape[1]):
-            accs.append(train_mlp_probe(as_tensor(np.asarray(tr.core_only)[:, t].reshape(len(ytr), -1)), ytr, [(as_tensor(np.asarray(it.core_only)[:, t].reshape(len(yit), -1)), yit)], s * 100 + t, device)[0])
+        for t in range(train.core_only.shape[1]):
+            accs.append(train_mlp_probe(as_tensor(np.asarray(train.core_only)[:, t].reshape(len(y_train), -1)), y_train, [(as_tensor(np.asarray(iid.core_only)[:, t].reshape(len(y_iid), -1)), y_iid)], seed * 100 + t, device)[0])
         runs.append(accs)
-    result = {"per_frame": [aggregate([r[t] for r in runs]) for t in range(len(runs[0]))]}
+    result = {"per_frame": [aggregate([run[t] for run in runs]) for t in range(len(runs[0]))]}
     write_json(Path(spec["out"]), result)
     return result
 
@@ -369,11 +369,11 @@ def run_ucr(spec: dict, default: dict) -> dict:
     # Table 9. FordA / HAR with an order-pulse overlay on the official split.
     device = torch_device(default["device"])
     dataset = spec["dataset"]
-    xc_all, y_all, ntr = load_har(dataset) if dataset in ("har", "har2") else load_forda()
+    series, y_all, n_train = load_har(dataset) if dataset in ("har", "har2") else load_forda()
     n = len(y_all)
-    L, CORR = 10, 0.97
+    length, corr_train = 10, 0.97
     official = spec["official"]
-    cut = [int(ntr * 0.9), ntr, ntr + (n - ntr) // 2, n] if official else [int(n * 0.62), int(n * 0.70), int(n * 0.85), n]
+    cut = [int(n_train * 0.9), n_train, n_train + (n - n_train) // 2, n] if official else [int(n * 0.62), int(n * 0.70), int(n * 0.85), n]
     outpath = Path(spec["out"])
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
     for seed in seed_list(spec):
@@ -381,117 +381,117 @@ def run_ucr(spec: dict, default: dict) -> dict:
         if key in out:
             continue
         rng = np.random.default_rng(seed)
-        order = np.concatenate([rng.permutation(ntr), ntr + rng.permutation(n - ntr)]) if official else rng.permutation(n)
+        order = np.concatenate([rng.permutation(n_train), n_train + rng.permutation(n - n_train)]) if official else rng.permutation(n)
         pool = {}
-        for name, s, e, corr in [("train", 0, cut[0], CORR), ("val", cut[0], cut[1], CORR), ("iid", cut[1], cut[2], CORR), ("ood", cut[2], cut[3], 1 - CORR)]:
-            idx = order[s:e]
-            pool[name] = overlay_order_pulse(xc_all[idx], y_all[idx], np.random.default_rng(seed * 7 + s), corr, len(idx))
+        for name, start, end, corr in [("train", 0, cut[0], corr_train), ("val", cut[0], cut[1], corr_train), ("iid", cut[1], cut[2], corr_train), ("ood", cut[2], cut[3], 1 - corr_train)]:
+            idx = order[start:end]
+            pool[name] = overlay_order_pulse(series[idx], y_all[idx], np.random.default_rng(seed * 7 + start), corr, len(idx))
 
-        def T(name, mode):
-            xcs, nu, ys, d = pool[name]
-            core = torch.from_numpy(xcs)[:, :, None, :]
-            nut = torch.from_numpy(nu)[:, :, None, :]
-            x = torch.cat([core, nut], 2) if mode == "mixed" else (core if mode == "core" else nut)
-            return x, torch.from_numpy(ys), torch.from_numpy(d)
+        def tensors(name, mode):
+            core_np, nuisance_np, labels, direction = pool[name]
+            core = torch.from_numpy(core_np)[:, :, None, :]
+            nuisance = torch.from_numpy(nuisance_np)[:, :, None, :]
+            x = torch.cat([core, nuisance], 2) if mode == "mixed" else (core if mode == "core" else nuisance)
+            return x, torch.from_numpy(labels), torch.from_numpy(direction)
 
-        def fit(ch, mode):
+        def fit(channels, mode):
             torch.manual_seed(seed)
-            m = SegGRU(ch).to(device)
-            opt = torch.optim.AdamW(m.parameters(), lr=1e-3, weight_decay=1e-4)
-            xtr, ytr, _ = T("train", mode)
-            xva, yva, _ = T("val", mode)
+            model = SegGRU(channels).to(device)
+            opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
+            x_train, y_train, _ = tensors("train", mode)
+            x_val, y_val, _ = tensors("val", mode)
             best, state, bad = -1, None, 0
             for _ in range(60):
-                m.train()
-                perm = torch.randperm(len(xtr))
-                for i in range(0, len(xtr), 128):
+                model.train()
+                perm = torch.randperm(len(x_train))
+                for i in range(0, len(x_train), 128):
                     j = perm[i:i + 128]
                     opt.zero_grad(set_to_none=True)
-                    F.cross_entropy(m(xtr[j].to(device)).logits, ytr[j].to(device)).backward()
+                    F.cross_entropy(model(x_train[j].to(device)).logits, y_train[j].to(device)).backward()
                     opt.step()
-                m.eval()
+                model.eval()
                 with torch.no_grad():
-                    acc = (m(xva.to(device)).logits.argmax(1).cpu() == yva).float().mean().item()
+                    acc = (model(x_val.to(device)).logits.argmax(1).cpu() == y_val).float().mean().item()
                 if acc > best:
-                    best, bad, state = acc, 0, {k: v.cpu().clone() for k, v in m.state_dict().items()}
+                    best, bad, state = acc, 0, {k: v.cpu().clone() for k, v in model.state_dict().items()}
                 else:
                     bad += 1
                     if bad >= 15:
                         break
-            m.load_state_dict(state)
-            m.eval()
-            return m
-
-        def acc(m, x, y):
-            return float((m(x.to(device)).logits.argmax(1).cpu() == y).float().mean())
-
-        r = {}
-        m = fit(1, "core")
-        r["core_only"] = [acc(m, *T("iid", "core")[:2]), acc(m, *T("ood", "core")[:2])]
-        m = fit(1, "nu")
-        r["nuisance_only"] = [acc(m, *T("iid", "nu")[:2]), acc(m, *T("ood", "nu")[:2])]
-        erm = fit(2, "mixed")
-        xi, yi, _ = T("iid", "mixed")
-        xo, yo, _ = T("ood", "mixed")
-        r["erm"] = [acc(erm, xi, yi), acc(erm, xo, yo)]
-        xs = xo.clone()
-        xs[:, :, 1] = xs[:, torch.randperm(L), 1]
-        r["erm_shuffle_nuis"] = acc(erm, xs, yo)
-        xr = xo.clone()
-        xr[:, :, 1] = torch.flip(xr[:, :, 1], dims=[1])
-        r["erm_reverse_nuis"] = acc(erm, xr, yo)
-        xrc = xo.clone()
-        xrc[:, :, 0] = torch.flip(xrc[:, :, 0], dims=[1])
-        r["erm_reverse_core"] = acc(erm, xrc, yo)
-        ns = {}
-        for name in pool:
-            xcs, nu, ys, d = pool[name]
-            rng2 = np.random.default_rng(seed * 13 + 1009 * ["train", "val", "iid", "ood"].index(name))
-            ns[name] = overlay_order_pulse(xcs, ys, rng2, 0.5, len(ys))
-        pool_bak = {k: pool[k] for k in pool}
-        pool.update(ns)
-        m = fit(2, "mixed")
-        r["no_spurious"] = [acc(m, *T("iid", "mixed")[:2]), acc(m, *T("ood", "mixed")[:2])]
-        pool.update(pool_bak)
-
-        def probe_ucr(x, t, tgt):
-            xt = x[:, :, :] if t is None else x[:, t]
-            model = nn.Sequential(nn.Linear(xt.reshape(len(xt), -1).shape[1], 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
-            opt = torch.optim.AdamW(model.parameters(), lr=1e-3)
-            xtr = xt.reshape(len(xt), -1)
-            for _ in range(30):
-                pm = torch.randperm(len(xtr))
-                for i in range(0, len(xtr), 256):
-                    j = pm[i : i + 256]
-                    opt.zero_grad(set_to_none=True)
-                    F.cross_entropy(model(xtr[j].to(device)), tgt[j].to(device)).backward()
-                    opt.step()
+            model.load_state_dict(state)
             model.eval()
             return model
 
-        xn_tr, ytr_, dtr_ = T("train", "nu")
-        xn_iid, yiid_, diid_ = T("iid", "nu")
-        best_sf = 0.0
-        for t in range(L):
-            pm = probe_ucr(xn_tr, t, dtr_)
+        def accuracy_of(model, x, y):
+            return float((model(x.to(device)).logits.argmax(1).cpu() == y).float().mean())
+
+        row = {}
+        model = fit(1, "core")
+        row["core_only"] = [accuracy_of(model, *tensors("iid", "core")[:2]), accuracy_of(model, *tensors("ood", "core")[:2])]
+        model = fit(1, "nu")
+        row["nuisance_only"] = [accuracy_of(model, *tensors("iid", "nu")[:2]), accuracy_of(model, *tensors("ood", "nu")[:2])]
+        erm = fit(2, "mixed")
+        x_iid, y_iid, _ = tensors("iid", "mixed")
+        x_ood, y_ood, _ = tensors("ood", "mixed")
+        row["erm"] = [accuracy_of(erm, x_iid, y_iid), accuracy_of(erm, x_ood, y_ood)]
+        shuffled = x_ood.clone()
+        shuffled[:, :, 1] = shuffled[:, torch.randperm(length), 1]
+        row["erm_shuffle_nuis"] = accuracy_of(erm, shuffled, y_ood)
+        reversed_nuisance = x_ood.clone()
+        reversed_nuisance[:, :, 1] = torch.flip(reversed_nuisance[:, :, 1], dims=[1])
+        row["erm_reverse_nuis"] = accuracy_of(erm, reversed_nuisance, y_ood)
+        reversed_core = x_ood.clone()
+        reversed_core[:, :, 0] = torch.flip(reversed_core[:, :, 0], dims=[1])
+        row["erm_reverse_core"] = accuracy_of(erm, reversed_core, y_ood)
+        no_spurious_pool = {}
+        for name in pool:
+            core_np, _, labels, _ = pool[name]
+            rng2 = np.random.default_rng(seed * 13 + 1009 * ["train", "val", "iid", "ood"].index(name))
+            no_spurious_pool[name] = overlay_order_pulse(core_np, labels, rng2, 0.5, len(labels))
+        pool_saved = {k: pool[k] for k in pool}
+        pool.update(no_spurious_pool)
+        model = fit(2, "mixed")
+        row["no_spurious"] = [accuracy_of(model, *tensors("iid", "mixed")[:2]), accuracy_of(model, *tensors("ood", "mixed")[:2])]
+        pool.update(pool_saved)
+
+        def linear_probe(x, t, target):
+            frame = x[:, :, :] if t is None else x[:, t]
+            probe_model = nn.Sequential(nn.Linear(frame.reshape(len(frame), -1).shape[1], 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
+            opt = torch.optim.AdamW(probe_model.parameters(), lr=1e-3)
+            x_train = frame.reshape(len(frame), -1)
+            for _ in range(30):
+                perm = torch.randperm(len(x_train))
+                for i in range(0, len(x_train), 256):
+                    j = perm[i : i + 256]
+                    opt.zero_grad(set_to_none=True)
+                    F.cross_entropy(probe_model(x_train[j].to(device)), target[j].to(device)).backward()
+                    opt.step()
+            probe_model.eval()
+            return probe_model
+
+        nuisance_train, _, d_train = tensors("train", "nu")
+        nuisance_iid, _, d_iid = tensors("iid", "nu")
+        best_single = 0.0
+        for t in range(length):
+            probe_model = linear_probe(nuisance_train, t, d_train)
             with torch.no_grad():
-                v = float((pm(xn_iid[:, t].reshape(len(xn_iid), -1).to(device)).argmax(1).cpu() == diid_).float().mean())
-            best_sf = max(best_sf, v)
-        r["best_single_seg_dir"] = best_sf
-        srt = torch.sort(xn_tr.reshape(len(xn_tr), L, -1), dim=1)[0]
-        srti = torch.sort(xn_iid.reshape(len(xn_iid), L, -1), dim=1)[0]
-        pm = probe_ucr(srt, None, dtr_)
+                frame_acc = float((probe_model(nuisance_iid[:, t].reshape(len(nuisance_iid), -1).to(device)).argmax(1).cpu() == d_iid).float().mean())
+            best_single = max(best_single, frame_acc)
+        row["best_single_seg_dir"] = best_single
+        sorted_train = torch.sort(nuisance_train.reshape(len(nuisance_train), length, -1), dim=1)[0]
+        sorted_iid = torch.sort(nuisance_iid.reshape(len(nuisance_iid), length, -1), dim=1)[0]
+        probe_model = linear_probe(sorted_train, None, d_train)
         with torch.no_grad():
-            r["unordered_set_dir"] = float((pm(srti.reshape(len(srti), -1).to(device)).argmax(1).cpu() == diid_).float().mean())
-        xm_tr, ytr2, dtr2 = T("train", "mixed")
-        xm_iid, yiid2, diid2 = T("iid", "mixed")
-        pm = probe_ucr(xm_tr, L - 1, ytr2)
+            row["unordered_set_dir"] = float((probe_model(sorted_iid.reshape(len(sorted_iid), -1).to(device)).argmax(1).cpu() == d_iid).float().mean())
+        mixed_train, y_train, d_train_mixed = tensors("train", "mixed")
+        mixed_iid, y_iid_mixed, d_iid_mixed = tensors("iid", "mixed")
+        probe_model = linear_probe(mixed_train, length - 1, y_train)
         with torch.no_grad():
-            r["final_seg_label"] = float((pm(xm_iid[:, L - 1].reshape(len(xm_iid), -1).to(device)).argmax(1).cpu() == yiid2).float().mean())
-        pm = probe_ucr(xm_tr, L - 1, dtr2)
+            row["final_seg_label"] = float((probe_model(mixed_iid[:, length - 1].reshape(len(mixed_iid), -1).to(device)).argmax(1).cpu() == y_iid_mixed).float().mean())
+        probe_model = linear_probe(mixed_train, length - 1, d_train_mixed)
         with torch.no_grad():
-            r["final_seg_dir"] = float((pm(xm_iid[:, L - 1].reshape(len(xm_iid), -1).to(device)).argmax(1).cpu() == diid2).float().mean())
-        out[key] = rounded(r)
+            row["final_seg_dir"] = float((probe_model(mixed_iid[:, length - 1].reshape(len(mixed_iid), -1).to(device)).argmax(1).cpu() == d_iid_mixed).float().mean())
+        out[key] = rounded(row)
         write_json(outpath, out)
     return out
 
@@ -501,39 +501,39 @@ def run_graph(spec: dict, default: dict) -> dict:
     device = torch_device(default["device"])
     P, faction, order, N = graph_setup(spec["graph"])
     allres = {}
-    for s in range(int(spec["seeds"])):
-        torch.manual_seed(s)
+    for seed in range(int(spec["seeds"])):
+        torch.manual_seed(seed)
         res = {}
-        for scen, prefix in [("main", ""), ("no_spurious", "ns_")]:
-            tr = graph_split(P, faction, order, N, 4096, s * 100 + 1, prefix + "train")
-            va = graph_split(P, faction, order, N, 1024, s * 100 + 2, prefix + "train")
-            ii = graph_split(P, faction, order, N, 2048, s * 100 + 3, prefix + "train")
-            oo = graph_split(P, faction, order, N, 2048, s * 100 + 4, prefix + "ood")
-            methods = {"sequence_erm": ("mixed", "seq"), "core_only": ("core", "seq"), "nuisance_only": ("nuis", "seq"), "final_frame": ("mixed", "mlp")}
-            if scen == "no_spurious":
+        for scenario, prefix in [("main", ""), ("no_spurious", "ns_")]:
+            train = graph_split(P, faction, order, N, 4096, seed * 100 + 1, prefix + "train")
+            val = graph_split(P, faction, order, N, 1024, seed * 100 + 2, prefix + "train")
+            iid = graph_split(P, faction, order, N, 2048, seed * 100 + 3, prefix + "train")
+            ood = graph_split(P, faction, order, N, 2048, seed * 100 + 4, prefix + "ood")
+            methods = {"sequence_erm": ("mixed", "seq"), "core_only": ("core", "seq"), "nuisance_only": ("nuisance", "seq"), "final_frame": ("mixed", "mlp")}
+            if scenario == "no_spurious":
                 methods = {"sequence_erm": ("mixed", "seq")}
-            for mname, (key, kind) in methods.items():
-                mu, sd = tr[key].mean(), max(tr[key].std(), 1e-6)
-                norm = lambda a: ((a - mu) / sd).astype(np.float32)
-                ch = tr[key].shape[2]
-                model = build_model("sequence_cnn_gru", grid_size=N, hidden_dim=64, input_channels=ch).to(device) if kind == "seq" else FinalFrameMLP(grid_size=1, hidden_dim=64, input_dim=ch * N).to(device)
-                xtr = torch.from_numpy(norm(tr[key])).to(device)
-                ytr = torch.from_numpy(tr["y"]).to(device)
-                xval = torch.from_numpy(norm(va[key])).to(device)
-                yval = torch.from_numpy(va["y"]).to(device)
+            for method_name, (key, kind) in methods.items():
+                mean, std = train[key].mean(), max(train[key].std(), 1e-6)
+                norm = lambda array: ((array - mean) / std).astype(np.float32)
+                channels = train[key].shape[2]
+                model = build_model("sequence_cnn_gru", grid_size=N, hidden_dim=64, input_channels=channels).to(device) if kind == "seq" else FinalFrameMLP(grid_size=1, hidden_dim=64, input_dim=channels * N).to(device)
+                x_train = torch.from_numpy(norm(train[key])).to(device)
+                y_train = torch.from_numpy(train["y"]).to(device)
+                x_val = torch.from_numpy(norm(val[key])).to(device)
+                y_val = torch.from_numpy(val["y"]).to(device)
                 opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
                 best, best_state, stale = -1, None, 0
                 for _ in range(40):
                     model.train()
-                    perm = torch.randperm(len(xtr), device=device)
-                    for i in range(0, len(xtr), 128):
+                    perm = torch.randperm(len(x_train), device=device)
+                    for i in range(0, len(x_train), 128):
                         idx = perm[i:i + 128]
                         opt.zero_grad(set_to_none=True)
-                        torch.nn.functional.cross_entropy(model(xtr[idx]).logits, ytr[idx]).backward()
+                        torch.nn.functional.cross_entropy(model(x_train[idx]).logits, y_train[idx]).backward()
                         opt.step()
                     model.eval()
                     with torch.no_grad():
-                        acc = float((model(xval).logits.argmax(1) == yval).float().mean())
+                        acc = float((model(x_val).logits.argmax(1) == y_val).float().mean())
                     if acc > best:
                         best, best_state, stale = acc, {k: v.clone() for k, v in model.state_dict().items()}, 0
                     else:
@@ -542,16 +542,16 @@ def run_graph(spec: dict, default: dict) -> dict:
                             break
                 model.load_state_dict(best_state)
                 with torch.no_grad():
-                    res[f"{scen}/{mname}"] = {
-                        "iid": float((model(torch.from_numpy(norm(ii[key])).to(device)).logits.argmax(1) == torch.from_numpy(ii["y"]).to(device)).float().mean()),
-                        "ood": float((model(torch.from_numpy(norm(oo[key])).to(device)).logits.argmax(1) == torch.from_numpy(oo["y"]).to(device)).float().mean()),
+                    res[f"{scenario}/{method_name}"] = {
+                        "iid": float((model(torch.from_numpy(norm(iid[key])).to(device)).logits.argmax(1) == torch.from_numpy(iid["y"]).to(device)).float().mean()),
+                        "ood": float((model(torch.from_numpy(norm(ood[key])).to(device)).logits.argmax(1) == torch.from_numpy(ood["y"]).to(device)).float().mean()),
                     }
-        allres[s] = res
+        allres[seed] = res
     agg = {}
-    for k in allres[0]:
+    for key in allres[0]:
         for split in ("iid", "ood"):
-            vals = [allres[s][k][split] for s in allres]
-            agg[f"{k}/{split}"] = aggregate(vals)
+            vals = [allres[seed][key][split] for seed in allres]
+            agg[f"{key}/{split}"] = aggregate(vals)
     write_json(Path(spec["out"]), agg)
     return agg
 
@@ -608,18 +608,18 @@ def run_accessibility(spec: dict, default: dict) -> dict:
                 m = build_model("sequence_cnn_gru", grid_size=16, hidden_dim=64).to(device)
                 opt = torch.optim.AdamW(m.parameters(), lr=1e-3, weight_decay=1e-4)
                 crit, hit, best, best_state = 0.95 * ceiling, None, -1.0, None
-                xtr, xva, ytr, yva = x("train"), x("val_iid"), y("train"), y("val_iid")
+                x_train, x_val, y_train, y_val = x("train"), x("val_iid"), y("train"), y("val_iid")
                 for ep in range(1, 101):
                     m.train()
-                    perm = torch.randperm(len(xtr))
-                    for i in range(0, len(xtr), 128):
+                    perm = torch.randperm(len(x_train))
+                    for i in range(0, len(x_train), 128):
                         idx = perm[i:i + 128]
                         opt.zero_grad(set_to_none=True)
-                        F.cross_entropy(m(xtr[idx].to(device)).logits, ytr[idx].to(device)).backward()
+                        F.cross_entropy(m(x_train[idx].to(device)).logits, y_train[idx].to(device)).backward()
                         opt.step()
                     m.eval()
                     with torch.no_grad():
-                        acc = float((m(xva.to(device)).logits.argmax(1) == yva.to(device)).float().mean())
+                        acc = float((m(x_val.to(device)).logits.argmax(1) == y_val.to(device)).float().mean())
                     if acc > best:
                         best, best_state = acc, {k: v.cpu().clone() for k, v in m.state_dict().items()}
                     if hit is None and acc >= crit:

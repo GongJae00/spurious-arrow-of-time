@@ -10,45 +10,45 @@ from src.train import eval_sequence, train_sequence
 # Algorithm 1 lives on Audit.gate1–gate6. Table 5 / Figure 4b sit after run().
 
 
-def train_mlp_probe(xtr, ytr, xte_list, seed: int, device, epochs: int = 40):
+def train_mlp_probe(x_train, y_train, test_pairs, seed: int, device, epochs: int = 40):
     # Gates 3 and 6.
-    mean, std = xtr.mean(), xtr.std().clamp_min(1e-6)
-    xtr = ((xtr - mean) / std).to(device)
-    ytr = ytr.to(device)
+    mean, std = x_train.mean(), x_train.std().clamp_min(1e-6)
+    x_train = ((x_train - mean) / std).to(device)
+    y_train = y_train.to(device)
     torch.manual_seed(seed)
-    net = nn.Sequential(nn.Linear(xtr.shape[1], 64), nn.ReLU(), nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
+    net = nn.Sequential(nn.Linear(x_train.shape[1], 64), nn.ReLU(), nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
     opt = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-4)
     for _ in range(epochs):
         net.train()
-        perm = torch.randperm(len(xtr), device=device)
-        for i in range(0, len(xtr), 128):
+        perm = torch.randperm(len(x_train), device=device)
+        for i in range(0, len(x_train), 128):
             idx = perm[i : i + 128]
             opt.zero_grad(set_to_none=True)
-            F.cross_entropy(net(xtr[idx]), ytr[idx]).backward()
+            F.cross_entropy(net(x_train[idx]), y_train[idx]).backward()
             opt.step()
     net.eval()
     accs = []
     with torch.no_grad():
-        for xte, yte in xte_list:
-            xte = ((xte - mean) / std).to(device)
-            accs.append(float((net(xte).argmax(1) == yte.to(device)).float().mean().item()))
+        for x_test, y_test in test_pairs:
+            x_test = ((x_test - mean) / std).to(device)
+            accs.append(float((net(x_test).argmax(1) == y_test.to(device)).float().mean().item()))
     return accs
 
 
-def probe(xtr, ttr, xte, tte, device, epochs=30):
+def probe(x_train, target_train, x_test, target_test, device, epochs=30):
     # Table 5.
-    md = nn.Sequential(nn.Linear(xtr.shape[1], 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
-    opt = torch.optim.AdamW(md.parameters(), lr=1e-3)
+    net = nn.Sequential(nn.Linear(x_train.shape[1], 64), nn.ReLU(), nn.Linear(64, 2)).to(device)
+    opt = torch.optim.AdamW(net.parameters(), lr=1e-3)
     for _ in range(epochs):
-        pm = torch.randperm(len(xtr))
-        for i in range(0, len(xtr), 256):
-            j = pm[i : i + 256]
+        perm = torch.randperm(len(x_train))
+        for i in range(0, len(x_train), 256):
+            j = perm[i : i + 256]
             opt.zero_grad(set_to_none=True)
-            F.cross_entropy(md(xtr[j].to(device)), ttr[j].to(device)).backward()
+            F.cross_entropy(net(x_train[j].to(device)), target_train[j].to(device)).backward()
             opt.step()
-    md.eval()
+    net.eval()
     with torch.no_grad():
-        return float((md(xte.to(device)).argmax(1).cpu() == tte).float().mean())
+        return float((net(x_test.to(device)).argmax(1).cpu() == target_test).float().mean())
 
 
 def per_sample_shuffle(x, gen):

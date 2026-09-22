@@ -230,31 +230,31 @@ def train_one_method(method: str, splits: dict[str, Split], dataset_config: Gene
     }
 
 
-def train_sequence(xtr, ytr, xval, yval, seed, device, shuffle_frames=False, epochs=40, patience=12, grid_size=16, model_type="sequence_cnn_gru"):
+def train_sequence(x_train, y_train, x_val, y_val, seed, device, shuffle_frames=False, epochs=40, patience=12, grid_size=16, model_type="sequence_cnn_gru"):
     # Reference learner. CNN+GRU, standard budget 40/12 (Table A20).
     torch.manual_seed(seed)
     np.random.seed(seed)
-    channels = 1 if xtr.ndim == 4 else int(xtr.shape[2])
+    channels = 1 if x_train.ndim == 4 else int(x_train.shape[2])
     model = build_model(model_type, grid_size=grid_size, hidden_dim=64, num_layers=1, dropout=0.0, input_channels=channels).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-4)
     best_acc, best_state, bad = -1.0, None, 0
-    xval_d, yval_d = xval.to(device), yval.to(device)
+    x_val_device, y_val_device = x_val.to(device), y_val.to(device)
     for _ in range(epochs):
         model.train()
-        perm = torch.randperm(len(xtr))
-        for i in range(0, len(xtr), 128):
+        perm = torch.randperm(len(x_train))
+        for i in range(0, len(x_train), 128):
             idx = perm[i : i + 128]
-            xb = xtr[idx].to(device)
+            batch = x_train[idx].to(device)
             if shuffle_frames:
-                xb = xb[:, torch.randperm(xb.shape[1], device=device)]
+                batch = batch[:, torch.randperm(batch.shape[1], device=device)]
             opt.zero_grad(set_to_none=True)
-            F.cross_entropy(model(xb).logits, ytr[idx].to(device)).backward()
+            F.cross_entropy(model(batch).logits, y_train[idx].to(device)).backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
         model.eval()
         with torch.no_grad():
-            xv = xval_d[:, torch.randperm(xval_d.shape[1], device=device)] if shuffle_frames else xval_d
-            acc = float((model(xv).logits.argmax(1) == yval_d).float().mean().item())
+            x_eval = x_val_device[:, torch.randperm(x_val_device.shape[1], device=device)] if shuffle_frames else x_val_device
+            acc = float((model(x_eval).logits.argmax(1) == y_val_device).float().mean().item())
         if acc > best_acc:
             best_acc, bad = acc, 0
             best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
@@ -272,9 +272,9 @@ def eval_sequence(model, x, y, device, mode: str = "ordered", seed: int = 0) -> 
     # ordered, or Gate 6 shuffled / reversed_order.
     x = x.clone()
     if mode == "shuffled":
-        g = torch.Generator().manual_seed(seed)
+        generator = torch.Generator().manual_seed(seed)
         for i in range(len(x)):
-            x[i] = x[i][torch.randperm(x.shape[1], generator=g)]
+            x[i] = x[i][torch.randperm(x.shape[1], generator=generator)]
     elif mode == "reversed_order":
         x = x.flip(1)
     preds = [model(x[i : i + 512].to(device)).logits.argmax(1) for i in range(0, len(x), 512)]

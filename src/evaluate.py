@@ -11,8 +11,8 @@ from torch.utils.data import DataLoader
 # Accuracy, Gap_OOD, seed aggregates. Regime cuts 0.8 / 0.2 (Table 2).
 
 
-def as_tensor(a: np.ndarray) -> torch.Tensor:
-    return torch.from_numpy(np.ascontiguousarray(a.astype(np.float32)))
+def as_tensor(array: np.ndarray) -> torch.Tensor:
+    return torch.from_numpy(np.ascontiguousarray(array.astype(np.float32)))
 
 
 @torch.no_grad()
@@ -48,25 +48,25 @@ def evaluate(model: nn.Module, loader: DataLoader, device: torch.device, has_cou
 
 
 def aggregate(values) -> dict:
-    a = np.asarray(values, dtype=np.float64)
+    samples = np.asarray(values, dtype=np.float64)
     return {
-        "mean": float(a.mean()),
-        "std": float(a.std(ddof=1)) if len(a) > 1 else 0.0,
-        "values": [round(float(v), 4) for v in a],
+        "mean": float(samples.mean()),
+        "std": float(samples.std(ddof=1)) if len(samples) > 1 else 0.0,
+        "values": [round(float(v), 4) for v in samples],
     }
 
 
 def input_gradient_saliency(model: nn.Module, x: torch.Tensor, device: torch.device):
     model.train()
-    xt = x.to(device).requires_grad_(True)
-    logits = model(xt).logits
+    x_grad = x.to(device).requires_grad_(True)
+    logits = model(x_grad).logits
     logits.gather(1, logits.argmax(1, keepdim=True)).sum().backward()
-    g = xt.grad.abs()
-    core_g = g[:, :, 0].mean(dim=(0, 2, 3))
-    nuis_g = g[:, :, 1].mean(dim=(0, 2, 3))
-    share = float(nuis_g.sum() / (core_g.sum() + nuis_g.sum()))
-    prof = (nuis_g / nuis_g.sum()).detach().cpu().numpy()
-    return share, prof
+    grad = x_grad.grad.abs()
+    core = grad[:, :, 0].mean(dim=(0, 2, 3))
+    nuisance = grad[:, :, 1].mean(dim=(0, 2, 3))
+    share = float(nuisance.sum() / (core.sum() + nuisance.sum()))
+    profile = (nuisance / nuisance.sum()).detach().cpu().numpy()
+    return share, profile
 
 
 def regime(iid: float, ood: float) -> str:
@@ -79,10 +79,10 @@ def regime(iid: float, ood: float) -> str:
 
 
 def summarize_results(results: list[dict], primary_scenario: str) -> dict:
-    primary = [r for r in results if r["scenario"] == primary_scenario]
+    primary = [row for row in results if row["scenario"] == primary_scenario]
     by_method: dict[str, list] = {}
-    for r in primary:
-        by_method.setdefault(str(r["method"]), []).append(r)
+    for row in primary:
+        by_method.setdefault(str(row["method"]), []).append(row)
     method_summary = {}
     for method, rows in sorted(by_method.items()):
         method_summary[method] = {}
@@ -95,8 +95,8 @@ def summarize_results(results: list[dict], primary_scenario: str) -> dict:
                 "values": values.round(6).tolist(),
             }
     scenario_summary: dict = {}
-    for r in results:
-        scenario_summary.setdefault(r["scenario"], {}).setdefault(r["method"], []).append(r)
+    for row in results:
+        scenario_summary.setdefault(row["scenario"], {}).setdefault(row["method"], []).append(row)
     compact = {}
     for scenario, methods in scenario_summary.items():
         compact[scenario] = {}
