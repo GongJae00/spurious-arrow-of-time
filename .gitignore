@@ -44,3 +44,4 @@ smoke_tmp*/
 Thumbs.db
 *.swp
 data/ucr/
+src/visualize.py
