@@ -433,7 +433,7 @@ def train_dual(method: str, arch_key: str, seed: int, splits: dict[str, Split], 
         del stage1
     env_x = env_y = None
     if method == "irmv1":
-        env1 = make("simple_oe", seed + 7919, extra={"nuisance_correlation": 0.85}, sizes={**SIZES, "n_train": 4096})
+        env1 = make("oe_simple", seed + 7919, extra={"nuisance_correlation": 0.85}, sizes={**SIZES, "n_train": 4096})
         both_train = np.concatenate([np.asarray(splits["train"].mixed)[:4096], np.asarray(env1["train"].mixed)])
         mean_env, std_env = float(both_train.mean()), float(both_train.std()) or 1.0
         env_x, env_y = [], []
@@ -518,7 +518,7 @@ def train_dual(method: str, arch_key: str, seed: int, splits: dict[str, Split], 
 
 
 def train_irm(splits0: dict[str, Split], splits1: dict[str, Split], seed: int, device: torch.device, epochs=40, patience=12, irm_lambda=1000.0, batch_size=128, learning_rate=1e-3, weight_decay=1e-4):
-    # Table A6. IRMv1 on two Simple-OE environments (ρ=0.97 and ρ=0.85).
+    # Table A6. IRMv1 on two OE-Simple environments (ρ=0.97 and ρ=0.85).
     both_train = np.concatenate([np.asarray(splits0["train"].mixed), np.asarray(splits1["train"].mixed)])
     mean, std = float(both_train.mean()), float(both_train.std()) or 1.0
     env_x, env_y = [], []

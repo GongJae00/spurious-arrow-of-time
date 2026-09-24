@@ -3,10 +3,10 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from src.benchmark import OE_STRICT_CUM, make, oe_strict_nuisance, overlay_order_pulse, set_mf_nuisance
+from src.benchmark import OE_STRICT_CUM, make, oe_strict_nuisance, overlay_order_pulse, mf_set_nuisance
 from src.data import GeneratorConfig, generate_splits
 
-# Table 3: OE-Strict closed path, Set-MF parity, endpoint matching, make().
+# Table 3: OE-Strict closed path, MF-Set parity, endpoint matching, make().
 
 
 def _probe_accuracy(x_train, y_train, x_test, y_test) -> float:
@@ -41,10 +41,10 @@ def test_oe_strict_closed_path():
     np.testing.assert_allclose(nu_b[:, 0], nu_b[:, -1])
 
 
-def test_set_mf_parity_homogeneity():
+def test_mf_set_parity_homogeneity():
     rng = np.random.default_rng(1)
     d = np.array([1, 1, -1, -1] * 16)
-    nu = set_mf_nuisance(d, rng)
+    nu = mf_set_nuisance(d, rng)
     cols = nu.argmax(axis=3)[:, :, 8]
     homog = (cols % 2 == cols[:, :1] % 2).all(1)
     assert homog[d > 0].all()
@@ -74,8 +74,8 @@ def test_overlay_order_pulse_shape():
     assert set(np.unique(d)).issubset({0, 1})
 
 
-def test_make_trail_fl_accepts_overlapping_fields():
-    splits = make("trail_fl", seed=0, sizes=dict(n_train=8, n_val_iid=4, n_iid_test=4, n_ood_test=4), extra={"nuisance_trail_decay": 0.78, "n_train": 8})
+def test_make_fl_trail_accepts_overlapping_fields():
+    splits = make("fl_trail", seed=0, sizes=dict(n_train=8, n_val_iid=4, n_iid_test=4, n_ood_test=4), extra={"nuisance_trail_decay": 0.78, "n_train": 8})
     assert splits["train"].mixed.shape[0] == 8
     assert splits["train"].metadata["nuisance_trail_decay"] == 0.78
 

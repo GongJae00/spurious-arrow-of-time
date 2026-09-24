@@ -280,7 +280,7 @@ def build_real_video_nuisance(config: GeneratorConfig, direction: np.ndarray, rn
 
 
 def build_nuisance_sequences(config: GeneratorConfig, direction: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    # Eqs. 7–8. Pulse plus trail residue γ; γ=0 is Simple OE, γ=0.78 is Trail-FL.
+    # Eqs. 7–8. Pulse plus trail residue γ; γ=0 is OE-Simple, γ=0.78 is FL-Trail.
     if config.nuisance_motion == "real_video":
         return build_real_video_nuisance(config, direction, rng)
     n = len(direction)

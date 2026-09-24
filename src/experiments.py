@@ -138,8 +138,8 @@ def run_shortcut_eval(spec: dict, default: dict) -> dict:
             if benchmark == "oe_strict":
                 row["adjacent_pair_dir"] = probe(nuisance_train[:, [3, 4]].reshape(len(nuisance_train), -1), d_train, nuisance_iid[:, [3, 4]].reshape(len(nuisance_iid), -1), d_iid, device)
 
-            # Set-MF temporal mean
-            if benchmark == "set_mf":
+            # MF-Set temporal mean
+            if benchmark == "mf_set":
                 row["temporal_mean_dir"] = probe(nuisance_train.mean(1).reshape(len(nuisance_train), -1), d_train, nuisance_iid.mean(1).reshape(len(nuisance_iid), -1), d_iid, device)
         out[key] = rounded(row)
         write_json(outpath, out)
@@ -249,7 +249,7 @@ def run_strict_order(spec: dict, default: dict) -> dict:
             audit = Audit(make(bench, seed), seed, device)
             ch_runs.append(audit.channel_probes())
             set_runs.append(audit.gate6(audit.gate5())["set"])
-            if bench == "simple_oe":
+            if bench == "oe_simple":
                 erm_runs.append(audit.mixed_channel())
         length = len(ch_runs[0]["dir_nuis_only"])
         result[name] = {
@@ -571,7 +571,7 @@ def run_multi_init(spec: dict, default: dict) -> dict:
     outpath = Path(spec["out"])
     result = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
     budgets = {"standard": (40, 12), "certification": (100, 30)}
-    for variant, bench in [("trail_fl", "trail_fl"), ("simple_oe", "simple_oe")]:
+    for variant, bench in [("fl_trail", "fl_trail"), ("oe_simple", "oe_simple")]:
         for data_seed in range(int(spec["data_seeds"])):
             splits = make(bench, data_seed)
             mean = float(np.asarray(splits["train"].mixed).mean())
@@ -664,7 +664,7 @@ def run_oe_core_equalized(spec: dict, default: dict) -> dict:
 
 
 def run_oe_core_controls(spec: dict, default: dict) -> dict:
-    # OE-Core controls. Shuffled-frame training, then paired ERM and IRM on Simple OE.
+    # OE-Core controls. Shuffled-frame training, then paired ERM and IRM on OE-Simple.
     device = torch_device(default["device"])
     out = {}
     rows = []
@@ -679,15 +679,15 @@ def run_oe_core_controls(spec: dict, default: dict) -> dict:
     out["order_rand"] = rows
     rows = []
     for s in range(int(spec["seeds"])):
-        splits = make("simple_oe", s)
+        splits = make("oe_simple", s)
         iid, ood, _ = train_robust("erm", splits, s, device)
         rows.append({"seed": s, "iid": round(iid, 4), "ood": round(ood, 4)})
     out["paired_erm"] = rows
     for irm_penalty in [100.0, 10000.0]:
         rows = []
         for s in range(int(spec["seeds"])):
-            splits0 = make("simple_oe", s)
-            splits1 = make("simple_oe", s + 7919, extra={"nuisance_correlation": 0.85}, sizes={**SIZES, "n_train": 4096})
+            splits0 = make("oe_simple", s)
+            splits1 = make("oe_simple", s + 7919, extra={"nuisance_correlation": 0.85}, sizes={**SIZES, "n_train": 4096})
             iid, ood, _ = train_irm(splits0, splits1, s, device, irm_lambda=irm_penalty)
             rows.append({"seed": s, "iid": round(iid, 4), "ood": round(ood, 4)})
         out[f"irm_lam{int(irm_penalty)}"] = rows
@@ -705,7 +705,7 @@ def run_arch_cue(spec: dict, default: dict) -> dict:
         for field in ["nuisance_only", "core_only"]:
             rows = []
             for seed in range(int(spec["seeds"])):
-                splits = make("simple_oe", seed)
+                splits = make("oe_simple", seed)
                 mean = float(np.asarray(getattr(splits["train"], field)).mean())
                 std = float(np.asarray(getattr(splits["train"], field)).std()) or 1.0
                 x = lambda name: as_tensor(((np.asarray(getattr(splits[name], field)) - mean) / std)[:, :, None])
@@ -717,7 +717,7 @@ def run_arch_cue(spec: dict, default: dict) -> dict:
             out[f"{arch}/{field}"] = {"iid": float(iid_acc.mean()), "iid_std": float(iid_acc.std(ddof=1)), "ood": float(ood_acc.mean()), "ood_std": float(ood_acc.std(ddof=1))}
     rows = []
     for s in range(int(spec["seeds"])):
-        splits = make("simple_oe", s, extra={"nuisance_correlation": 0.70})
+        splits = make("oe_simple", s, extra={"nuisance_correlation": 0.70})
         iid, ood, _ = train_robust("groupdro", splits, s, device)
         rows.append((iid, ood))
     iid_acc = np.array([row[0] for row in rows])
@@ -734,7 +734,7 @@ def run_groupdro(spec: dict, default: dict) -> dict:
     for name, kw in {"eta0.01_balanced": dict(group_step=0.01, balanced_sampler=True), "eta0.1_standard": dict(group_step=0.1, balanced_sampler=False), "eta0.001_standard": dict(group_step=0.001, balanced_sampler=False)}.items():
         rows = []
         for s in range(int(spec["seeds"])):
-            splits = make("simple_oe", s)
+            splits = make("oe_simple", s)
             iid, ood, _ = train_robust("groupdro", splits, s, device, **kw)
             rows.append({"seed": s, "iid": round(iid, 4), "ood": round(ood, 4)})
         iids = np.array([r["iid"] for r in rows])
@@ -745,10 +745,10 @@ def run_groupdro(spec: dict, default: dict) -> dict:
 
 
 def run_gradsal(spec: dict, default: dict) -> dict:
-    # Input gradient. Nuisance-channel share on trail and Simple OE.
+    # Input gradient. Nuisance-channel share on trail and OE-Simple.
     device = torch_device(default["device"])
     out = {}
-    for variant, bench in [("trail", "trail_fl"), ("oe", "simple_oe")]:
+    for variant, bench in [("trail", "fl_trail"), ("oe", "oe_simple")]:
         shares, profiles = [], []
         for seed in range(int(spec["seeds"])):
             splits = make(bench, seed)
@@ -787,7 +787,7 @@ def run_video_search(spec: dict, default: dict) -> dict:
             if f"{base}/erm" in out:
                 continue
             extra = {**over, "nuisance_motion": "real_video", "real_video_cache": "data/real_video/cache_g16_L8_s5.npz"}
-            splits = make("trail_fl", seed, sizes=sizes, extra=extra)
+            splits = make("fl_trail", seed, sizes=sizes, extra=extra)
             def run_field(field, run_seed):
                 train_field = np.asarray(getattr(splits["train"], field))
                 if train_field.ndim == 4:
@@ -828,7 +828,7 @@ def run_video_search(spec: dict, default: dict) -> dict:
                     float((final_frame(xlast["ood_test"].to(device)).argmax(1).cpu() == y["ood_test"]).float().mean()),
                 ]
                 out[f"{base}/final_frame"] = [round(v, 4) for v in out[f"{base}/final_frame"]]
-            spn = make("trail_fl", seed, sizes=sizes, extra={**extra, "train_nuisance_mode": "randomized", "ood_mode": "randomized"})
+            spn = make("fl_trail", seed, sizes=sizes, extra={**extra, "train_nuisance_mode": "randomized", "ood_mode": "randomized"})
             splits = spn
             out[f"{base}/no_spurious"] = run_field("mixed", seed * 31 + 11)
             write_json(outpath, out)
@@ -842,7 +842,7 @@ def run_unified(spec: dict, default: dict) -> dict:
     out = json.loads(outpath.read_text(encoding="utf-8")) if outpath.exists() else {}
     jobs = [(m, "gru") for m in ["erm", "groupdro_joint", "irmv1", "dann_dir", "jtt", "frame_rand"]] + [("erm", k) for k in ARCHS if k != "gru"]
     for seed in range(int(spec["seeds"])):
-        splits = make("simple_oe", seed)
+        splits = make("oe_simple", seed)
         for method, arch in jobs:
             key = f"{method}/{arch}/seed{seed}"
             if key in out:

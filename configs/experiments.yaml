@@ -31,34 +31,34 @@ table5_oe_strict_nospur:
   patience: 30
   probe_seeds: 0
   out: results/main/oe_strict_nospur.json
-table6_trail_fl:
+table6_fl_trail:
   kind: temporal
-  benchmark: trail_fl
+  benchmark: fl_trail
   seeds: 10
-  out: results/main/trail_fl_audit.json
-table6_simple_oe:
+  out: results/main/fl_trail_audit.json
+table6_oe_simple:
   kind: temporal
-  benchmark: simple_oe
+  benchmark: oe_simple
   seeds: 10
-  out: results/main/simple_oe_audit.json
+  out: results/main/oe_simple_audit.json
 table6_probes:
   kind: strict_order
   seeds: 10
   benchmarks:
-    trail: trail_fl
-    order_encoded: simple_oe
-  out: results/main/trail_fl_probes.json
+    trail: fl_trail
+    order_encoded: oe_simple
+  out: results/main/fl_trail_probes.json
 fig4b_nuisance_order:
   kind: nuisance_order
   seeds: 10
   benchmarks:
-    trail: trail_fl
-    order_encoded: simple_oe
+    trail: fl_trail
+    order_encoded: oe_simple
   out: results/main/nuisance_order.json
-table7_trail_fl:
+table7_fl_trail:
   kind: train
-  benchmark: trail_fl
-  out: results/main/trail_fl
+  benchmark: fl_trail
+  out: results/main/fl_trail
   seeds: *s30
   methods: [final_frame_mlp, sequence_erm, core_only_oracle, nuisance_only_oracle, counterfactual_invariance, group_invariance_light, nuisance_channel_dropout]
   primary_scenario: main_spurious_arrow
@@ -90,15 +90,15 @@ table8_mf_core_perframe:
   kind: mf_core_perframe
   seeds: 5
   out: results/main/mf_core_perframe.json
-set_mf:
+mf_set:
   kind: shortcut
-  benchmark: set_mf
+  benchmark: mf_set
   seeds: 10
   nospurious: false
   epochs: 40
   patience: 12
   probe_seeds: 5
-  out: results/main/set_mf.json
+  out: results/main/mf_set.json
 table9_forda:
   kind: ucr
   dataset: forda
@@ -179,9 +179,9 @@ scenario:
     data: {benchmark_variant: residue_visible, ood_mode: reversed}
   - name: no_spurious_correlation
     data: {train_nuisance_mode: randomized, ood_mode: randomized}
-trail_fl_corr:
+fl_trail_corr:
   kind: train
-  out: results/ablation/trail_fl_corr
+  out: results/ablation/fl_trail_corr
   seeds: *s10
   methods: [final_frame_mlp, sequence_erm, core_only_oracle, nuisance_only_oracle, counterfactual_invariance]
   primary_scenario: corr_0p97
@@ -194,10 +194,10 @@ trail_fl_corr:
     data: {nuisance_correlation: 0.85}
   - name: corr_0p97
     data: {nuisance_correlation: 0.97}
-simple_oe_corr:
+oe_simple_corr:
   kind: train
-  benchmark: simple_oe
-  out: results/ablation/simple_oe_corr
+  benchmark: oe_simple
+  out: results/ablation/oe_simple_corr
   seeds: *s10
   methods: [sequence_erm, nuisance_only_oracle]
   primary_scenario: oecorr_0p97
@@ -211,9 +211,9 @@ simple_oe_corr:
   - name: oecorr_0p97
     methods: [sequence_erm, nuisance_only_oracle, core_only_oracle, final_frame_mlp]
     data: {nuisance_correlation: 0.97}
-trail_fl_arch:
+fl_trail_arch:
   kind: train
-  out: results/ablation/trail_fl_arch
+  out: results/ablation/fl_trail_arch
   seeds: *s10
   primary_scenario: model_family_main
   scenarios:
@@ -222,10 +222,10 @@ trail_fl_arch:
   - name: model_family_no_spurious
     methods: [sequence_erm, sequence_erm_lstm, sequence_erm_tcn, sequence_erm_transformer, sequence_erm_temporal_pool]
     data: {train_nuisance_mode: randomized, ood_mode: randomized}
-simple_oe_arch:
+oe_simple_arch:
   kind: train
-  benchmark: simple_oe
-  out: results/ablation/simple_oe_arch
+  benchmark: oe_simple
+  out: results/ablation/oe_simple_arch
   seeds: *s10
   methods: [sequence_erm, sequence_erm_lstm, sequence_erm_tcn, sequence_erm_transformer, sequence_erm_temporal_pool]
   primary_scenario: oe_family_main
@@ -281,10 +281,10 @@ real_video_blur:
   - name: rv_no_spurious
     methods: [sequence_erm]
     data: {train_nuisance_mode: randomized, ood_mode: randomized}
-simple_oe_30:
+oe_simple_30:
   kind: train
-  benchmark: simple_oe
-  out: results/ablation/simple_oe
+  benchmark: oe_simple
+  out: results/ablation/oe_simple
   seeds: *s30
   methods: [final_frame_mlp, sequence_erm, core_only_oracle, nuisance_only_oracle]
   primary_scenario: oe_main
@@ -294,9 +294,9 @@ simple_oe_30:
   - name: oe_no_spurious
     methods: [sequence_erm, core_only_oracle, nuisance_only_oracle]
     data: {train_nuisance_mode: randomized, ood_mode: randomized}
-trail_fl_budget:
+fl_trail_budget:
   kind: train
-  out: results/ablation/trail_fl_budget
+  out: results/ablation/fl_trail_budget
   seeds: *s30
   methods: [sequence_erm]
   training: {epochs: 100, patience: 30}
@@ -306,10 +306,10 @@ trail_fl_budget:
     data: {ood_mode: reversed}
   - name: no_spurious_correlation
     data: {train_nuisance_mode: randomized, ood_mode: randomized}
-simple_oe_budget:
+oe_simple_budget:
   kind: train
-  benchmark: simple_oe
-  out: results/ablation/simple_oe_budget
+  benchmark: oe_simple
+  out: results/ablation/oe_simple_budget
   seeds: *s10
   methods: [sequence_erm]
   training: {epochs: 100, patience: 30}
@@ -328,9 +328,9 @@ accessibility:
   kind: accessibility
   seeds: 5
   out: results/ablation/accessibility.json
-trail_fl_mixing:
+fl_trail_mixing:
   kind: train
-  out: results/ablation/trail_fl_mixing
+  out: results/ablation/fl_trail_mixing
   seeds: *s10
   methods: [final_frame_mlp, sequence_erm, core_only_oracle, nuisance_only_oracle, counterfactual_invariance]
   primary_scenario: additive_single_channel
@@ -339,19 +339,19 @@ trail_fl_mixing:
     data: {observation_layout: two_channel}
   - name: additive_single_channel
     data: {observation_layout: additive}
-simple_oe_mixing:
+oe_simple_mixing:
   kind: train
-  benchmark: simple_oe
-  out: results/ablation/simple_oe_mixing
+  benchmark: oe_simple
+  out: results/ablation/oe_simple_mixing
   seeds: *s10
   methods: [sequence_erm, final_frame_mlp, counterfactual_invariance]
   primary_scenario: oe_additive
   scenarios:
   - name: oe_additive
     data: {observation_layout: additive}
-trail_fl_scale:
+fl_trail_scale:
   kind: train
-  out: results/ablation/trail_fl_scale
+  out: results/ablation/fl_trail_scale
   seeds: *s10
   methods: [final_frame_mlp, sequence_erm, core_only_oracle, nuisance_only_oracle, counterfactual_invariance]
   primary_scenario: scale_2p8
@@ -364,10 +364,10 @@ trail_fl_scale:
     data: {nuisance_scale: 2.0}
   - name: scale_2p8
     data: {nuisance_scale: 2.8}
-simple_oe_scale:
+oe_simple_scale:
   kind: train
-  benchmark: simple_oe
-  out: results/ablation/simple_oe_scale
+  benchmark: oe_simple
+  out: results/ablation/oe_simple_scale
   seeds: *s10
   methods: [sequence_erm]
   primary_scenario: oescale_2p8

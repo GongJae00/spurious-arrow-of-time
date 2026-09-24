@@ -1,13 +1,13 @@
-# Table 3 named constructions, plus Simple OE, sinusoid, and real-video transfer.
-trail_fl:
+# Table 3 named constructions, plus OE-Simple, sinusoid, and real-video transfer.
+fl_trail:
   nuisance_trail_decay: 0.78
-simple_oe:
+oe_simple:
   nuisance_trail_decay: 0.0
 oe_strict:
   overlay: oe_strict
   nuisance_trail_decay: 0.0
-set_mf:
-  overlay: set_mf
+mf_set:
+  overlay: mf_set
   nuisance_trail_decay: 0.0
 mf_core:
   nuisance_trail_decay: 0.0
