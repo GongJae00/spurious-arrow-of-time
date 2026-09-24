@@ -24,7 +24,7 @@ The same audit reclassifies the **trail** variant, designed as an order cue, as 
 
 On the trail mixed task, sequence ERM collapses in 29/30 seeds (Table 7: 0.971 IID, 0.061 OOD).
 
-Logged numbers are under `results/main/`, `results/ablation/`, and `results/reviewer/`.
+Logged numbers are under `results/main/`, `results/ablation/`, and `results/reviewer/`. [Reproduction checks](results/reviewer/reproduction.json) compare 80 MF-Core runs and 40 counterfactual runs with the archived results, including per-seed differences.
 
 ## Code
 
@@ -32,7 +32,7 @@ The files follow the paper, in that order.
 
 `generate_split` in `src/data.py` is Algorithm 2: y, core (Eq. 6), ds (Eq. 4), nuisance (Eqs. 7–8), observation (Eq. 9). `make` in `src/benchmark.py` is Table 3: OE-Strict, FL-Trail, MF-Set, MF-Core, OE-Core. FordA, HAR, and the graph loaders are the Table 9 and Table A11 inputs in the same file.
 
-`SequenceCNNGRU` in `src/models.py` is the main sequence model. Eq. 10 is the predictor, Eq. 11 is ERM, and Eq. 12 is the counterfactual loss. LSTM, TCN, Transformer, and temporal pooling are Tables A4–A5. `SegGRU` is Table 9. `train_sequence` in `src/train.py` is the reference learner (Table A20). `train_one_method` is Table 7. `train_robust`, `train_dual`, and `train_irm` are Table A6.
+`SequenceCNNGRU` in `src/models.py` is the main sequence model. Eq. 10 is the predictor, Eq. 11 is ERM, and Eq. 12 is the counterfactual loss: supervised cross-entropy on both inputs plus `0.2 * KL(stopgrad[p(x)] || p(x_cf))`. LSTM, TCN, Transformer, and temporal pooling are Tables A4–A5. `SegGRU` is Table 9. `train_sequence` in `src/train.py` is the reference learner (Table A20). `train_one_method` is Table 7. `train_robust`, `train_dual`, and `train_irm` are Table A6.
 
 `Audit` in `src/audit.py` is Algorithm 1. `gate1` through `gate5` are Phase 1. `gate6` is Phase 2, called as `gate6(gate5)`. `regime` in `src/evaluate.py` is the Table 2 cut, 0.8 / 0.2.
 
