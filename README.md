@@ -6,7 +6,7 @@ YoungJae Cho, Do-Yup Kim, Youngjun Kim, Dae-Yeol Kim
   <img src="figures/main/fig1_conceptual_problem.png" alt="Figure 1. Spurious temporal shortcut: both cues predict the label at train/IID; OOD reverses only the nuisance–label relation." width="100%">
 </p>
 
-<p align="center"><em>Figure 1.</em> Both cues predict the label at train/IID. OOD changes only the nuisance–label relation: a core-following model keeps the label, a shortcut-following model collapses.</p>
+<p align="center"><em>Figure 1.</em> Both cues predict the label at train/IID. OOD changes only the nuisance–label relation: a core-following model stays accurate, while a shortcut-following model collapses.</p>
 
 ## Overview
 
