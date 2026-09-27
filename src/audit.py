@@ -7,7 +7,7 @@ from src.data import Split
 from src.evaluate import as_tensor
 from src.train import eval_sequence, train_sequence
 
-# Algorithm 1 lives on Audit.gate1–gate6. Table 5 / Figure 4b sit after run().
+# Measurements for the gates in Algorithm 1; attribution requires their joint interpretation.
 
 
 def train_mlp_probe(x_train, y_train, test_pairs, seed: int, device, epochs: int = 40):
@@ -86,7 +86,7 @@ def eval_channel_intervention(model, x, y, device, channel: int, mode: str, seed
 
 
 class Audit:
-    # Algorithm 1. Privileged access: core-only, nuisance-only, mixed, direction.
+    # Factor-level measurements for Algorithm 1, including mixed-input diagnostics.
 
     def __init__(self, splits: dict[str, Split], seed: int, device, construction_certified: bool = False, no_spurious_splits: dict[str, Split] | None = None):
         self.splits = splits
@@ -184,7 +184,7 @@ class Audit:
             frames["core_label_iid"].append(core_label_iid)
             frames["core_label_ood"].append(core_label_ood)
 
-        # Order-invariant summaries: temporal mean, std, first, middle, first-last.
+        # Order-invariant summaries and position-specific frame probes.
         summaries = {
             "temporal_mean": lambda x: x.mean(axis=1),
             "temporal_std": lambda x: x.std(axis=1),
@@ -252,7 +252,8 @@ class Audit:
 
         single = max(frames["dir_iid"])
 
-        # Route A is construction-certified. Route B is shuffle ≤ 0.6.
+        # Screening label retained in the result records. Full attribution also
+        # requires the chance bounds, reversal test, and Gates 1–5 in Table 2.
         if single >= 0.8:
             locality = "frame-local"
         elif set_acc >= 0.8:
@@ -271,13 +272,13 @@ class Audit:
         }
 
     def run(self) -> dict:
-        # Phase 1. Admissibility of a shortcut reading (Gates 1–5).
+        # Collect Gates 1–5 measurements without applying acceptance thresholds.
         gate1 = self.gate1()
         gate2 = self.gate2()
         gate3 = self.gate3()
         gate4 = self.gate4()
         gate5 = self.gate5()
-        # Phase 2. Locate the cue on the locality spectrum (Gate 6).
+        # Collect locality probes and order interventions for Gate 6.
         gate6 = self.gate6(gate5)
         return {
             "gate1": gate1,

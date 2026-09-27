@@ -405,7 +405,7 @@ def build_real_video_cache(src: Path, out: Path, grid: int = 16, length: int = 8
     crops = np.concatenate(all_crops) if all_crops else np.zeros((0,), np.uint8)
     rng.shuffle(crops)
     np.savez_compressed(out, crops=crops)
-    out.with_suffix(".json").write_text(json.dumps({"params": {"src": str(src), "out": str(out), "grid": grid, "length": length}, "clips": meta}, indent=2), encoding="utf-8")
+    out.with_suffix(".json").write_text(json.dumps({"params": {"src": str(src), "out": str(out), "grid": grid, "length": length, "t_stride": t_stride, "short_side": short_side, "per_clip": per_clip, "min_motion": min_motion, "seed": seed}, "clips": meta}, indent=2), encoding="utf-8")
     return crops
 
 

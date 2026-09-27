@@ -28,13 +28,11 @@ Logged numbers are under `results/main/`, `results/ablation/`, and `results/revi
 
 ## Code
 
-The files follow the paper, in that order.
-
 `generate_split` in `src/data.py` is Algorithm 2: y, core (Eq. 6), ds (Eq. 4), nuisance (Eqs. 7–8), observation (Eq. 9). `make` in `src/benchmark.py` is Table 3: OE-Strict, FL-Trail, MF-Set, MF-Core, OE-Core. FordA, HAR, and the graph loaders are the Table 9 and Table A11 inputs in the same file.
 
 `SequenceCNNGRU` in `src/models.py` is the main sequence model. Eq. 10 is the predictor, Eq. 11 is ERM, and Eq. 12 is the counterfactual loss: supervised cross-entropy on both inputs plus `0.2 * KL(stopgrad[p(x)] || p(x_cf))`. LSTM, TCN, Transformer, and temporal pooling are Tables A4–A5. `SegGRU` is Table 9. `train_sequence` in `src/train.py` is the reference learner (Table A20). `train_one_method` is Table 7. `train_robust`, `train_dual`, and `train_irm` are Table A6.
 
-`Audit` in `src/audit.py` is Algorithm 1. `gate1` through `gate5` are Phase 1. `gate6` is Phase 2, called as `gate6(gate5)`. `regime` in `src/evaluate.py` is the Table 2 cut, 0.8 / 0.2.
+`src/audit.py` collects factor-level measurements, probes, and order interventions for Algorithm 1. `Audit.run()` returns these measurements and a locality screening label. Apply the joint criteria in Table 2 to establish attribution. `regime` in `src/evaluate.py` labels accuracy outcomes using the 0.8 / 0.2 cuts; it does not certify a shortcut.
 
 `src/experiments.py` runs the tables. The `kind` field in `configs/experiments.yaml` selects the function: `shortcut`, `certify`, and `shuffle` are Table 5; `temporal`, `strict_order`, and `nuisance_order` are Table 6 and Figure 4; `train` is Table 7; `mf_core_probes` and `mf_core_perframe` are Table 8; `ucr` is Table 9. The other kinds are the appendix tables.
 
@@ -43,7 +41,42 @@ pip install -e ".[dev,transfer]"
 python -m src.experiments
 ```
 
-`python -m src.experiments --run table5_oe_strict` runs one key in `configs/experiments.yaml`. A key is skipped when its output is already there; delete that output to write it again. FordA, HAR, and `data/real_video/cache_g16_L8_s5.npz` stay on disk and are not in git.
+`python -m src.experiments --run table5_oe_strict` runs one key in `configs/experiments.yaml`. The full runner skips existing outputs. For a fresh run, copy `configs/` to a local directory, change the selected experiment's `out` path, and pass that directory with `--configs`. Keep the archived results for comparison. Run `python -m pytest -q` to check the generator and model invariants.
+
+## External data
+
+Synthetic inputs are generated from the configurations and seeds. External inputs are downloaded separately:
+
+- **FordA:** place the official [UCR FordA](https://www.timeseriesclassification.com/description.php?dataset=FordA) train/test TSV files at `data/ucr/FordA_TRAIN.tsv` and `data/ucr/FordA_TEST.tsv`.
+- **HAR:** extract the [UCI smartphone activity dataset](https://archive.ics.uci.edu/dataset/240/human+activity+recognition+using+smartphones) under `data/ucr/har/`, retaining the `UCI HAR Dataset` directory and its official train/test split.
+- **Graphs:** NetworkX provides the Karate Club and Les Misérables graphs used by `graph_setup`.
+- **Video:** [urls.json](data/real_video/urls.json) lists the Wikimedia sources. Download entries 0–6 as `clip00.webm`–`clip06.webm` in `data/real_video/`; these are the clips recorded in the [cache metadata](data/real_video/cache_g16_L8_s5.json). The eighth URL is not part of the reported cache. Source credits are listed below.
+
+For the reported video experiments, download [the original cache](https://github.com/GongJae00/spurious-arrow-of-time/releases/download/v0.1.0/cache_g16_L8_s5.npz) to `data/real_video/cache_g16_L8_s5.npz`. It contains 15,263 crops. Regenerating it from the same clips and recorded settings in the checked environment produced 15,261 crops; the cause is unresolved. The [comparison record](results/reviewer/reproduction.json) includes hashes, settings, and per-clip counts.
+
+To regenerate the cache:
+
+```bash
+python -m src.data --out data/real_video/cache_regenerated.npz --t-stride 5 --min-motion 6 --short-side 48 --per-clip 3000 --seed 1234
+```
+
+The cache contains grayscale crops resized to 16 × 16, sampled into eight-frame sequences and normalized to uint8. The adapted video material is distributed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), with the source credits below. This license applies to the video cache, not the code. Raw videos are not redistributed.
+
+<details>
+<summary>Video source credits</summary>
+
+| Source | Creator | Source license |
+|---|---|---|
+| [Tirana traffic lights](https://commons.wikimedia.org/wiki/File:Tirana_traffic_lights.webm) | Lan G. (Lan Glad / Upwinxp) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| [Behind Kawaida Waterfall](https://commons.wikimedia.org/wiki/File:Video_from_behind_Kawaida_Waterfall_through_hanging_roots,_Kiambu_County.webm) | Lebu Ayiga | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| [Side view of Kawaida Waterfall](https://commons.wikimedia.org/wiki/File:Side_view_video_of_Kawaida_Waterfall_cascading,_Cianda,_Kiambu_County.webm) | Lebu Ayiga | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| [Park Fire](https://commons.wikimedia.org/wiki/File:Smoke_Rises_From_Burning_Flames_of_the_Park_Fire_%28CIRA_2024-07-25_-_nolabels%29.webm) | NOAA / CIRA | Public domain |
+| [Gazan buildings](https://commons.wikimedia.org/wiki/File:Tasnim_News_Agency_-_Footage_from_Israeli_airstrikes_levelling_Gazan_buildings.webm) | Tasnim News Agency | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
+| [Chandra River](https://commons.wikimedia.org/wiki/File:Chandra_river_flowing_in_Sissu_Valley.webm) | Simrank0599 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) |
+
+The Kyiv clip contributed no accepted crops.
+
+</details>
 
 ## Citation
 

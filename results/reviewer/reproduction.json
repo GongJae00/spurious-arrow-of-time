@@ -2479,5 +2479,122 @@
         "ood_test_accuracy": 0.02880859375
       }
     ]
+  },
+  "video_cache_check": {
+    "reference": "data/real_video/cache_g16_L8_s5.npz",
+    "reference_sha256": "fe949351daf66a74624960d5ed97ba7bb2318b7c2022293fee64fa33f1c3eb41",
+    "reference_shape": [
+      15263,
+      8,
+      16,
+      16
+    ],
+    "regenerated_shape": [
+      15261,
+      8,
+      16,
+      16
+    ],
+    "regenerated_sha256": "67411117b034e81f9445722cac05a69cb63eee3251b421579d664ecdfba65236",
+    "configuration": {
+      "src": "data/real_video",
+      "out": "data/real_video/cache_g16_L8_s5.npz",
+      "grid": 16,
+      "length": 8,
+      "t_stride": 5,
+      "short_side": 48,
+      "per_clip": 3000,
+      "min_motion": 6.0,
+      "seed": 1234
+    },
+    "environment": {
+      "python": "3.12.13",
+      "numpy": "2.5.1",
+      "opencv": "5.0.0"
+    },
+    "source_sha256": {
+      "clip00.webm": "a1b4735db09a630877a700cd43a92df933d359d656176d47b456aacf1660687d",
+      "clip01.webm": "96b93c02103bbd42ea8b08d3f6c1ea2d6c6607ea426a92e129abcb6ab3b0a6ea",
+      "clip02.webm": "89c84300f09609a2ceb53867f54458c04e082fc79d70928dd979fca312d29485",
+      "clip03.webm": "8154f19f4c593f7af6021a919a079a8b4ef741d3d09fb7726033b4d157a6b7dc",
+      "clip04.webm": "723ea6266ee64e0b905018bcf88f4656ff9c88f863eb370df6225f8ffd1a8da7",
+      "clip05.webm": "ed316c332f169c2cff4bf9efcbaf49ce8713d856785d922fe2a77b21293a1972",
+      "clip06.webm": "797ba23a039d1e3eb18506659f8ebe8ab86077c51b8ec7a9c5ef027f642dcf1c"
+    },
+    "reference_clips": [
+      {
+        "clip": "clip00.webm",
+        "frames": 110,
+        "crops": 0
+      },
+      {
+        "clip": "clip01.webm",
+        "frames": 321,
+        "crops": 3000
+      },
+      {
+        "clip": "clip02.webm",
+        "frames": 254,
+        "crops": 3000
+      },
+      {
+        "clip": "clip03.webm",
+        "frames": 245,
+        "crops": 3000
+      },
+      {
+        "clip": "clip04.webm",
+        "frames": 55,
+        "crops": 263
+      },
+      {
+        "clip": "clip05.webm",
+        "frames": 419,
+        "crops": 3000
+      },
+      {
+        "clip": "clip06.webm",
+        "frames": 315,
+        "crops": 3000
+      }
+    ],
+    "regenerated_clips": [
+      {
+        "clip": "clip00.webm",
+        "frames": 110,
+        "crops": 0
+      },
+      {
+        "clip": "clip01.webm",
+        "frames": 321,
+        "crops": 3000
+      },
+      {
+        "clip": "clip02.webm",
+        "frames": 254,
+        "crops": 3000
+      },
+      {
+        "clip": "clip03.webm",
+        "frames": 245,
+        "crops": 3000
+      },
+      {
+        "clip": "clip04.webm",
+        "frames": 55,
+        "crops": 261
+      },
+      {
+        "clip": "clip05.webm",
+        "frames": 419,
+        "crops": 3000
+      },
+      {
+        "clip": "clip06.webm",
+        "frames": 315,
+        "crops": 3000
+      }
+    ],
+    "interpretation": "The recorded settings and the seven local source clips yield 15261 crops, compared with 15263 in the archived cache. The crop-count difference occurs in clip04.webm (261 versus 263). The cause is unresolved. The archived cache and reported model results are retained; no model was retrained on the regenerated cache."
   }
 }

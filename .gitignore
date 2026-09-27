@@ -30,8 +30,8 @@ results/**/summary.md
 *.pth
 *.ckpt
 
-# Large binary sources: raw clips and preprocessed caches are rebuilt via
-# python -m src.data from data/real_video/urls.json.
+# Large video inputs are distributed separately; source links and cache
+# preprocessing settings are retained in data/real_video/.
 data/real_video/*.webm
 data/real_video/*.npz
 
@@ -45,3 +45,6 @@ Thumbs.db
 *.swp
 data/ucr/
 src/visualize.py
+
+# Local exploratory runs
+lab/

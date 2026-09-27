@@ -1,10 +1,8 @@
-import inspect
-
 import torch
 
-from src.audit import Audit, per_sample_shuffle
+from src.audit import SetProbe, per_sample_shuffle
 
-# Gate 6 case formula in Audit.gate6, and Table 5 per-sample shuffle.
+# Order invariance of the set probe and multiset preservation under shuffling.
 
 
 def test_per_sample_shuffle_preserves_multiset():
@@ -18,12 +16,11 @@ def test_per_sample_shuffle_preserves_multiset():
     assert not torch.equal(x, y)
 
 
-def test_gate6_classes():
-    src = inspect.getsource(Audit.gate6)
-    assert "if single >= 0.8:" in src
-    assert 'locality = "frame-local"' in src
-    assert "elif set_acc >= 0.8:" in src
-    assert 'locality = "order-invariant multi-frame"' in src
-    assert "<= 0.6" in src
-    assert 'locality = "order-encoded"' in src
-    assert 'locality = "inconclusive"' in src
+def test_set_probe_is_order_invariant():
+    torch.manual_seed(0)
+    probe = SetProbe(frame_dim=4).eval()
+    frames = torch.randn(5, 8, 4)
+    shuffled = per_sample_shuffle(frames, torch.Generator().manual_seed(1))
+    with torch.no_grad():
+        torch.testing.assert_close(probe(frames), probe(shuffled))
+        torch.testing.assert_close(probe(frames), probe(frames.flip(1)))
