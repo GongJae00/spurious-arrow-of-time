@@ -17,10 +17,10 @@ def as_tensor(array: np.ndarray) -> torch.Tensor:
 
 @torch.no_grad()
 def accuracy(model: nn.Module, x: torch.Tensor, y: torch.Tensor, device: torch.device) -> float:
-    preds = []
+    predictions = []
     for i in range(0, len(x), 512):
-        preds.append(model(x[i : i + 512].to(device)).logits.argmax(1))
-    return float((torch.cat(preds) == y.to(device)).float().mean().item())
+        predictions.append(model(x[i : i + 512].to(device)).logits.argmax(1))
+    return float((torch.cat(predictions) == y.to(device)).float().mean().item())
 
 
 def evaluate(model: nn.Module, loader: DataLoader, device: torch.device, has_counterfactual: bool = False) -> dict[str, float]:
@@ -28,22 +28,22 @@ def evaluate(model: nn.Module, loader: DataLoader, device: torch.device, has_cou
     total = 0
     loss_sum = 0.0
     correct = 0
-    cf_correct = 0
+    counterfactual_correct = 0
     with torch.no_grad():
         for batch in loader:
             x = batch[0].to(device)
             y = batch[1].to(device)
-            out = model(x)
-            loss = F.cross_entropy(out.logits, y)
+            output = model(x)
+            loss = F.cross_entropy(output.logits, y)
             batch_size = int(y.numel())
             total += batch_size
             loss_sum += float(loss.item()) * batch_size
-            correct += int((out.logits.argmax(dim=1) == y).sum().item())
+            correct += int((output.logits.argmax(dim=1) == y).sum().item())
             if has_counterfactual:
-                cf_correct += int((model(batch[2].to(device)).logits.argmax(dim=1) == y).sum().item())
+                counterfactual_correct += int((model(batch[2].to(device)).logits.argmax(dim=1) == y).sum().item())
     metrics = {"loss": loss_sum / total, "accuracy": correct / total}
     if has_counterfactual:
-        metrics["accuracy_on_x_cf"] = cf_correct / total
+        metrics["accuracy_on_x_cf"] = counterfactual_correct / total
     return metrics
 
 
@@ -58,12 +58,12 @@ def aggregate(values) -> dict:
 
 def input_gradient_saliency(model: nn.Module, x: torch.Tensor, device: torch.device):
     model.train()
-    x_grad = x.to(device).requires_grad_(True)
-    logits = model(x_grad).logits
+    gradient_input = x.to(device).requires_grad_(True)
+    logits = model(gradient_input).logits
     logits.gather(1, logits.argmax(1, keepdim=True)).sum().backward()
-    grad = x_grad.grad.abs()
-    core = grad[:, :, 0].mean(dim=(0, 2, 3))
-    nuisance = grad[:, :, 1].mean(dim=(0, 2, 3))
+    gradient = gradient_input.grad.abs()
+    core = gradient[:, :, 0].mean(dim=(0, 2, 3))
+    nuisance = gradient[:, :, 1].mean(dim=(0, 2, 3))
     share = float(nuisance.sum() / (core.sum() + nuisance.sum()))
     profile = (nuisance / nuisance.sum()).detach().cpu().numpy()
     return share, profile

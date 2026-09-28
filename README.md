@@ -32,6 +32,8 @@ Logged numbers are under `results/main/`, `results/ablation/`, and `results/revi
 
 `SequenceCNNGRU` in `src/models.py` is the main sequence model. Eq. 10 is the predictor, Eq. 11 is ERM, and Eq. 12 is the counterfactual loss: supervised cross-entropy on both inputs plus `0.2 * KL(stopgrad[p(x)] || p(x_cf))`. LSTM, TCN, Transformer, and temporal pooling are Tables A4–A5. `SegGRU` is Table 9. `train_sequence` in `src/train.py` is the reference learner (Table A20). `train_one_method` is Table 7. `train_robust`, `train_dual`, and `train_irm` are Table A6.
 
+For older locally saved checkpoints, rename `enc.*` to `frame_encoder.*` in `SetProbe` or `segment_encoder.*` in `SegGRU`, `net.*` to `feature_encoder.*` in `FinalFrameMLP`, and `pos_embedding` to `position_embedding` in `SequenceCNNTransformer`. Parameter shapes and order are unchanged.
+
 `src/audit.py` collects factor-level measurements, probes, and order interventions for Algorithm 1. `Audit.run()` returns these measurements and a locality screening label. Apply the joint criteria in Table 2 to establish attribution. `regime` in `src/evaluate.py` labels accuracy outcomes using the 0.8 / 0.2 cuts; it does not certify a shortcut.
 
 `src/experiments.py` runs the tables. The `kind` field in `configs/experiments.yaml` selects the function: `shortcut`, `certify`, and `shuffle` are Table 5; `temporal`, `strict_order`, and `nuisance_order` are Table 6 and Figure 4; `train` is Table 7; `mf_core_probes` and `mf_core_perframe` are Table 8; `ucr` is Table 9. The other kinds are the appendix tables.

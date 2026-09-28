@@ -16,10 +16,10 @@ class ModelOutput:
 
 def _frames(x: torch.Tensor) -> tuple[torch.Tensor, int, int]:
     if x.ndim == 4:
-        batch, length, rows, cols = x.shape
-        return x.reshape(batch * length, 1, rows, cols), batch, length
-    batch, length, channels, rows, cols = x.shape
-    return x.reshape(batch * length, channels, rows, cols), batch, length
+        batch, length, rows, columns = x.shape
+        return x.reshape(batch * length, 1, rows, columns), batch, length
+    batch, length, channels, rows, columns = x.shape
+    return x.reshape(batch * length, channels, rows, columns), batch, length
 
 
 class SequenceCNNGRU(nn.Module):
@@ -50,10 +50,10 @@ class SequenceCNNGRU(nn.Module):
 class FinalFrameMLP(nn.Module):
     def __init__(self, grid_size: int, hidden_dim: int = 64, dropout: float = 0.0, input_channels: int = 1, input_dim: int | None = None, num_layers: int = 1):
         super().__init__()
-        dim = input_channels * grid_size * grid_size if input_dim is None else input_dim
-        self.net = nn.Sequential(
+        feature_count = input_channels * grid_size * grid_size if input_dim is None else input_dim
+        self.feature_encoder = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(dim, hidden_dim),
+            nn.Linear(feature_count, hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, hidden_dim),
@@ -62,7 +62,7 @@ class FinalFrameMLP(nn.Module):
         self.classifier = nn.Linear(hidden_dim, 2)
 
     def forward(self, x: torch.Tensor) -> ModelOutput:
-        representation = self.net(x[:, -1])
+        representation = self.feature_encoder(x[:, -1])
         return ModelOutput(logits=self.classifier(representation), representation=representation)
 
 
@@ -102,14 +102,14 @@ class SequenceCNNLSTM(nn.Module):
 class TemporalBlock(nn.Module):
     def __init__(self, channels: int, kernel_size: int, dilation: int, dropout: float):
         super().__init__()
-        self.pad = (kernel_size - 1) * dilation
-        self.conv1 = nn.Conv1d(channels, channels, kernel_size, padding=self.pad, dilation=dilation)
-        self.conv2 = nn.Conv1d(channels, channels, kernel_size, padding=self.pad, dilation=dilation)
+        self.padding = (kernel_size - 1) * dilation
+        self.conv1 = nn.Conv1d(channels, channels, kernel_size, padding=self.padding, dilation=dilation)
+        self.conv2 = nn.Conv1d(channels, channels, kernel_size, padding=self.padding, dilation=dilation)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
 
     def _causal(self, y: torch.Tensor) -> torch.Tensor:
-        return y[:, :, : -self.pad] if self.pad > 0 else y
+        return y[:, :, : -self.padding] if self.padding > 0 else y
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         y = self.dropout(self.relu(self._causal(self.conv1(x))))
@@ -138,8 +138,8 @@ class SequenceCNNTransformer(nn.Module):
     def __init__(self, grid_size: int, hidden_dim: int = 64, num_layers: int = 1, dropout: float = 0.0, input_channels: int = 1, max_len: int = 64, num_heads: int = 4):
         super().__init__()
         self.encoder = CNNFrameEncoder(hidden_dim, input_channels)
-        self.pos_embedding = nn.Parameter(torch.zeros(1, max_len, hidden_dim))
-        nn.init.trunc_normal_(self.pos_embedding, std=0.02)
+        self.position_embedding = nn.Parameter(torch.zeros(1, max_len, hidden_dim))
+        nn.init.trunc_normal_(self.position_embedding, std=0.02)
         layer = nn.TransformerEncoderLayer(d_model=hidden_dim, nhead=num_heads, dim_feedforward=2 * hidden_dim, dropout=dropout, batch_first=True)
         self.transformer = nn.TransformerEncoder(layer, num_layers=max(2, num_layers + 1))
         self.dropout = nn.Dropout(dropout)
@@ -147,7 +147,7 @@ class SequenceCNNTransformer(nn.Module):
 
     def forward(self, x: torch.Tensor) -> ModelOutput:
         encoded = self.encoder(x)
-        encoded = encoded + self.pos_embedding[:, : encoded.shape[1]]
+        encoded = encoded + self.position_embedding[:, : encoded.shape[1]]
         representation = self.dropout(self.transformer(encoded).mean(dim=1))
         return ModelOutput(logits=self.classifier(representation), representation=representation)
 
@@ -169,14 +169,14 @@ class SegGRU(nn.Module):
     # Table 9. Linear frame encoder and a GRU over L=10 segments.
     def __init__(self, channels: int, width: int = 50, hidden_dim: int = 64):
         super().__init__()
-        self.enc = nn.Sequential(nn.Linear(channels * width, hidden_dim), nn.ReLU())
+        self.segment_encoder = nn.Sequential(nn.Linear(channels * width, hidden_dim), nn.ReLU())
         self.gru = nn.GRU(hidden_dim, hidden_dim, batch_first=True)
         self.head = nn.Linear(hidden_dim, 2)
 
     def forward(self, x: torch.Tensor) -> ModelOutput:
-        b = x.shape[0]
-        h = self.enc(x.reshape(b, x.shape[1], -1))
-        representation = self.gru(h)[0][:, -1]
+        batch_size = x.shape[0]
+        encoded_segments = self.segment_encoder(x.reshape(batch_size, x.shape[1], -1))
+        representation = self.gru(encoded_segments)[0][:, -1]
         return ModelOutput(logits=self.head(representation), representation=representation)
 
 

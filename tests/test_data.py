@@ -45,33 +45,33 @@ def test_reproducible_generation():
 
 def test_nuisance_direction_reverses_ood():
     splits = generate_splits(small_config())
-    train_corr = np.corrcoef(splits["train"].y, splits["train"].nuisance_direction)[0, 1]
-    ood_corr = np.corrcoef(splits["ood_test"].y, splits["ood_test"].nuisance_direction)[0, 1]
-    assert train_corr > 0.7
-    assert ood_corr < -0.7
+    train_correlation = np.corrcoef(splits["train"].y, splits["train"].nuisance_direction)[0, 1]
+    ood_correlation = np.corrcoef(splits["ood_test"].y, splits["ood_test"].nuisance_direction)[0, 1]
+    assert train_correlation > 0.7
+    assert ood_correlation < -0.7
 
 
 def test_randomized_ood_correlation_near_zero():
-    cfg = replace(small_config(), ood_mode="randomized", n_ood_test=512)
-    splits = generate_splits(cfg)
-    ood_corr = np.corrcoef(splits["ood_test"].y, splits["ood_test"].nuisance_direction)[0, 1]
-    assert abs(ood_corr) < 0.2
+    config = replace(small_config(), ood_mode="randomized", n_ood_test=512)
+    splits = generate_splits(config)
+    ood_correlation = np.corrcoef(splits["ood_test"].y, splits["ood_test"].nuisance_direction)[0, 1]
+    assert abs(ood_correlation) < 0.2
 
 
 def test_partial_shift_correlation_target():
-    cfg = replace(small_config(), ood_mode="partial_shift", partial_shift_target_correlation=-0.25, n_ood_test=512)
-    splits = generate_splits(cfg)
-    ood_corr = np.corrcoef(splits["ood_test"].y, splits["ood_test"].nuisance_direction)[0, 1]
-    assert abs(ood_corr - (-0.25)) < 0.2
+    config = replace(small_config(), ood_mode="partial_shift", partial_shift_target_correlation=-0.25, n_ood_test=512)
+    splits = generate_splits(config)
+    ood_correlation = np.corrcoef(splits["ood_test"].y, splits["ood_test"].nuisance_direction)[0, 1]
+    assert abs(ood_correlation - (-0.25)) < 0.2
 
 
 def test_no_spurious_correlation_train_mode():
-    cfg = replace(small_config(), train_nuisance_mode="randomized", ood_mode="randomized", n_train=512, n_iid_test=512, n_ood_test=512)
-    splits = generate_splits(cfg)
+    config = replace(small_config(), train_nuisance_mode="randomized", ood_mode="randomized", n_train=512, n_iid_test=512, n_ood_test=512)
+    splits = generate_splits(config)
     for split_name in ["train", "iid_test", "ood_test"]:
         split = splits[split_name]
-        corr = np.corrcoef(split.y, split.nuisance_direction)[0, 1]
-        assert abs(corr) < 0.2
+        correlation = np.corrcoef(split.y, split.nuisance_direction)[0, 1]
+        assert abs(correlation) < 0.2
 
 
 def test_counterfactual_changes_nuisance_only():
@@ -83,8 +83,8 @@ def test_counterfactual_changes_nuisance_only():
 
 
 def test_two_channel_observation_layout_keeps_components_separable():
-    cfg = replace(small_config(), observation_layout="two_channel")
-    split = generate_splits(cfg)["train"]
+    config = replace(small_config(), observation_layout="two_channel")
+    split = generate_splits(config)["train"]
     assert split.core_only.shape == (64, 6, 12, 12)
     assert split.mixed.shape == (64, 6, 2, 12, 12)
     assert split.counterfactual.shape == split.mixed.shape
@@ -94,8 +94,8 @@ def test_two_channel_observation_layout_keeps_components_separable():
 
 
 def test_randomized_counterfactual_is_not_label_aligned():
-    cfg = replace(small_config(), counterfactual_mode="randomized", n_train=512)
-    split = generate_splits(cfg)["train"]
-    corr = np.corrcoef(split.y, split.counterfactual_direction)[0, 1]
-    assert abs(corr) < 0.2
+    config = replace(small_config(), counterfactual_mode="randomized", n_train=512)
+    split = generate_splits(config)["train"]
+    correlation = np.corrcoef(split.y, split.counterfactual_direction)[0, 1]
+    assert abs(correlation) < 0.2
     assert 0.35 < split.metadata["counterfactual_changed_fraction"] < 0.65

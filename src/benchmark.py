@@ -32,11 +32,11 @@ SIZES = dict(n_train=8192, n_val_iid=2048, n_iid_test=4096, n_ood_test=4096)
 MF_CORE = dict(diffusion_start_step=8, diffusion_steps_between_frames=2, core_noise_std=0.045, core_noise_growth_power=0.0, observation_noise_std=0.01, nuisance_trail_decay=0.0)
 
 # OE-Strict closed path, mod 16: first and last frames coincide.
-OE_STRICT_CUM = np.array([0, 1, 2, 4, 7, 10, 13, 0])
+OE_STRICT_OFFSETS = np.array([0, 1, 2, 4, 7, 10, 13, 0])
 
 
-def paper_config(seed: int = 0, **over) -> GeneratorConfig:
-    fields = {**PAPER, **SIZES, "seed": seed, **over}
+def paper_config(seed: int = 0, **overrides) -> GeneratorConfig:
+    fields = {**PAPER, **SIZES, "seed": seed, **overrides}
     return GeneratorConfig(**{k: fields[k] for k in GeneratorConfig.__dataclass_fields__ if k in fields})
 
 
@@ -50,7 +50,7 @@ def pulse(pos: np.ndarray, grid: int = 16, sigma: float = 1.15, scale: float = 1
 def oe_strict_nuisance(direction: np.ndarray, rng: np.random.Generator, grid: int = 16, length: int = 8) -> np.ndarray:
     sample_count = len(direction)
     initial_position = rng.integers(0, grid, size=sample_count)
-    positions = (initial_position[:, None] + OE_STRICT_CUM[None, :]) % grid
+    positions = (initial_position[:, None] + OE_STRICT_OFFSETS[None, :]) % grid
     positions = np.where(direction[:, None] < 0, positions[:, ::-1], positions)
     return pulse(positions, grid)
 
