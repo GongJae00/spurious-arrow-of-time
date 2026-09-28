@@ -60,7 +60,7 @@ To regenerate the cache:
 python -m src.data --out data/real_video/cache_regenerated.npz --t-stride 5 --min-motion 6 --short-side 48 --per-clip 3000 --seed 1234
 ```
 
-The cache contains grayscale crops resized to 16 × 16, sampled into eight-frame sequences and normalized to uint8. The adapted video material is distributed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), with the source credits below. This license applies to the video cache, not the code. Raw videos are not redistributed.
+The cache contains eight-frame sequences of 16 × 16 grayscale crops, normalized to uint8. The adapted video material is distributed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), with the source credits below. This license applies to the video cache, not the code. Raw videos are not redistributed.
 
 <details>
 <summary>Video source credits</summary>
