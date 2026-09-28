@@ -2,7 +2,7 @@
 
 YoungJae Cho, Do-Yup Kim, Youngjun Kim, Dae-Yeol Kim
 
-Code, configurations, and result records for release `v0.1.1` are archived on [Zenodo](https://doi.org/10.5281/zenodo.23004570). The original video cache is linked under [External data](#external-data).
+Code, configurations, result records, and the original video cache are archived on [Zenodo](https://doi.org/10.5281/zenodo.23004570). The source archive corresponds to release `v0.1.1`.
 
 <p align="center">
   <img src="figures/main/fig1_conceptual_problem.png" alt="Figure 1. Spurious temporal shortcut: both cues predict the label at train/IID; OOD reverses only the nuisance–label relation." width="100%">
@@ -56,7 +56,7 @@ Synthetic inputs are generated from the configurations and seeds. External input
 - **Graphs:** NetworkX provides the Karate Club and Les Misérables graphs used by `graph_setup`.
 - **Video:** [urls.json](data/real_video/urls.json) lists the Wikimedia sources. Download entries 0–6 as `clip00.webm`–`clip06.webm` in `data/real_video/`; these are the clips recorded in the [cache metadata](data/real_video/cache_g16_L8_s5.json). The eighth URL is not part of the reported cache. Source credits are listed below.
 
-For the reported video experiments, download [the original cache](https://github.com/GongJae00/spurious-arrow-of-time/releases/download/v0.1.0/cache_g16_L8_s5.npz) to `data/real_video/cache_g16_L8_s5.npz`. It contains 15,263 crops. Regenerating it from the same clips and recorded settings in the checked environment produced 15,261 crops; the cause is unresolved. The [comparison record](results/reviewer/reproduction.json) includes hashes, settings, and per-clip counts.
+For the reported video experiments, download [the original cache](https://zenodo.org/records/23004570/files/cache_g16_L8_s5.npz?download=1) to `data/real_video/cache_g16_L8_s5.npz`. It contains 15,263 crops. Regenerating it from the same clips and recorded settings in the checked environment produced 15,261 crops; the cause is unresolved. The [comparison record](results/reviewer/reproduction.json) includes hashes, settings, and per-clip counts.
 
 To regenerate the cache:
 
