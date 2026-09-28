@@ -82,13 +82,6 @@ The Kyiv clip contributed no accepted crops.
 
 </details>
 
-## Citation
+## License
 
-```bibtex
-@unpublished{Cho2026CueLocality,
-  title={A Cue-Locality Audit Framework for Attributing Spurious Temporal Shortcuts in Deep Sequence Models},
-  author={Cho, YoungJae and Kim, Do-Yup and Kim, Youngjun and Kim, Dae-Yeol},
-  year={2026},
-  url={https://github.com/GongJae00/spurious-arrow-of-time}
-}
-```
+The code is licensed under the [MIT License](LICENSE). The video cache is licensed separately under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), with source credits listed above.

@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "spurious-arrow-of-time"
 version = "0.1.0"
 description = "Cue-locality audit for spurious temporal shortcuts in sequence models."
+license = {file = "LICENSE"}
 requires-python = ">=3.10"
 dependencies = [
   "numpy>=1.24",
