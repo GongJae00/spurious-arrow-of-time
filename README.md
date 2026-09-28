@@ -2,6 +2,8 @@
 
 YoungJae Cho, Do-Yup Kim, Youngjun Kim, Dae-Yeol Kim
 
+Code, configurations, and result records for release `v0.1.1` are archived on [Zenodo](https://doi.org/10.5281/zenodo.23004570). The original video cache is linked under [External data](#external-data).
+
 <p align="center">
   <img src="figures/main/fig1_conceptual_problem.png" alt="Figure 1. Spurious temporal shortcut: both cues predict the label at train/IID; OOD reverses only the nuisance–label relation." width="100%">
 </p>
